@@ -2,7 +2,6 @@
 import { Routes, Route, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Trash2, Edit, FileText, Search, ChevronDown, ChevronRight, Activity, Users as UsersIcon, Settings, Clock, CheckCircle } from 'lucide-react';
-import API_URL from '../utils/api';
 
 import JobLogTable from '../components/JobLogTable';
 import { AuthContext } from '../context/AuthContext';
