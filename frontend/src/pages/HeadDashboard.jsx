@@ -261,7 +261,7 @@ function Assistants() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h1>Assistants Management</h1>
         <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); if (showForm) setEditUserId(null); }}>
           {showForm ? 'Close Form' : '+ Create Assistant'}

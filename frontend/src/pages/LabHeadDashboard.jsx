@@ -296,7 +296,7 @@ function UsersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h1>User Management</h1>
         <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); if (showForm) setEditUserId(null); }}>
           {showForm ? 'Close Form' : '+ Create User'}
@@ -769,7 +769,7 @@ function Jobs() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Activity size={28} style={{ color: 'var(--color-primary)' }} />
           {editingJobId ? 'Edit Job' : (reopenParentId ? 'Retest / Reopen Job' : 'Job Distributor')}
@@ -795,7 +795,7 @@ function Jobs() {
       </div>
 
       {showForm && (
-        <div className="card" style={{ marginBottom: '2rem', overflow: 'visible', border: reopenParentId ? '2px solid var(--color-warning)' : 'none' }}>
+        <div className="card" style={{ marginBottom: '2rem', overflow: 'visible', border: reopenParentId ? '2px solid var(--color-warning)' : 'none', maxWidth: '100%', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ margin: 0, color: reopenParentId ? 'var(--color-warning)' : 'inherit' }}>
               {reopenParentId ? 'Log Sample Retest' : 'Log New Sample & Distribute'}
@@ -976,7 +976,7 @@ function Jobs() {
 
                     {/* New param form */}
                     {showAddParam && (
-                      <div style={{ padding: '1rem', border: '1px dashed var(--color-primary)', borderRadius: 'var(--radius-md)', maxWidth: '600px', marginBottom: '1.5rem' }}>
+                      <div style={{ padding: '1rem', border: '1px dashed var(--color-primary)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
                         <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>Add New Parameter to Library</h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
                           <input style={{ flex: '1 1 200px' }} type="text" value={newParam.name} onChange={e => setNewParam({ ...newParam, name: e.target.value })} placeholder="Parameter Name" required />
@@ -1020,8 +1020,8 @@ function Jobs() {
                             const isCustomUnit = p.unit && !unitOptions.includes(p.unit);
                             return (
                               <div key={index} style={{
-                                display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem',
-                                borderRadius: 'var(--radius-md)', fontSize: '0.85rem',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
+                                borderRadius: 'var(--radius-md)', fontSize: '0.85rem', flexWrap: 'wrap',
                                 backgroundColor: p.type === 'Micro' ? '#dcfce7' : '#e0f2fe',
                                 border: `1px solid ${p.type === 'Micro' ? '#bbf7d0' : '#bae6fd'}`
                               }}>
@@ -1045,7 +1045,7 @@ function Jobs() {
                                         updateParamUnit(index, e.target.value);
                                       }
                                     }}
-                                    style={{ width: 'auto', minWidth: '120px', maxWidth: '250px', padding: '0.3rem 0.5rem', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', backgroundColor: 'white' }}
+                                    style={{ width: 'auto', minWidth: '80px', maxWidth: '200px', padding: '0.3rem 0.5rem', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', backgroundColor: 'white' }}
                                   >
                                     <option value="" disabled>Select unit...</option>
                                     {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}

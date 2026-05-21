@@ -488,28 +488,33 @@ tr:hover {
     padding: 0 0.5rem;
   }
 
+  /* ── Tables: horizontal scroll, NO text wrapping ── */
   table {
-    min-width: 100%;
+    min-width: 500px; /* force scroll on narrow screens */
   }
 
   th, td {
     padding: 0.6rem 0.5rem;
     font-size: 0.8rem;
-    white-space: normal;  /* WRAP text instead of nowrap */
-    word-break: break-word;
-    max-width: 150px;
-  }
-
-  /* First column (usually Name) should not break */
-  td:first-child, th:first-child {
     white-space: nowrap;
-    max-width: unset;
   }
 
   /* ── Cards: breathing room ── */
   .card {
     padding: 1.15rem;
     margin-bottom: 0.5rem;
+    overflow: hidden; /* prevent child overflow */
+  }
+
+  /* ── Forms: prevent fields clipping outside screen ── */
+  input, select, textarea {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .card input, .card select, .card textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* ── Timeline cards: prevent data clipping ── */
@@ -517,6 +522,13 @@ tr:hover {
     min-width: unset !important;
     width: 100% !important;
     padding: 1.15rem !important;
+    overflow: hidden;
+  }
+
+  /* Timeline header: stack title + reopen button vertically */
+  .timeline-card > div:first-child {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
   }
 
   .timeline-meta {
@@ -527,6 +539,16 @@ tr:hover {
   .timeline-meta > div {
     font-size: 0.68rem !important;
     word-break: break-word;
+  }
+
+  /* ── Buttons: scale down on mobile ── */
+  .btn {
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .btn-primary {
+    font-size: 0.85rem;
   }
 
   /* ── Notification dropdown: full width ── */
