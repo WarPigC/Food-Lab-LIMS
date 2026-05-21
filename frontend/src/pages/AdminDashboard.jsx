@@ -181,6 +181,7 @@ function StaffTable({ users, isLoading, emptyMessage }) {
   }
 
   return (
+    <div className="table-scroll">
     <table style={{ margin: 0 }}>
       <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
         <tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th></tr>
@@ -200,6 +201,7 @@ function StaffTable({ users, isLoading, emptyMessage }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 

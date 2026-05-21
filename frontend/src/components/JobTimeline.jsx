@@ -94,7 +94,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
       ];
 
       return (
-        <div style={{ flex: 1, minWidth: '300px', backgroundColor: 'white', border: `1px solid ${isDeptCompleted ? deptColor + '55' : 'var(--color-border)'}`, borderTop: `3px solid ${deptColor}`, borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <div className="timeline-card" style={{ flex: 1, minWidth: '300px', backgroundColor: 'white', border: `1px solid ${isDeptCompleted ? deptColor + '55' : 'var(--color-border)'}`, borderTop: `3px solid ${deptColor}`, borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
             <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-main)', fontSize: '1rem', fontWeight: 600 }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isDeptCompleted ? '#10B981' : deptColor }}></div>
@@ -131,7 +131,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
                     <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-main)' }}>{step.title}</div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>{step.desc}</div>
                     {(isDone || isActive) && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      <div className="timeline-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                         {step.user && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', color: 'var(--color-text-muted)', backgroundColor: '#F9FAFB', padding: '0.2rem 0.45rem', borderRadius: '4px', border: '1px solid #E5E7EB' }}>
                             <User size={11} /> {step.user}

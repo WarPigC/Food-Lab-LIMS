@@ -186,6 +186,7 @@ function UserSection({ title, users, isLoading, onEdit, onDelete, userToDelete, 
             No {title.toLowerCase()} currently registered in the system.
           </div>
         ) : (
+          <div className="table-scroll">
           <table>
             <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
               <tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Action</th></tr>
@@ -215,6 +216,7 @@ function UserSection({ title, users, isLoading, onEdit, onDelete, userToDelete, 
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

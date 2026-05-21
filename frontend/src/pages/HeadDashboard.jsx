@@ -305,6 +305,7 @@ function Assistants() {
       )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-scroll">
         <table>
           <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
             <tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
@@ -337,6 +338,7 @@ function Assistants() {
               )))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
@@ -1053,6 +1055,7 @@ function ReviewQueue() {
 
                   {/* Results table */}
                   <h4 style={{ marginBottom: '0.75rem' }}>Submitted Results</h4>
+                  <div className="table-scroll">
                   <table style={{ marginBottom: '1.5rem' }}>
                     <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
                       <tr>
@@ -1118,6 +1121,7 @@ function ReviewQueue() {
                       })}
                     </tbody>
                   </table>
+                  </div>
 
                   {/* Actions */}
                   {isReassignMode ? (
@@ -1256,6 +1260,7 @@ function Audit() {
           Completed Activity
         </h2>
         <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-scroll">
           <table>
             <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
               <tr>
@@ -1284,6 +1289,7 @@ function Audit() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

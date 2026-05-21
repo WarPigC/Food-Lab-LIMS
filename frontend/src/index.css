@@ -407,6 +407,15 @@ tr:hover {
     transform: translateX(0);
   }
 
+  /* ── Sidebar logo area: prevent X overlap ── */
+  .sidebar-logo-area {
+    padding: 1rem 3rem 1rem 1rem !important; /* extra right padding for the X */
+  }
+
+  .sidebar-logo-area img {
+    max-height: 45px !important; /* shrink logo on mobile */
+  }
+
   .sidebar-overlay {
     display: block;
     position: fixed;
@@ -437,17 +446,25 @@ tr:hover {
   }
 
   .header-user-name {
-    display: none; /* hide user name + branch on mobile to save space */
+    display: none !important;
   }
 
-  /* ── Content padding ── */
+  /* Hide the border-left divider on user avatar section */
+  .header-user-section {
+    border-left: none !important;
+    padding-left: 0.5rem !important;
+  }
+
+  /* ── Content padding — more breathing room ── */
   .layout-content {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
-  /* ── Stat Cards: Stack vertically ── */
+  /* ── Stat Cards: Stack vertically with breathing room ── */
   .stat-cards {
     flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
   }
 
   .stat-cards > * {
@@ -457,27 +474,59 @@ tr:hover {
   /* ── Grid Utilities: Stack on mobile ── */
   .grid-2 {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .flex-row-responsive {
     flex-direction: column;
+    gap: 0.75rem;
   }
 
-  /* ── Tables: horizontal scroll with hint ── */
+  /* ── Tables: ALLOW WRAPPING instead of clipping ── */
   .table-scroll {
-    margin: 0 -1rem;
-    padding: 0 1rem;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+  }
+
+  table {
+    min-width: 100%;
   }
 
   th, td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.85rem;
-    white-space: nowrap;
+    padding: 0.6rem 0.5rem;
+    font-size: 0.8rem;
+    white-space: normal;  /* WRAP text instead of nowrap */
+    word-break: break-word;
+    max-width: 150px;
   }
 
-  /* ── Cards: tighter padding ── */
+  /* First column (usually Name) should not break */
+  td:first-child, th:first-child {
+    white-space: nowrap;
+    max-width: unset;
+  }
+
+  /* ── Cards: breathing room ── */
   .card {
-    padding: 1rem;
+    padding: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ── Timeline cards: prevent data clipping ── */
+  .timeline-card {
+    min-width: unset !important;
+    width: 100% !important;
+    padding: 1.15rem !important;
+  }
+
+  .timeline-meta {
+    flex-wrap: wrap !important;
+    gap: 0.35rem !important;
+  }
+
+  .timeline-meta > div {
+    font-size: 0.68rem !important;
+    word-break: break-word;
   }
 
   /* ── Notification dropdown: full width ── */
@@ -523,10 +572,10 @@ tr:hover {
   .hide-on-mobile { display: none !important; }
   .show-on-mobile { display: initial !important; }
 
-  /* ── Headings: scale down ── */
-  h1 { font-size: 1.3rem; }
+  /* ── Headings: scale down but not too small ── */
+  h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
   h2 { font-size: 1.1rem; }
-  h3 { font-size: 1rem; }
+  h3 { font-size: 0.95rem; }
 
   /* ── Form rows that should stack ── */
   .form-row {
@@ -537,6 +586,31 @@ tr:hover {
     flex: unset !important;
     width: 100% !important;
   }
+
+  /* ── General text overflow prevention ── */
+  p, span, div {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  /* ── Pipeline track cards in timeline ── */
+  div[style*="minWidth: '300px'"] {
+    min-width: unset !important;
+    flex: 1 1 100% !important;
+  }
+
+  /* ── Collapsible section headers ── */
+  .collapsible-header {
+    padding: 1rem !important;
+    flex-wrap: wrap;
+  }
+
+  /* ── Badge wrapping ── */
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    white-space: nowrap;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
@@ -544,7 +618,7 @@ tr:hover {
 /* ═══════════════════════════════════════════════════════════ */
 @media (max-width: 400px) {
   .layout-content {
-    padding: 0.75rem;
+    padding: 0.85rem;
   }
 
   .app-header {
@@ -555,5 +629,10 @@ tr:hover {
   .login-card {
     padding: 1.5rem 1rem !important;
     margin: 0.5rem;
+  }
+
+  th, td {
+    padding: 0.5rem 0.35rem;
+    font-size: 0.75rem;
   }
 }
