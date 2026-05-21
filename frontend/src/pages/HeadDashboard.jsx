@@ -4,7 +4,6 @@ import axios from 'axios';
 import { Trash2, Edit, Plus, Check, FileText, Activity, Users, Settings, Clock, CheckCircle, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, ArrowRightLeft, Send, PackageCheck } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import API_URL from '../utils/api';
 
 import JobLogTable from '../components/JobLogTable';
 import { fetchWithCache, invalidateCache, CACHE_KEYS } from '../utils/cache';
