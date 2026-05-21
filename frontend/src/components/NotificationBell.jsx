@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Bell, Check, Info, AlertTriangle, CheckCircle, Clock, Circle, X } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -168,21 +168,7 @@ export default function NotificationBell() {
       </div>
 
       {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          right: '-10px',
-          width: '380px',
-          maxHeight: '450px',
-          backgroundColor: 'var(--color-surface)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg)',
-          border: '1px solid var(--color-border)',
-          zIndex: 1000,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
+        <div className="notification-dropdown">
           <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--color-surface-hover)' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Notifications</h3>
             {unreadCount > 0 && (

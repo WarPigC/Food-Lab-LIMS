@@ -1,11 +1,12 @@
 import React, { useContext } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { Activity, Users, FileText, LayoutDashboard, Settings, ClipboardCheck, Bug } from 'lucide-react';
+import { Activity, Users, FileText, LayoutDashboard, Settings, ClipboardCheck, Bug, X } from 'lucide-react';
 import logo from '../assets/Acropolis20Logo.png';
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
 
   const getLinks = () => {
     switch(user?.role) {
@@ -38,18 +39,27 @@ export default function Sidebar() {
     }
   };
 
+  // Close sidebar on navigation (mobile)
+  const handleNavClick = () => {
+    if (onClose) onClose();
+  };
+
   return (
-    <div style={{
-      width: '260px',
-      backgroundColor: 'var(--color-primary-dark)',
-      color: 'white',
-      display: 'flex',
-      flexDirection: 'column',
-      boxShadow: 'var(--shadow-lg)',
-      zIndex: 10
-    }}>
-      <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', borderBottom: '1px solid var(--color-primary-light)', backgroundColor: 'white'}}>
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', borderBottom: '1px solid var(--color-primary-light)', backgroundColor: 'white', position: 'relative' }}>
         <img src={logo} alt="Acropolis Logo" style={{ maxWidth: '100%', maxHeight: '60px', objectFit: 'contain' }} />
+        {/* Close button — visible only on mobile */}
+        <button
+          className="show-on-mobile"
+          onClick={onClose}
+          style={{
+            position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
+            padding: '0.25rem', display: 'flex', alignItems: 'center'
+          }}
+        >
+          <X size={22} />
+        </button>
       </div>
       
       <nav style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
@@ -58,6 +68,7 @@ export default function Sidebar() {
             key={link.to}
             to={link.to}
             end={link.to === '/admin' || link.to === '/lab-head' || link.to === '/head' || link.to === '/assistant'}
+            onClick={handleNavClick}
             style={({ isActive }) => ({
               display: 'flex',
               alignItems: 'center',
@@ -80,6 +91,7 @@ export default function Sidebar() {
 
         <NavLink
           to="/report-bug"
+          onClick={handleNavClick}
           style={({ isActive }) => ({
             display: 'flex',
             alignItems: 'center',

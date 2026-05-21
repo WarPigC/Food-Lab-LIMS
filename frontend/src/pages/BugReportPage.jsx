@@ -1,4 +1,4 @@
-﻿import React, { useState, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import { Bug, Lightbulb, Send, CheckCircle, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
@@ -78,7 +78,7 @@ export default function BugReportPage() {
 
       {/* ── Step 1: Pick type ── */}
       {step === 'pick' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div className="grid-2">
           {TYPES.map(type => (
             <div
               key={type.id}

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Routes, Route, useLocation, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Trash2, Edit, Activity, Users as UsersIcon, Clock, CheckCircle, FileText, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, X, Calendar, ArrowRightLeft } from 'lucide-react';
@@ -97,7 +97,7 @@ function Dashboard() {
         <h1 style={{ marginBottom: '0.5rem', letterSpacing: '-0.025em' }}>Lab Head Dashboard</h1>
       </div>
 
-      <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
+      <div className="stat-cards">
         <StatCard
           icon={Activity}
           title="Ongoing Jobs"
@@ -127,7 +127,7 @@ function Dashboard() {
             <Activity size={18} /> Recent Pipeline Activity
           </h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
               <tr>
@@ -327,7 +327,7 @@ function UsersPage() {
         <div className="card" style={{ marginBottom: '2.5rem' }}>
           <h3 style={{ marginBottom: '1rem' }}>{editUserId ? 'Edit User' : 'Create User'}</h3>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div className="flex-row-responsive">
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', fontWeight: 500 }}>Full Name</label>
                 <input type="text" value={formData.name} onChange={handleNameChange} required />
@@ -337,7 +337,7 @@ function UsersPage() {
                 <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div className="flex-row-responsive">
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', fontWeight: 500 }}>Phone Number</label>
                 <input type="text" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required />
@@ -358,7 +358,7 @@ function UsersPage() {
               </div>
             </div>
             {!editUserId && (
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="flex-row-responsive">
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.4rem', fontWeight: 500 }}>Password (Auto-generated)</label>
                   <input type="text" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
@@ -835,7 +835,7 @@ function Jobs() {
                 <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>Required</span>
               </div>
               {sections.customer && (
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="grid-2" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Customer Name <span style={{ color: 'var(--color-danger)' }}>*</span></label><input value={formData.customer_name} onChange={e => setField('customer_name', e.target.value)} required /></div>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Mobile Number <span style={{ color: 'var(--color-danger)' }}>*</span></label><input type="tel" inputMode="numeric" maxLength={10} pattern="[0-9]{10}" title="Enter exactly 10 digits" value={formData.mobile_number} onChange={e => setField('mobile_number', e.target.value.replace(/[^0-9]/g, '').slice(0, 10))} required /></div>
                   <div style={{ gridColumn: '1 / -1' }}><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Customer Address <span style={{ color: 'var(--color-danger)' }}>*</span></label><input type="text" value={formData.customer_address} onChange={e => setField('customer_address', e.target.value)} required style={{ width: '100%' }} /></div>
@@ -856,7 +856,7 @@ function Jobs() {
                 <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>Required</span>
               </div>
               {sections.sample && (
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="grid-2" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Sample Name <span style={{ color: 'var(--color-danger)' }}>*</span></label><input value={formData.sample_name} onChange={e => setField('sample_name', e.target.value)} required /></div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Sample ID <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(auto-assigned)</span></label>
@@ -1179,7 +1179,7 @@ function Jobs() {
                   )}
 
                   {/* ── Head Assignment ── */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
+                  <div className="grid-2" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
                     {selectedParams.some(p => p.type === 'Micro') && (
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Microbiology Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>

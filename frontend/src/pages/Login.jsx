@@ -1,4 +1,4 @@
-﻿import React, { useState, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, Activity, Eye, EyeOff, KeyRound, ArrowLeft } from 'lucide-react';
@@ -129,7 +129,7 @@ export default function Login() {
       <div style={{ position: 'absolute', top: '15%', left: '10%', width: '350px', height: '350px', background: 'radial-gradient(circle, rgba(64,158,255,0.1) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 1 }}></div>
       <div style={{ position: 'absolute', bottom: '15%', right: '10%', width: '450px', height: '450px', background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)', filter: 'blur(70px)', zIndex: 1 }}></div>
 
-      <div className="premium-glass fade-in-up" style={{ width: '100%', maxWidth: '480px', padding: '3rem 3.5rem', borderRadius: '28px', zIndex: 10, backgroundColor: 'rgba(255, 255, 255, 0.9)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+      <div className="premium-glass fade-in-up login-card" style={{ width: '100%', maxWidth: '480px', padding: '3rem 3.5rem', borderRadius: '28px', zIndex: 10, backgroundColor: 'rgba(255, 255, 255, 0.9)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img
             src={logo}

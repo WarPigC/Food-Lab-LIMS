@@ -1,14 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
 export default function Layout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => setSidebarOpen(prev => !prev);
+  const closeSidebar = () => setSidebarOpen(false);
+
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--color-background)' }}>
-      <Sidebar />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Header />
-        <main style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+    <div className="layout-shell">
+      {/* Dark overlay for mobile */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+        onClick={closeSidebar}
+      />
+      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+      <div className="layout-main">
+        <Header onToggleSidebar={toggleSidebar} />
+        <main className="layout-content">
           {children}
         </main>
       </div>

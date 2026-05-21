@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Bell, Check, Info, AlertTriangle, CheckCircle, Clock, Circle, X, ArrowLeft } from 'lucide-react';
@@ -161,7 +161,7 @@ export default function NotificationsPage() {
       </button>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="flex-row-responsive" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Bell size={28} style={{ color: 'var(--color-primary)' }} />
           <h1 style={{ margin: 0 }}>Notifications</h1>

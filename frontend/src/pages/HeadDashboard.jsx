@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import axios from 'axios';
 import { Trash2, Edit, Plus, Check, FileText, Activity, Users, Settings, Clock, CheckCircle, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, ArrowRightLeft, Send, PackageCheck } from 'lucide-react';
@@ -108,7 +108,7 @@ function Dashboard() {
         <h1 style={{ marginBottom: '0.5rem', letterSpacing: '-0.025em' }}>Head Dashboard</h1>
       </div>
 
-      <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
+      <div className="stat-cards">
         <StatCard 
           icon={Activity} 
           title="Ongoing Jobs" 
@@ -145,7 +145,7 @@ function Dashboard() {
             <Activity size={18} /> Recent Pipeline Activity
           </h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
               <tr>
@@ -1131,7 +1131,7 @@ function ReviewQueue() {
                           style={{ width: '100%', minHeight: '80px', padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', resize: 'vertical', fontFamily: 'inherit' }}
                         />
                       </div>
-                      <div style={{ display: 'flex', gap: '1rem' }}>
+                      <div className="flex-row-responsive">
                         <button 
                           onClick={() => handleReassign(inst._id)} 
                           className="btn" 

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Play, Check, Clock, AlertTriangle, RotateCcw, Calendar } from 'lucide-react';
 import { fetchWithCache, invalidateCache, CACHE_KEYS } from '../utils/cache';
@@ -410,12 +410,12 @@ export default function AssistantDashboard() {
                       {!isApprovedParam && (
                         <>
                           {isApprovedParam ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.5rem' }}>
+                            <div className="grid-2" style={{ marginTop: '0.5rem' }}>
                               <div><span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Value:</span> <span style={{ fontWeight: 600 }}>{resItem.value || '—'}</span> {resItem.unit}</div>
                               <div><span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Method:</span> {resItem.testMethod || '—'}</div>
                             </div>
                           ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <div className="grid-2">
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>
                                   Observed Result <span style={{ color: 'var(--color-danger)' }}>*</span>
@@ -452,7 +452,7 @@ export default function AssistantDashboard() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+            <div className="flex-row-responsive" style={{ marginTop: '0.5rem' }}>
               <button type="submit" className="btn btn-success" disabled={isSubmitting} style={{ flex: 2, justifyContent: 'center' }}>
                 <Check size={18} style={{ marginRight: '0.5rem' }} /> {isSubmitting ? 'Submitting...' : 'Submit for Review'}
               </button>
