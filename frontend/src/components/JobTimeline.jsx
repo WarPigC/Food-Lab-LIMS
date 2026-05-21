@@ -118,18 +118,18 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
               const isActive = step.status === 'active' || step.status === 'warning';
               const isDone = step.status === 'completed' || step.status === 'reopened';
               return (
-                <div key={step.id} style={{ display: 'flex', gap: '1rem', opacity: (isDone || isActive) ? 1 : 0.45 }}>
+                <div key={step.id} className="timeline-step-row" style={{ display: 'flex', gap: '1rem', opacity: (isDone || isActive) ? 1 : 0.45 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isDone ? '#DEF7EC' : step.status === 'reopened' ? '#FEF3C7' : isActive ? '#E1EFFE' : '#F3F4F6', color: isDone ? '#10B981' : step.status === 'reopened' ? '#D97706' : step.status === 'warning' ? '#F59E0B' : isActive ? '#3B82F6' : '#9CA3AF' }}>
+                    <div className="timeline-icon" style={{ width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isDone ? '#DEF7EC' : step.status === 'reopened' ? '#FEF3C7' : isActive ? '#E1EFFE' : '#F3F4F6', color: isDone ? '#10B981' : step.status === 'reopened' ? '#D97706' : step.status === 'warning' ? '#F59E0B' : isActive ? '#3B82F6' : '#9CA3AF' }}>
                       {step.status === 'reopened' ? <RotateCcw size={13} /> : isDone ? <CheckCircle size={13} /> : step.status === 'warning' ? <AlertTriangle size={13} color="#F59E0B" /> : isActive ? <Clock size={13} /> : <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#9CA3AF' }} />}
                     </div>
                     {idx < steps.length - 1 && (
-                      <div style={{ width: '2px', flex: 1, minHeight: '28px', backgroundColor: isDone ? '#10B981' : step.status === 'reopened' ? '#FBBF24' : '#E5E7EB', marginTop: '4px', marginBottom: '4px' }} />
+                      <div className="timeline-connector" style={{ width: '2px', flex: 1, minHeight: '28px', backgroundColor: isDone ? '#10B981' : step.status === 'reopened' ? '#FBBF24' : '#E5E7EB', marginTop: '4px', marginBottom: '4px' }} />
                     )}
                   </div>
-                  <div style={{ paddingBottom: idx < steps.length - 1 ? '1.25rem' : '0', flex: 1, marginTop: '2px' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-main)' }}>{step.title}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>{step.desc}</div>
+                  <div className="timeline-step-content" style={{ paddingBottom: idx < steps.length - 1 ? '1.25rem' : '0', flex: 1, marginTop: '2px' }}>
+                    <div className="timeline-step-title" style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-main)' }}>{step.title}</div>
+                    <div className="timeline-step-desc" style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>{step.desc}</div>
                     {(isDone || isActive) && (
                       <div className="timeline-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                         {step.user && (
@@ -235,7 +235,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
                 <PipelineTrack title="CHEMICAL Department" distData={cycleJob.distribution?.chemical} instance={chemicalInstance} deptColor="#3B82F6" richInstance={richChemical} />
               )}
               {user?.role !== 'HEAD' && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px', width: '100%', boxSizing: 'border-box' }}>
+                <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px', width: '100%', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.25rem 1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: '12px', border: '1px dashed var(--color-border)', width: '100%', height: '100%', justifyContent: 'center', boxSizing: 'border-box' }}>
                     <ArrowRightLeft size={28} style={{ color: cycleJob.sampleTransfers[0].status === 'RECEIVED' ? 'var(--color-success)' : 'var(--color-warning)' }} />
                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
@@ -269,7 +269,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
                 <PipelineTrack title="MICRO Department" distData={cycleJob.distribution?.micro} instance={microInstance} deptColor="#10B981" richInstance={richMicro} />
               )}
               {user?.role !== 'HEAD' && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px', width: '100%', boxSizing: 'border-box' }}>
+                <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px', width: '100%', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.25rem 1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: '12px', border: '1px dashed var(--color-border)', width: '100%', height: '100%', justifyContent: 'center', boxSizing: 'border-box' }}>
                     <ArrowRightLeft size={28} style={{ color: cycleJob.sampleTransfers[0].status === 'RECEIVED' ? 'var(--color-success)' : 'var(--color-warning)' }} />
                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
