@@ -226,7 +226,8 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
           </div>
         </div>
 
-        {/* Pipeline tracks */}
+        {/* Pipeline tracks — scrollable on mobile */}
+        <div className="pipeline-scroll">
         <div className="pipeline-container" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'stretch' }}>
           {cycleJob.sampleFlow?.firstDepartment === 'chemical' ? (
             <>
@@ -298,6 +299,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
             </>
           )}
         </div>
+        </div>{/* end pipeline-scroll */}
 
         {/* Bottom report bar — when all done */}
         {allDone && (
