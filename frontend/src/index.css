@@ -591,7 +591,7 @@ tr:hover {
   }
 
   .login-card form {
-    gap: 1rem !important;
+    gap: 0.75rem !important;
   }
 
   .login-card label {
