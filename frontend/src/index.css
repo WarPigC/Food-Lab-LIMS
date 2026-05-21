@@ -544,14 +544,37 @@ tr:hover {
 
   /* ── Login page ── */
   .login-card {
-    padding: 2rem 1.5rem !important;
-    margin: 1rem;
+    padding: 1.5rem 1.25rem !important;
+    margin: 0.75rem;
     max-width: 100% !important;
-    border-radius: 20px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
   }
 
-  .login-card img {
-    width: 200px !important;
+  .login-card img,
+  .login-card .login-logo {
+    width: 170px !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .login-card input {
+    height: 44px !important;
+    border-radius: 10px !important;
+    font-size: 0.9rem;
+  }
+
+  .login-card button[type="submit"] {
+    height: 44px !important;
+    border-radius: 10px !important;
+  }
+
+  .login-card form {
+    gap: 1rem !important;
+  }
+
+  .login-card label {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.4rem !important;
   }
 
   /* ── Buttons: full width on mobile where appropriate ── */
@@ -627,8 +650,17 @@ tr:hover {
   }
 
   .login-card {
-    padding: 1.5rem 1rem !important;
+    padding: 1.25rem 0.85rem !important;
     margin: 0.5rem;
+  }
+
+  .login-card img,
+  .login-card .login-logo {
+    width: 140px !important;
+  }
+
+  .login-card input {
+    height: 40px !important;
   }
 
   th, td {

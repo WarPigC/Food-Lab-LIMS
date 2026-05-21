@@ -124,17 +124,18 @@ export default function Login() {
   };
 
   return (
-    <div className="flex-center mesh-gradient" style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div className="flex-center mesh-gradient" style={{ minHeight: '100vh', width: '100vw', overflow: 'auto', padding: '1rem 0' }}>
       {/* Decorative Blur Orbs */}
       <div style={{ position: 'absolute', top: '15%', left: '10%', width: '350px', height: '350px', background: 'radial-gradient(circle, rgba(64,158,255,0.1) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 1 }}></div>
       <div style={{ position: 'absolute', bottom: '15%', right: '10%', width: '450px', height: '450px', background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)', filter: 'blur(70px)', zIndex: 1 }}></div>
 
       <div className="premium-glass fade-in-up login-card" style={{ width: '100%', maxWidth: '480px', padding: '3rem 3.5rem', borderRadius: '28px', zIndex: 10, backgroundColor: 'rgba(255, 255, 255, 0.9)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <img
             src={logo}
             alt="Acropolis Logo"
-            style={{ width: '260px', marginBottom: '1rem' }}
+            className="login-logo"
+            style={{ width: '220px', marginBottom: '0.5rem' }}
           />
         </div>
 
@@ -280,7 +281,7 @@ export default function Login() {
                 <input
                   type="email"
                   placeholder="name@acropolis.com"
-                  style={{ paddingLeft: '3rem', background: '#FFFFFF', border: '1px solid var(--color-border)', color: 'var(--color-text-main)', height: '54px', borderRadius: '14px' }}
+                  style={{ paddingLeft: '3rem', background: '#FFFFFF', border: '1px solid var(--color-border)', color: 'var(--color-text-main)', height: '48px', borderRadius: '14px' }}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -298,7 +299,7 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  style={{ paddingLeft: '3rem', paddingRight: '3rem', background: '#FFFFFF', border: '1px solid var(--color-border)', color: 'var(--color-text-main)', height: '54px', borderRadius: '14px' }}
+                  style={{ paddingLeft: '3rem', paddingRight: '3rem', background: '#FFFFFF', border: '1px solid var(--color-border)', color: 'var(--color-text-main)', height: '48px', borderRadius: '14px' }}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -313,7 +314,7 @@ export default function Login() {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px', borderRadius: '14px', fontWeight: 600, marginTop: '1rem' }}>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '48px', borderRadius: '14px', fontWeight: 600, marginTop: '0.5rem' }}>
               Login <ArrowRight size={18} />
             </button>
           </form>
