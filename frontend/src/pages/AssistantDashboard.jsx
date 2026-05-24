@@ -17,6 +17,11 @@ export default function AssistantDashboard() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorModalData, setErrorModalData] = useState(null); // string for error message
 
+  const formatJobCode = (code) => {
+    if (!code) return '';
+    return code.replace(/-N[12](?=-|$)/g, '-N');
+  };
+
   const fetchTasks = async () => {
     try {
       await fetchWithCache(
@@ -179,7 +184,7 @@ export default function AssistantDashboard() {
           endDate: testingPeriod.endDate || null
         }
       });
-      setSuccess(`Progress for ${activeTask.testCode} saved! You can continue later.`);
+      setSuccess(`Progress for ${formatJobCode(activeTask.testCode)} saved! You can continue later.`);
       invalidateCache(CACHE_KEYS.MY_TASKS);
       fetchTasks();
       setTimeout(() => setSuccess(''), 4000);
@@ -241,7 +246,7 @@ export default function AssistantDashboard() {
           endDate: testingPeriod.endDate || null
         }
       });
-      setSuccess(`Task ${activeTask.testCode} submitted for review!`);
+      setSuccess(`Task ${formatJobCode(activeTask.testCode)} submitted for review!`);
       invalidateCache(CACHE_KEYS.MY_TASKS);
       closeTask();
       fetchTasks();
@@ -297,7 +302,7 @@ export default function AssistantDashboard() {
         <div className="card" style={{ marginBottom: '2rem', borderTop: `4px solid ${isReassigned(activeTask) ? 'var(--color-danger)' : 'var(--color-primary)'}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-border)', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
-              <h2 style={{ margin: 0 }}>Test {activeTask.testCode}</h2>
+              <h2 style={{ margin: 0 }}>Test {formatJobCode(activeTask.testCode)}</h2>
               <p style={{ color: 'var(--color-text-muted)', margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>Client: {activeTask.clientName}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -475,7 +480,7 @@ export default function AssistantDashboard() {
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{new Date(task.deadline).toLocaleDateString()}</span>
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 0.3rem 0', color: 'var(--color-primary-dark)' }}>Test {task.testCode}</h3>
+                  <h3 style={{ margin: '0 0 0.3rem 0', color: 'var(--color-primary-dark)' }}>Test {formatJobCode(task.testCode)}</h3>
                   <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
                     <span>Client: {task.clientName}</span>
                     <span>Params: {task.results.length}</span>
@@ -506,7 +511,7 @@ export default function AssistantDashboard() {
             </div>
             
             <p style={{ margin: '0 0 1.5rem 0', color: 'var(--color-text-main)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-              Are you sure you want to submit the results for <strong>Test {activeTask?.testCode}</strong>?
+              Are you sure you want to submit the results for <strong>Test {formatJobCode(activeTask?.testCode)}</strong>?
             </p>
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
@@ -526,7 +531,7 @@ export default function AssistantDashboard() {
                 style={{ padding: '0.6rem 2rem' }}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Submitting...' : 'Confirm Submission'}
+                {isSubmitting ? <Spinner size="sm" message="Submitting..." color="#fff" /> : 'Confirm Submission'}
               </button>
             </div>
           </div>

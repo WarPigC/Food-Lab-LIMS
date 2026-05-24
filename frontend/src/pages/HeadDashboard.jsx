@@ -11,6 +11,11 @@ import Spinner from '../components/Spinner';
 import { useSocket } from '../context/SocketContext';
 import API_URL from '../utils/api';
 
+const formatJobCode = (code) => {
+  if (!code) return '';
+  return code.replace(/-N[12](?=-|$)/g, '-N');
+};
+
 function Dashboard() {
   const { user } = useContext(AuthContext);
   const [stats, setStats] = useState({
@@ -163,7 +168,7 @@ function Dashboard() {
               ) : (
                 recentActivity.map(inst => (
                   <tr key={inst._id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{inst.testCode}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{formatJobCode(inst.testCode)}</td>
                     <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
                     <td>{inst.assignedTo?.name || <span style={{ color: 'var(--color-text-muted)' }}>Unassigned</span>}</td>
                     <td>
@@ -474,7 +479,7 @@ function Dispatcher() {
         assignments: assignmentList
       });
       
-      setSuccess(`Job ${job.jobCode} dispatched successfully!`);
+      setSuccess(`Job ${formatJobCode(job.jobCode)} dispatched successfully!`);
       setExpandedJobId(null);
       setTimeout(() => setSuccess(''), 4000);
 
@@ -573,7 +578,7 @@ function Dispatcher() {
                     📦 Sample from {transfer.fromDepartment === 'micro' ? 'Micro' : 'Chemical'} Department
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                    Job: <strong>{transfer.jobId?.jobCode || 'N/A'}</strong>
+                    Job: <strong>{formatJobCode(transfer.jobId?.jobCode) || 'N/A'}</strong>
                     {transfer.jobId?.clientName && ` — ${transfer.jobId.clientName}`}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
@@ -615,7 +620,7 @@ function Dispatcher() {
                       🔄 Hand Over to {secondDept} Department
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                      Job: <strong>{job.jobCode}</strong> — {job.clientName || 'N/A'}
+                      Job: <strong>{formatJobCode(job.jobCode)}</strong> — {job.clientName || 'N/A'}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
                       Your testing is complete. The {secondDept} department is waiting for this sample.
@@ -680,7 +685,7 @@ function Dispatcher() {
                       <ClipboardCheck size={22} color="var(--color-primary)" />
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', fontFamily: 'var(--font-mono)' }}>{job.jobCode}</div>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', fontFamily: 'var(--font-mono)' }}>{formatJobCode(job.jobCode)}</div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>{job.clientName}</div>
                     </div>
                   </div>
@@ -783,7 +788,7 @@ function Dispatcher() {
                             disabled={submittingJobId === job._id}
                             style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', justifyContent: 'center' }}
                           >
-                            {submittingJobId === job._id ? 'Dispatching...' : 'Dispatch Job'}
+                            {submittingJobId === job._id ? <Spinner size="sm" message="Dispatching..." color="#fff" /> : 'Dispatch Job'}
                           </button>
                         </div>
                       </>
@@ -847,6 +852,7 @@ function ReviewQueue() {
   const [success, setSuccess] = useState('');
   const [reviewLoading, setReviewLoading] = useState(() => !sessionStorage.getItem(CACHE_KEYS.INSTANCES));
   const [assistants, setAssistants] = useState([]);
+  const [submittingReviewId, setSubmittingReviewId] = useState(null);
 
   // Selective reassignment state: { [parameterId]: { selected: bool, assignedTo: userId } }
   const [paramSelections, setParamSelections] = useState({});
@@ -889,6 +895,7 @@ function ReviewQueue() {
   }, [socket]);
 
   const handleApprove = async (id) => {
+    setSubmittingReviewId(id);
     try {
       await axios.put(`${API_URL}/api/tests/instances/${id}/review`, { action: 'APPROVE' });
       setSuccess('Approved and Completed. Report Generated.');
@@ -898,6 +905,8 @@ function ReviewQueue() {
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       console.error(err);
+    } finally {
+      setSubmittingReviewId(null);
     }
   };
 
@@ -950,6 +959,7 @@ function ReviewQueue() {
       return alert('Please select at least one parameter to reassign.');
     }
 
+    setSubmittingReviewId(id);
     try {
       await axios.put(`${API_URL}/api/tests/instances/${id}/review`, {
         action: 'REASSIGN',
@@ -964,6 +974,8 @@ function ReviewQueue() {
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       console.error(err);
+    } finally {
+      setSubmittingReviewId(null);
     }
   };
 
@@ -1010,7 +1022,7 @@ function ReviewQueue() {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>Analysis Results Review</div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
-                    Code: <span style={{ fontFamily: 'monospace' }}>{inst.testCode}</span> · Analyst: {inst.assignedTo?.name} · Client: {inst.clientName}
+                    Code: <span style={{ fontFamily: 'monospace' }}>{formatJobCode(inst.testCode)}</span> · Analyst: {inst.assignedTo?.name} · Client: {inst.clientName}
                   </div>
                 </div>
                 <span className="badge badge-warning">Awaiting Review</span>
@@ -1139,22 +1151,30 @@ function ReviewQueue() {
                         <button 
                           onClick={() => handleReassign(inst._id)} 
                           className="btn" 
-                          disabled={selectedCount === 0}
+                          disabled={selectedCount === 0 || submittingReviewId === inst._id}
                           style={{ 
                             backgroundColor: selectedCount > 0 ? 'var(--color-danger)' : 'var(--color-border)', 
                             color: 'white', border: 'none',
-                            opacity: selectedCount === 0 ? 0.5 : 1
+                            opacity: selectedCount === 0 || submittingReviewId === inst._id ? 0.5 : 1
                           }}
                         >
-                          <RotateCcw size={16} style={{ marginRight: '0.5rem' }} /> Reassign {selectedCount} Parameter{selectedCount !== 1 ? 's' : ''}
+                          {submittingReviewId === inst._id ? (
+                            <Spinner size="sm" message="Reassigning..." color="#fff" />
+                          ) : (
+                            <><RotateCcw size={16} style={{ marginRight: '0.5rem' }} /> Reassign {selectedCount} Parameter{selectedCount !== 1 ? 's' : ''}</>
+                          )}
                         </button>
                         <button onClick={exitReassignMode} className="btn" style={{ border: '1px solid var(--color-border)', backgroundColor: 'transparent' }}>Cancel</button>
                       </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                      <button onClick={() => handleApprove(inst._id)} className="btn btn-success" style={{ flex: 1, justifyContent: 'center' }}>
-                        <CheckCircle size={16} style={{ marginRight: '0.5rem' }} /> Approve & Complete
+                      <button onClick={() => handleApprove(inst._id)} disabled={submittingReviewId === inst._id} className="btn btn-success" style={{ flex: 1, justifyContent: 'center' }}>
+                        {submittingReviewId === inst._id ? (
+                          <Spinner size="sm" message="Processing..." color="#fff" />
+                        ) : (
+                          <><CheckCircle size={16} style={{ marginRight: '0.5rem' }} /> Approve & Complete</>
+                        )}
                       </button>
                       <button onClick={() => enterReassignMode(inst)} className="btn" style={{ flex: 1, justifyContent: 'center', backgroundColor: 'var(--color-warning)', color: 'white', border: 'none' }}>
                         <RotateCcw size={16} style={{ marginRight: '0.5rem' }} /> Reassign to Analyst
@@ -1279,7 +1299,7 @@ function Audit() {
               ) : (
                 instances.map(inst => (
                   <tr key={inst._id}>
-                    <td style={{ fontFamily: 'monospace' }}>{inst.testCode}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{formatJobCode(inst.testCode)}</td>
                     <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
                     <td>{inst.blueprintId?.name}</td>
                     <td>{inst.assignedTo?.name}</td>

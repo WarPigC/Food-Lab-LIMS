@@ -47,7 +47,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
 
   const formatJobCode = (code) => {
     if (!code) return '';
-    return code.replace(/-N[12]$/, '-N');
+    return code.replace(/-N[12](?=-|$)/g, '-N');
   };
 
   return (

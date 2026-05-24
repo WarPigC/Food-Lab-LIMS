@@ -9,6 +9,11 @@ import { fetchWithCache, invalidateCache, CACHE_KEYS } from '../utils/cache';
 import Spinner from '../components/Spinner';
 import API_URL from '../utils/api';
 
+const formatJobCode = (code) => {
+  if (!code) return '';
+  return code.replace(/-N[12](?=-|$)/g, '-N');
+};
+
 function Dashboard() {
   const { user } = useContext(AuthContext);
   const [stats, setStats] = useState({
@@ -149,7 +154,7 @@ function Dashboard() {
               ) : (
                 recentActivity.map(inst => (
                   <tr key={inst._id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{inst.testCode}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{formatJobCode(inst.testCode)}</td>
                     <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
                     <td>{inst.assignedTo?.name || <span style={{ color: 'var(--color-text-muted)' }}>Unassigned</span>}</td>
                     <td>
@@ -469,7 +474,7 @@ function Audit() {
               ) : (
                 instances.map(inst => (
                   <tr key={inst._id}>
-                    <td style={{ fontFamily: 'monospace' }}>{inst.testCode}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{formatJobCode(inst.testCode)}</td>
                     <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
                     <td>{inst.blueprintId?.name}</td>
                     <td>{inst.assignedTo?.name}</td>

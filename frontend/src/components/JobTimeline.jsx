@@ -15,7 +15,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
 
   const formatJobCode = (code) => {
     if (!code) return '';
-    return code.replace(/-N[12]$/, '-N');
+    return code.replace(/-N[12](?=-|$)/g, '-N');
   };
 
   const JobCycle = ({ cycleJob, isRetest }) => {
@@ -93,7 +93,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
 
       const steps = [
         { id: 1, title: isRetest ? 'Retest Allocation' : 'Job Allocation', desc: 'Allocated by Lab Head', status: s1_status, date: cycleJob.createdAt, user: `${cycleJob.createdBy?.name || 'Lab Head'} (Lab Head)` },
-        { id: 2, title: 'Analyst Dispatch', desc: instance ? `Code: ${instance.testCode}` : 'Awaiting Dept Head Dispatch', status: s2_status, date: instance?.createdAt, user: instance ? `${instance.createdBy?.name} (${title.split(' ')[0]} Head)` : (distData?.assignedHead?.name ? `${distData.assignedHead.name} (Pending)` : 'Pending Dept Head') },
+        { id: 2, title: 'Analyst Dispatch', desc: instance ? `Code: ${formatJobCode(instance.testCode)}` : 'Awaiting Dept Head Dispatch', status: s2_status, date: instance?.createdAt, user: instance ? `${instance.createdBy?.name} (${title.split(' ')[0]} Head)` : (distData?.assignedHead?.name ? `${distData.assignedHead.name} (Pending)` : 'Pending Dept Head') },
         { id: 3, title: 'Test Execution', desc: s3_status === 'completed' ? 'Results Submitted' : s3_status === 'warning' ? 'Reassigned – Corrections Needed' : 'Analysis in Progress', status: s3_status, date: s3_date, user: instance ? `${instance.assignedTo?.name} (Analyst)` : 'Pending Analyst' },
         { id: 4, title: 'Dept Head Review', desc: isDeptCompleted ? 'Report Generated' : isReopened ? 'Archived (Reopened)' : s4_status === 'active' ? 'Awaiting Dept Head Approval' : 'Pending Submission', status: s4_status, date: instance?.completedAt || headApproval?.date, user: instance ? `${instance.createdBy?.name} (${title.split(' ')[0]} Head)` : (distData?.assignedHead?.name ? `${distData.assignedHead.name} (Pending)` : 'Pending Dept Head') }
       ];

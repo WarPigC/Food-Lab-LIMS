@@ -148,19 +148,21 @@ export default function NotificationBell() {
         {unreadCount > 0 && (
           <span style={{
             position: 'absolute',
-            top: '2px',
-            right: '2px',
+            top: '0px',
+            right: '-4px',
             backgroundColor: 'var(--color-danger)',
             color: 'white',
             fontSize: '0.7rem',
             fontWeight: 'bold',
-            borderRadius: '50%',
-            width: '18px',
-            height: '18px',
+            borderRadius: '10px',
+            minWidth: '20px',
+            height: '20px',
+            padding: '0 4px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '2px solid var(--color-surface)'
+            border: '2px solid var(--color-surface)',
+            boxSizing: 'border-box'
           }}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>

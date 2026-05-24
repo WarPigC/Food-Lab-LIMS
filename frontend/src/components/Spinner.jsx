@@ -7,11 +7,11 @@ import React from 'react';
  * @param {string} message - Optional label shown below the spinner.
  * @param {string} size - 'sm' for small inline spinner, default is large centered.
  */
-export default function Spinner({ message = 'Loading...', size }) {
+export default function Spinner({ message = 'Loading...', size, color }) {
   if (size === 'sm') {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-        <div className="spinner spinner-sm" />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: color || 'inherit', fontSize: '0.9rem' }}>
+        <div className="spinner spinner-sm" style={color ? { borderTopColor: color, borderLeftColor: color } : {}} />
         {message}
       </span>
     );

@@ -10,6 +10,11 @@ import Spinner from '../components/Spinner';
 import { useSocket } from '../context/SocketContext';
 import API_URL from '../utils/api';
 
+const formatJobCode = (code) => {
+  if (!code) return '';
+  return code.replace(/-N[12](?=-|$)/g, '-N');
+};
+
 function Dashboard() {
   const { user } = useContext(AuthContext);
   const [stats, setStats] = useState({
@@ -25,6 +30,7 @@ function Dashboard() {
   const [ulrOffset, setUlrOffset] = useState('');
   const [currentUlrPreview, setCurrentUlrPreview] = useState('');
   const [isUpdatingOffset, setIsUpdatingOffset] = useState(false);
+  const [isUlrSettingsOpen, setIsUlrSettingsOpen] = useState(false);
 
   const fetchUlrPreview = async () => {
     try {
@@ -152,40 +158,53 @@ function Dashboard() {
         />
       </div>
 
-      <div className="card" style={{ padding: '1.5rem', marginBottom: '2.5rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
-        <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1e3a8a', fontSize: '1.1rem' }}>
-          <Activity size={18} /> NABL ULR Settings
-        </h3>
-        <div className="grid-2" style={{ gap: '2rem', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Next ULR Preview:</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 700, color: '#1d4ed8', backgroundColor: 'rgba(255,255,255,0.7)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid #93c5fd' }}>
-              {currentUlrPreview || 'Loading...'}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>This is the ULR that will be assigned to the next NABL job.</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Adjust ULR Offset:</div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                placeholder="New Offset (e.g. 5)" 
-                value={ulrOffset} 
-                onChange={e => setUlrOffset(e.target.value)}
-                style={{ flex: 1, border: '1px solid #93c5fd', backgroundColor: 'white' }}
-              />
-              <button 
-                onClick={handleUpdateOffset} 
-                disabled={isUpdatingOffset || !ulrOffset}
-                className="btn btn-primary"
-                style={{ backgroundColor: '#2563eb' }}
-              >
-                {isUpdatingOffset ? 'Updating...' : 'Update Offset'}
-              </button>
-            </div>
-            <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>Use this to skip forward in the ULR sequence if numbers were generated outside the system.</div>
+      <div className="card" style={{ marginBottom: '2.5rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', overflow: 'hidden' }}>
+        <div 
+          onClick={() => setIsUlrSettingsOpen(!isUlrSettingsOpen)}
+          style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1e3a8a', fontSize: '1.1rem' }}>
+            <Activity size={18} /> NABL ULR Settings
+          </h3>
+          <div style={{ color: '#1e3a8a' }}>
+            {isUlrSettingsOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
           </div>
         </div>
+        
+        {isUlrSettingsOpen && (
+          <div style={{ padding: '0 1.5rem 1.5rem 1.5rem', borderTop: '1px solid rgba(191, 219, 254, 0.5)' }}>
+            <div className="grid-2" style={{ gap: '2rem', alignItems: 'flex-start', paddingTop: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Next ULR Preview:</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 700, color: '#1d4ed8', backgroundColor: 'rgba(255,255,255,0.7)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid #93c5fd' }}>
+                  {currentUlrPreview || 'Loading...'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>This is the ULR that will be assigned to the next NABL job.</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Adjust ULR Offset:</div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="number" 
+                    placeholder="New Offset (e.g. 5)" 
+                    value={ulrOffset} 
+                    onChange={e => setUlrOffset(e.target.value)}
+                    style={{ flex: 1, border: '1px solid #93c5fd', backgroundColor: 'white' }}
+                  />
+                  <button 
+                    onClick={handleUpdateOffset} 
+                    disabled={isUpdatingOffset || !ulrOffset}
+                    className="btn btn-primary"
+                    style={{ backgroundColor: '#2563eb' }}
+                  >
+                    {isUpdatingOffset ? 'Updating...' : 'Update Offset'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>Use this to skip forward in the ULR sequence if numbers were generated outside the system.</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0 }}>
@@ -212,7 +231,7 @@ function Dashboard() {
               ) : (
                 recentActivity.map(inst => (
                   <tr key={inst._id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{inst.testCode}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{formatJobCode(inst.testCode)}</td>
                     <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
                     <td>{inst.assignedTo?.name || <span style={{ color: 'var(--color-text-muted)' }}>Unassigned</span>}</td>
                     <td>
