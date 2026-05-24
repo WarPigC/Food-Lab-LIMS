@@ -702,10 +702,7 @@ function Jobs() {
   const [isNonNablSearching, setIsNonNablSearching] = useState(false);
   const [ulrPreview, setUlrPreview] = useState('');
 
-  const [sampleFlowType, setSampleFlowType] = useState('PARALLEL');
-  const [firstDepartment, setFirstDepartment] = useState('micro');
-  const [transferDeadline, setTransferDeadline] = useState('');
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [deleteConfirmJobId, setDeleteConfirmJobId] = useState(null);
   const [heads, setHeads] = useState([]);
   const [assignedMicroHead, setAssignedMicroHead] = useState('');
@@ -1024,11 +1021,7 @@ function Jobs() {
         nonNablParameters: nonNablParametersData,
         assignedMicroHead,
         assignedChemicalHead,
-        sampleFlow: {
-          type: sampleFlowType,
-          firstDepartment: firstDepartment,
-          transferDeadline: (sampleFlowType === 'SEQUENTIAL' && transferDeadline) ? transferDeadline : undefined
-        }
+        sampleFlow: {}
       };
 
       if (editingJobId) {
@@ -1362,110 +1355,49 @@ function Jobs() {
               )}
             </div>
 
-            {/* ── SAMPLE FLOW ── */}
-            {needsMicro && needsChemical && (
-              <div className="card" style={{ position: 'relative', padding: 0, overflow: 'hidden', border: '2px solid var(--color-primary)', borderRadius: 'var(--radius-lg)' }}>
-                <div style={{ padding: '1rem 1.5rem', backgroundColor: 'var(--color-primary)10', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid var(--color-border)' }}>
-                  <ArrowRightLeft size={20} color="var(--color-primary)" />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>Sample Flow Configuration</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Both Micro & Chemical departments are involved — choose how samples are routed.</div>
-                  </div>
-                </div>
-                <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  {/* Flow Type */}
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>Flow Type <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                      {['PARALLEL', 'SEQUENTIAL'].map(ft => (
-                        <button key={ft} type="button" onClick={() => {
-                          setSampleFlowType(ft);
-                          if (ft === 'SEQUENTIAL') setFirstDepartment('micro');
-                        }} style={{
-                          flex: 1, padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                          border: sampleFlowType === ft ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                          backgroundColor: sampleFlowType === ft ? 'var(--color-primary)10' : 'var(--color-surface)',
-                          color: sampleFlowType === ft ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                          fontWeight: sampleFlowType === ft ? 700 : 500, fontSize: '0.9rem', transition: 'all 0.15s'
-                        }}>
-                          {ft.charAt(0) + ft.slice(1).toLowerCase()}
-                          <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>
-                            {ft === 'PARALLEL' ? 'Simultaneous testing' : 'One department tests first'}
-                          </div>
-                        </button>
-                      ))}
+            {/* ── Head Assignment ── */}
+            {(needsMicro || needsChemical) && (
+              <div className="card" style={{ position: 'relative', padding: 0, overflow: 'hidden', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
+                 <div style={{ padding: '1rem 1.5rem', backgroundColor: 'var(--color-surface-hover)', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid var(--color-border)' }}>
+                   <div style={{ fontWeight: 700, fontSize: '1rem' }}>Department Head Assignment</div>
+                 </div>
+                 <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div className="grid-2">
+                      {needsMicro && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Microbiology Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                          <select
+                            value={assignedMicroHead}
+                            onChange={e => setAssignedMicroHead(e.target.value)}
+                            required
+                            style={{ width: '100%' }}
+                          >
+                            {heads.filter(h => h.department === 'Micro').map(h => (
+                              <option key={h._id} value={h._id}>{h.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {needsChemical && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Chemical Analysis Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                          <select
+                            value={assignedChemicalHead}
+                            onChange={e => setAssignedChemicalHead(e.target.value)}
+                            required
+                            style={{ width: '100%' }}
+                          >
+                            {heads.filter(h => h.department === 'Chemical').map(h => (
+                              <option key={h._id} value={h._id}>{h.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Sequential options */}
-                  {sampleFlowType === 'SEQUENTIAL' && (
-                    <>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>Initial Department</label>
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                          {[{ val: 'micro', label: 'Initial: Microbiology' }, { val: 'chemical', label: 'Initial: Chemical' }].map(opt => (
-                            <button key={opt.val} type="button" onClick={() => setFirstDepartment(opt.val)} style={{
-                              flex: 1, padding: '0.6rem 1rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                              border: firstDepartment === opt.val ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                              backgroundColor: firstDepartment === opt.val ? 'var(--color-primary)10' : 'var(--color-surface)',
-                              color: firstDepartment === opt.val ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                              fontWeight: firstDepartment === opt.val ? 700 : 500, fontSize: '0.9rem', transition: 'all 0.15s'
-                            }}>
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Transfer Deadline</label>
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                          <input type="date" value={transferDeadline.split('T')[0] || ''} onChange={e => setTransferDeadline(prev => { const t = prev.split('T')[1] || '17:00'; return `${e.target.value}T${t}`; })} style={{ flex: 1 }} />
-                          <input type="time" value={transferDeadline.split('T')[1] || ''} onChange={e => setTransferDeadline(prev => { const d = prev.split('T')[0] || ''; return `${d}T${e.target.value}`; })} style={{ flex: 1 }} />
-                        </div>
-                        <div style={{ marginTop: '0.3rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          If not transferred by this deadline, Admin & Lab Head will be notified.
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* ── Head Assignment ── */}
-                  <div className="grid-2" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
-                    {needsMicro && (
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Microbiology Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <select
-                          value={assignedMicroHead}
-                          onChange={e => setAssignedMicroHead(e.target.value)}
-                          required
-                          style={{ width: '100%' }}
-                        >
-                          {heads.filter(h => h.department === 'Micro').map(h => (
-                            <option key={h._id} value={h._id}>{h.name}</option>
-                          ))}
-                        </select>
-                      </div>
+                    {editingJobId && (
+                      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.6)', cursor: 'not-allowed', zIndex: 10 }}></div>
                     )}
-                    {needsChemical && (
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Chemical Analysis Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <select
-                          value={assignedChemicalHead}
-                          onChange={e => setAssignedChemicalHead(e.target.value)}
-                          required
-                          style={{ width: '100%' }}
-                        >
-                          {heads.filter(h => h.department === 'Chemical').map(h => (
-                            <option key={h._id} value={h._id}>{h.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  {editingJobId && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.6)', cursor: 'not-allowed', zIndex: 10 }}></div>
-                  )}
-                </div>
+                 </div>
               </div>
             )}
 
