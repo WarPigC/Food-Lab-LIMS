@@ -45,6 +45,11 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
     }
   };
 
+  const formatJobCode = (code) => {
+    if (!code) return '';
+    return code.replace(/-N[12]$/, '-N');
+  };
+
   return (
     <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
       <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--color-surface)' }}>
@@ -97,7 +102,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
                   <td style={{ textAlign: 'center' }}>
                     {expandedJobId === job._id ? <ChevronDown size={20} color="var(--color-primary)" /> : <ChevronRight size={20} color="var(--color-text-muted)" />}
                   </td>
-                  <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{job.jobCode}</td>
+                  <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{formatJobCode(job.jobCode)}</td>
                   <td style={{ fontWeight: 500 }}>{job.clientName}</td>
                   <td>{new Date(job.createdAt).toLocaleDateString()}</td>
                   <td><StatusBadge status={getJobStatus(job)} /></td>

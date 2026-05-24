@@ -22,6 +22,37 @@ function Dashboard() {
     () => !sessionStorage.getItem(CACHE_KEYS.JOBS) || !sessionStorage.getItem(CACHE_KEYS.INSTANCES)
   );
 
+  const [ulrOffset, setUlrOffset] = useState('');
+  const [currentUlrPreview, setCurrentUlrPreview] = useState('');
+  const [isUpdatingOffset, setIsUpdatingOffset] = useState(false);
+
+  const fetchUlrPreview = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/jobs/next-ulr`);
+      setCurrentUlrPreview(res.data.ulr);
+    } catch (err) { console.error('Could not fetch ULR preview', err); }
+  };
+
+  const handleUpdateOffset = async () => {
+    if (!ulrOffset) return;
+    setIsUpdatingOffset(true);
+    try {
+      await axios.put(`${API_URL}/api/jobs/ulr-offset`, { offset: parseInt(ulrOffset, 10) });
+      setUlrOffset('');
+      fetchUlrPreview();
+      alert('ULR Offset updated successfully');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update ULR offset: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsUpdatingOffset(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUlrPreview();
+  }, []);
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -119,6 +150,42 @@ function Dashboard() {
           color="#8B5CF6"
           subtitle="Currently working on jobs"
         />
+      </div>
+
+      <div className="card" style={{ padding: '1.5rem', marginBottom: '2.5rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+        <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1e3a8a', fontSize: '1.1rem' }}>
+          <Activity size={18} /> NABL ULR Settings
+        </h3>
+        <div className="grid-2" style={{ gap: '2rem', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Next ULR Preview:</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 700, color: '#1d4ed8', backgroundColor: 'rgba(255,255,255,0.7)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid #93c5fd' }}>
+              {currentUlrPreview || 'Loading...'}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>This is the ULR that will be assigned to the next NABL job.</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Adjust ULR Offset:</div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input 
+                type="number" 
+                placeholder="New Offset (e.g. 5)" 
+                value={ulrOffset} 
+                onChange={e => setUlrOffset(e.target.value)}
+                style={{ flex: 1, border: '1px solid #93c5fd', backgroundColor: 'white' }}
+              />
+              <button 
+                onClick={handleUpdateOffset} 
+                disabled={isUpdatingOffset || !ulrOffset}
+                className="btn btn-primary"
+                style={{ backgroundColor: '#2563eb' }}
+              >
+                {isUpdatingOffset ? 'Updating...' : 'Update Offset'}
+              </button>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>Use this to skip forward in the ULR sequence if numbers were generated outside the system.</div>
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0 }}>
@@ -405,7 +472,7 @@ const BLANK_FORM = {
   sample_name: '', sample_id: '', sample_quantity: '', sample_quantity_unit: 'ml', sample_count: 1,
   sample_description: '', condition_on_receipt: '',
   packing_details: '', marking_seal: '', sample_source: '',
-  received_date_dd: '', received_date_mm: '', received_date_yyyy: '', received_mode: 'Select', nabl_type: '', ulr_no: '',
+  received_date_dd: '', received_date_mm: '', received_date_yyyy: '', received_mode: 'Select', nabl_mode: 'non_nabl',
   // Compliance
   statement_of_conformity: '', decision_rule: '', accreditation_scope: '',
   disclaimer_notes: '', special_handling_instructions: '',
@@ -437,6 +504,193 @@ const CHEMICAL_UNITS = [
   'pH units', 'Aw', '°Bx', 'ppm',
 ];
 
+const ParameterPicker = ({
+  params, setParams, searchTerm, setSearchTerm, searchResults, setSearchResults,
+  showAddParam, setShowAddParam, newParam, setNewParam, handleAddNewParam,
+  editingJobId, label
+}) => {
+  const handleAddExistingParam = (param) => {
+    if (!params.find(p => p._id === param._id)) {
+      setParams([...params, param]);
+    }
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
+  const removeParam = (index) => {
+    setParams(params.filter((_, i) => i !== index));
+  };
+
+  const updateParamUnit = (index, newUnit) => {
+    setParams(prev => prev.map((p, i) => i === index ? { ...p, unit: newUnit } : p));
+  };
+
+  const handleDeleteParam = async (e, param) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to permanently delete "${param.name}" from the parameter library? This action cannot be undone.`)) return;
+    try {
+      await axios.delete(`${API_URL}/api/parameters/${param._id}`);
+      setSearchResults(searchResults.filter(p => p._id !== param._id));
+      setParams(params.filter(p => p._id !== param._id));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error deleting parameter');
+    }
+  };
+
+  return (
+    <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-surface-hover)' }}>
+      <label style={{ display: 'block', fontWeight: 600, fontSize: '1rem', color: 'var(--color-primary)' }}>{label} <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+      
+      {!editingJobId ? (
+        <div style={{ position: 'relative' }}>
+          <input
+            placeholder="Type to search (e.g. Moisture...)"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ width: '100%' }}
+          />
+          {searchTerm.trim() && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, width: '100%', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', zIndex: 20, boxShadow: 'var(--shadow-md)', maxHeight: '200px', overflowY: 'auto' }}>
+              {searchResults.map(p => (
+                <div key={p._id} style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div onClick={() => handleAddExistingParam(p)} style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{p.name}</span>
+                    <span style={{ fontSize: '0.8rem', color: p.type === 'Micro' ? 'var(--color-success)' : 'var(--color-info)' }}>{p.type}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteParam(e, p)}
+                    title={`Delete "${p.name}" from library`}
+                    style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.2rem 0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', opacity: 0.6 }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              {searchResults.length === 0 && (
+                <div style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>No parameters found.</div>
+              )}
+              <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-hover)', cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }} onClick={() => { setShowAddParam(true); setNewParam({ name: searchTerm, type: 'Micro', unit: '' }); setSearchTerm(''); }}>
+                + Add New Parameter "{searchTerm}"
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          Parameters cannot be changed once a job is created.
+        </div>
+      )}
+
+      {showAddParam && (
+        <div style={{ padding: '1rem', border: '1px dashed var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
+          <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>Add New Parameter</h4>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+            <input style={{ flex: '1 1 100%' }} type="text" value={newParam.name} onChange={e => setNewParam({ ...newParam, name: e.target.value })} placeholder="Name" required />
+            <select style={{ flex: '1 1 45%' }} value={newParam.type} onChange={e => setNewParam({ ...newParam, type: e.target.value, unit: '' })}>
+              <option value="Micro">Micro</option>
+              <option value="Chemical">Chemical</option>
+            </select>
+            <select
+              style={{ flex: '1 1 45%' }}
+              value={(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).includes(newParam.unit) ? newParam.unit : (newParam.unit ? '__custom__' : '')}
+              onChange={e => {
+                if (e.target.value === '__custom__') {
+                  setNewParam({ ...newParam, unit: '' });
+                } else {
+                  setNewParam({ ...newParam, unit: e.target.value });
+                }
+              }}
+            >
+              <option value="" disabled>Select unit...</option>
+              {(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).map(u => <option key={u} value={u}>{u}</option>)}
+              <option value="__custom__">✏️ Custom unit...</option>
+            </select>
+            {!(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).includes(newParam.unit) && newParam.unit !== '' && (
+              <input style={{ flex: '1 1 100%' }} type="text" value={newParam.unit} onChange={e => setNewParam({ ...newParam, unit: e.target.value })} placeholder="Custom unit" required />
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button type="button" onClick={(e) => {
+              e.preventDefault();
+              if (!newParam.name || !newParam.unit) return alert('Name and Unit are required');
+              axios.post(`${API_URL}/api/parameters`, newParam).then(res => {
+                setParams([...params, res.data]);
+                setShowAddParam(false);
+                setNewParam({ name: '', type: 'Micro', unit: '' });
+                setSearchTerm('');
+              }).catch(err => alert(err.response?.data?.message || 'Error adding parameter'));
+            }} className="btn btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Save</button>
+            <button type="button" onClick={() => setShowAddParam(false)} className="btn" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>Selected Parameters</label>
+        {params.length === 0 ? <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>None selected</span> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {params.map((p, index) => {
+              const unitOptions = p.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS;
+              const isCustomUnit = p.unit && !unitOptions.includes(p.unit);
+              return (
+                <div key={index} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
+                  borderRadius: 'var(--radius-md)', fontSize: '0.85rem', flexWrap: 'wrap',
+                  backgroundColor: p.type === 'Micro' ? '#dcfce7' : '#e0f2fe',
+                  border: `1px solid ${p.type === 'Micro' ? '#bbf7d0' : '#bae6fd'}`
+                }}>
+                  <span style={{ flex: '1 1 auto', fontWeight: 600, color: p.type === 'Micro' ? '#166534' : '#075985' }}>{p.name}</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: p.type === 'Micro' ? '#166534' : '#075985', color: 'white', textTransform: 'uppercase' }}>{p.type}</span>
+                  {!editingJobId ? (
+                    <select
+                      value={isCustomUnit ? '__custom__' : p.unit}
+                      onChange={e => {
+                        if (e.target.value === '__custom__') {
+                          const custom = prompt('Enter custom unit:');
+                          if (custom && custom.trim()) updateParamUnit(index, custom.trim());
+                        } else {
+                          updateParamUnit(index, e.target.value);
+                        }
+                      }}
+                      style={{ width: 'auto', padding: '0.2rem 0.4rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', backgroundColor: 'white' }}
+                    >
+                      <option value="" disabled>Select unit...</option>
+                      {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+                      <option value="__custom__">Custom unit...</option>
+                      {isCustomUnit && <option value={p.unit}>{p.unit} (custom)</option>}
+                    </select>
+                  ) : (
+                    <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{p.unit}</span>
+                  )}
+                  {!editingJobId && (
+                    <button type="button" onClick={() => removeParam(index)} style={{ background: 'none', border: 'none', color: p.type === 'Micro' ? '#166534' : '#075985', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center' }}>
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {params.length > 0 && (
+          <div style={{ marginTop: '0.8rem', fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={14} style={{ color: 'var(--color-text-muted)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {params.some(p => p.type === 'Micro') && <span style={{ color: '#166534' }}>M</span>}
+              {params.some(p => p.type === 'Micro') && params.some(p => p.type === 'Chemical') && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.6rem' }}>●</span>}
+              {params.some(p => p.type === 'Chemical') && <span style={{ color: '#075985' }}>C</span>}
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Depts</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 function Jobs() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -455,6 +709,16 @@ function Jobs() {
   const [selectedParams, setSelectedParams] = useState([]);
   const [showAddParam, setShowAddParam] = useState(false);
   const [newParam, setNewParam] = useState({ name: '', type: 'Micro', unit: '' });
+  
+  // Hybrid mode: separate parameter lists for NABL and Non-NABL sub-jobs
+  const [nablParams, setNablParams] = useState([]);
+  const [nonNablParams, setNonNablParams] = useState([]);
+  const [nablSearchTerm, setNablSearchTerm] = useState('');
+  const [nonNablSearchTerm, setNonNablSearchTerm] = useState('');
+  const [nablSearchResults, setNablSearchResults] = useState([]);
+  const [nonNablSearchResults, setNonNablSearchResults] = useState([]);
+  const [ulrPreview, setUlrPreview] = useState('');
+
   const [sampleFlowType, setSampleFlowType] = useState('PARALLEL');
   const [firstDepartment, setFirstDepartment] = useState('micro');
   const [transferDeadline, setTransferDeadline] = useState('');
@@ -545,11 +809,24 @@ function Jobs() {
     } catch (err) { console.error('Could not fetch next sample ID', err); }
   };
 
+  const fetchUlrPreview = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/jobs/next-ulr`);
+      setUlrPreview(res.data.ulr);
+    } catch (err) { console.error('Could not fetch next ULR', err); }
+  };
+
   useEffect(() => {
     fetchJobs();
     fetchNextSerial();
     fetchHeads();
   }, []);
+
+  useEffect(() => {
+    if (formData.nabl_mode === 'nabl' || formData.nabl_mode === 'hybrid') {
+      fetchUlrPreview();
+    }
+  }, [formData.nabl_mode]);
 
   // Parameter search debounce
   useEffect(() => {
@@ -565,6 +842,34 @@ function Jobs() {
     }, 300);
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (nablSearchTerm.trim()) {
+        try {
+          const res = await axios.get(`${API_URL}/api/parameters?search=${nablSearchTerm}`);
+          setNablSearchResults(res.data);
+        } catch (err) { console.error(err); }
+      } else {
+        setNablSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [nablSearchTerm]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (nonNablSearchTerm.trim()) {
+        try {
+          const res = await axios.get(`${API_URL}/api/parameters?search=${nonNablSearchTerm}`);
+          setNonNablSearchResults(res.data);
+        } catch (err) { console.error(err); }
+      } else {
+        setNonNablSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [nonNablSearchTerm]);
 
   // Handle incoming Reopen request from JobLogTable
   useEffect(() => {
@@ -628,18 +933,39 @@ function Jobs() {
       e.currentTarget.reportValidity();
       return;
     }
-    if (selectedParams.length === 0) {
-      alert("Please add at least one Test Parameter before submitting.");
-      return;
+    if (formData.nabl_mode === 'hybrid') {
+      if (nablParams.length === 0) {
+        alert("NABL job must have at least one Test Parameter.");
+        return;
+      }
+      if (nonNablParams.length === 0) {
+        alert("Non-NABL job must have at least one Test Parameter.");
+        return;
+      }
+      const missingNablUnit = nablParams.find(p => !p.unit || !p.unit.trim());
+      if (missingNablUnit) {
+        alert(`Please select a unit for NABL parameter "${missingNablUnit.name}"`);
+        return;
+      }
+      const missingNonNablUnit = nonNablParams.find(p => !p.unit || !p.unit.trim());
+      if (missingNonNablUnit) {
+        alert(`Please select a unit for Non-NABL parameter "${missingNonNablUnit.name}"`);
+        return;
+      }
+    } else {
+      if (selectedParams.length === 0) {
+        alert("Please add at least one Test Parameter before submitting.");
+        return;
+      }
+      const missingUnit = selectedParams.find(p => !p.unit || !p.unit.trim());
+      if (missingUnit) {
+        alert(`Please select a unit for parameter "${missingUnit.name}"`);
+        return;
+      }
     }
+
     if (reopenParentId && !formData.reopenReason?.trim()) {
       alert('Reason for reopening is required');
-      return;
-    }
-    // Validate that all selected parameters have a unit assigned
-    const missingUnit = selectedParams.find(p => !p.unit || !p.unit.trim());
-    if (missingUnit) {
-      alert(`Please select a unit for parameter "${missingUnit.name}"`);
       return;
     }
 
@@ -669,16 +995,12 @@ function Jobs() {
       const dInt = parseInt(received_date_dd, 10);
       const parsedDate = `${yInt}-${String(mInt).padStart(2, '0')}-${String(dInt).padStart(2, '0')}`;
 
-      const parameters = selectedParams.map(p => ({
-        parameterId: p._id,
-        name: p.name,
-        type: p.type,
-        unit: p.unit
-      }));
-
-      const hasBothDepts = selectedParams.some(p => p.type === 'Micro') && selectedParams.some(p => p.type === 'Chemical');
+      const parameters = selectedParams.map(p => ({ parameterId: p._id, name: p.name, type: p.type, unit: p.unit }));
+      const nablParametersData = nablParams.map(p => ({ parameterId: p._id, name: p.name, type: p.type, unit: p.unit }));
+      const nonNablParametersData = nonNablParams.map(p => ({ parameterId: p._id, name: p.name, type: p.type, unit: p.unit }));
 
       const payload = {
+        nablMode: formData.nabl_mode,
         customer: {
           customer_name: formData.customer_name,
           customer_address: formData.customer_address,
@@ -699,9 +1021,6 @@ function Jobs() {
           sample_source: formData.sample_source,
           received_date: parsedDate,
           received_mode: formData.received_mode === 'Select' ? undefined : formData.received_mode,
-          nabl_type: formData.nabl_type,
-          ulr_no: formData.ulr_no,
-          test_parameters: formData.test_parameters
         },
         compliance: {
           statement_of_conformity: formData.statement_of_conformity,
@@ -711,13 +1030,15 @@ function Jobs() {
           special_handling_instructions: formData.special_handling_instructions
         },
         parameters,
+        nablParameters: nablParametersData,
+        nonNablParameters: nonNablParametersData,
         assignedMicroHead,
         assignedChemicalHead,
-        sampleFlow: hasBothDepts ? {
+        sampleFlow: {
           type: sampleFlowType,
           firstDepartment: firstDepartment,
           transferDeadline: (sampleFlowType === 'SEQUENTIAL' && transferDeadline) ? transferDeadline : undefined
-        } : undefined
+        }
       };
 
       if (editingJobId) {
@@ -737,6 +1058,8 @@ function Jobs() {
       setReopenParentId(null);
       setEditingJobId(null);
       setSelectedParams([]);
+      setNablParams([]);
+      setNonNablParams([]);
       setAssignedMicroHead('');
       setAssignedChemicalHead('');
       invalidateCache(CACHE_KEYS.JOBS);
@@ -766,6 +1089,10 @@ function Jobs() {
       alert('Error deleting job: ' + (err.response?.data?.message || err.message));
     }
   };
+
+  const allParamsForFlow = formData.nabl_mode === 'hybrid' ? [...nablParams, ...nonNablParams] : selectedParams;
+  const needsMicro = allParamsForFlow.some(p => p.type === 'Micro');
+  const needsChemical = allParamsForFlow.some(p => p.type === 'Chemical');
 
   return (
     <div>
@@ -919,173 +1246,57 @@ function Jobs() {
                       <option>Courier</option><option>Hand Delivery</option><option>Post</option><option>Other</option>
                     </select>
                   </div>
-                  <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>NABL Type <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                    <select value={formData.nabl_type} onChange={e => setField('nabl_type', e.target.value)} required>
-                      <option value="">Select...</option>
-                      <option value="Non Nabl">Non Nabl</option>
-                      <option value="Nabl">Nabl</option>
-                    </select>
-                  </div>
-                  {formData.nabl_type === 'Nabl' && (
-                    <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>ULR <span style={{ color: 'var(--color-danger)' }}>*</span></label><input value={formData.ulr_no} onChange={e => setField('ulr_no', e.target.value)} required /></div>
-                  )}
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Search & Add Test Parameters <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                    {!editingJobId ? (
-                      <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                        <input
-                          placeholder="Type to search (e.g. Moisture, Salmonella...)"
-                          value={searchTerm}
-                          onChange={e => setSearchTerm(e.target.value)}
-                          style={{ width: '100%' }}
+                  <div style={{ gridColumn: '1 / -1', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+                    <label style={{ display: 'block', marginBottom: '0.8rem', fontWeight: 600, fontSize: '0.95rem' }}>Job Type <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                      {[
+                        { id: 'non_nabl', label: 'Non-NABL', desc: 'Standard lab report' },
+                        { id: 'nabl', label: 'NABL', desc: 'Auto-generates ULR number' },
+                        { id: 'hybrid', label: 'Hybrid', desc: 'Creates both NABL & Non-NABL jobs' }
+                      ].map(mode => (
+                        <button key={mode.id} type="button" onClick={() => setField('nabl_mode', mode.id)} style={{
+                          flex: '1 1 200px', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', cursor: 'pointer', textAlign: 'left',
+                          border: formData.nabl_mode === mode.id ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                          backgroundColor: formData.nabl_mode === mode.id ? 'var(--color-primary)10' : 'var(--color-surface)',
+                          transition: 'all 0.15s'
+                        }}>
+                          <div style={{ fontWeight: formData.nabl_mode === mode.id ? 700 : 500, color: formData.nabl_mode === mode.id ? 'var(--color-primary)' : 'var(--color-text)' }}>{mode.label}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>{mode.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {(formData.nabl_mode === 'nabl' || formData.nabl_mode === 'hybrid') && (
+                      <div style={{ marginBottom: '1.5rem', backgroundColor: '#eff6ff', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid #bfdbfe' }}>
+                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem', color: '#1e3a8a' }}>ULR Number (Auto-assigned) <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <input value={ulrPreview} readOnly style={{ width: '100%', backgroundColor: 'transparent', border: '1px solid #93c5fd', color: '#1e40af', fontWeight: 700, letterSpacing: '0.05em' }} />
+                        <div style={{ fontSize: '0.75rem', color: '#3b82f6', marginTop: '0.4rem' }}>This ULR will be officially assigned when the job is submitted.</div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                      {formData.nabl_mode === 'hybrid' ? (
+                        <>
+                          <ParameterPicker
+                            label="NABL Job Parameters" params={nablParams} setParams={setNablParams}
+                            searchTerm={nablSearchTerm} setSearchTerm={setNablSearchTerm} searchResults={nablSearchResults} setSearchResults={setNablSearchResults}
+                            showAddParam={showAddParam} setShowAddParam={setShowAddParam} newParam={newParam} setNewParam={setNewParam}
+                            editingJobId={editingJobId}
+                          />
+                          <ParameterPicker
+                            label="Non-NABL Job Parameters" params={nonNablParams} setParams={setNonNablParams}
+                            searchTerm={nonNablSearchTerm} setSearchTerm={setNonNablSearchTerm} searchResults={nonNablSearchResults} setSearchResults={setNonNablSearchResults}
+                            showAddParam={showAddParam} setShowAddParam={setShowAddParam} newParam={newParam} setNewParam={setNewParam}
+                            editingJobId={editingJobId}
+                          />
+                        </>
+                      ) : (
+                        <ParameterPicker
+                          label="Test Parameters" params={selectedParams} setParams={setSelectedParams}
+                          searchTerm={searchTerm} setSearchTerm={setSearchTerm} searchResults={searchResults} setSearchResults={setSearchResults}
+                          showAddParam={showAddParam} setShowAddParam={setShowAddParam} newParam={newParam} setNewParam={setNewParam}
+                          editingJobId={editingJobId}
                         />
-                        {searchTerm.trim() && (
-                          <div style={{ position: 'absolute', top: '100%', left: 0, width: '100%', maxWidth: '420px', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', zIndex: 20, boxShadow: 'var(--shadow-md)', maxHeight: '200px', overflowY: 'auto' }}>
-                            {searchResults.map(p => (
-                              <div key={p._id} style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div onClick={() => handleAddExistingParam(p)} style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span>{p.name}</span>
-                                  <span style={{ fontSize: '0.8rem', color: p.type === 'Micro' ? 'var(--color-success)' : 'var(--color-info)' }}>{p.type}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleDeleteParam(e, p)}
-                                  title={`Delete "${p.name}" from library`}
-                                  style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.2rem 0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', opacity: 0.6 }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            ))}
-                            {searchResults.length === 0 && (
-                              <div style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>No parameters found.</div>
-                            )}
-                            <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-hover)', cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }} onClick={() => { setShowAddParam(true); setNewParam({ ...newParam, name: searchTerm }); setSearchTerm(''); }}>
-                              + Add New Parameter "{searchTerm}"
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                        Parameters cannot be changed once a job is created. To test different parameters, please create a new job or issue a retest.
-                      </div>
-                    )}
-
-                    {/* New param form */}
-                    {showAddParam && (
-                      <div style={{ padding: '1rem', border: '1px dashed var(--color-primary)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-                        <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>Add New Parameter to Library</h4>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-                          <input style={{ flex: '1 1 200px' }} type="text" value={newParam.name} onChange={e => setNewParam({ ...newParam, name: e.target.value })} placeholder="Parameter Name" required />
-                          <select style={{ flex: '1 1 100px' }} value={newParam.type} onChange={e => setNewParam({ ...newParam, type: e.target.value, unit: '' })}>
-                            <option value="Micro">Micro</option>
-                            <option value="Chemical">Chemical</option>
-                          </select>
-                          <select
-                            style={{ flex: '1 1 150px' }}
-                            value={(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).includes(newParam.unit) ? newParam.unit : (newParam.unit ? '__custom__' : '')}
-                            onChange={e => {
-                              if (e.target.value === '__custom__') {
-                                setNewParam({ ...newParam, unit: '' });
-                              } else {
-                                setNewParam({ ...newParam, unit: e.target.value });
-                              }
-                            }}
-                          >
-                            <option value="" disabled>Select unit...</option>
-                            {(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).map(u => <option key={u} value={u}>{u}</option>)}
-                            <option value="__custom__">✏️ Custom unit...</option>
-                          </select>
-                          {!(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).includes(newParam.unit) && newParam.unit !== '' && (
-                            <input style={{ flex: '1 1 120px' }} type="text" value={newParam.unit} onChange={e => setNewParam({ ...newParam, unit: e.target.value })} placeholder="Enter custom unit" required />
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button type="button" onClick={handleAddNewParam} className="btn btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Save & Select</button>
-                          <button type="button" onClick={() => setShowAddParam(false)} className="btn" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}>Cancel</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Selected parameters with editable units */}
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>Selected Parameters</label>
-                      {selectedParams.length === 0 ? <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>None selected</span> : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
-                          {selectedParams.map((p, index) => {
-                            const unitOptions = p.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS;
-                            const isCustomUnit = p.unit && !unitOptions.includes(p.unit);
-                            return (
-                              <div key={index} style={{
-                                display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
-                                borderRadius: 'var(--radius-md)', fontSize: '0.85rem', flexWrap: 'wrap',
-                                backgroundColor: p.type === 'Micro' ? '#dcfce7' : '#e0f2fe',
-                                border: `1px solid ${p.type === 'Micro' ? '#bbf7d0' : '#bae6fd'}`
-                              }}>
-                                <span style={{ flex: '0 1 auto', fontWeight: 600, color: p.type === 'Micro' ? '#166534' : '#075985' }}>
-                                  {p.name}
-                                </span>
-                                <span style={{
-                                  fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px',
-                                  backgroundColor: p.type === 'Micro' ? '#166534' : '#075985', color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em'
-                                }}>
-                                  {p.type}
-                                </span>
-                                {!editingJobId ? (
-                                  <select
-                                    value={isCustomUnit ? '__custom__' : p.unit}
-                                    onChange={e => {
-                                      if (e.target.value === '__custom__') {
-                                        const custom = prompt('Enter custom unit:');
-                                        if (custom && custom.trim()) updateParamUnit(index, custom.trim());
-                                      } else {
-                                        updateParamUnit(index, e.target.value);
-                                      }
-                                    }}
-                                    style={{ width: 'auto', minWidth: '80px', maxWidth: '200px', padding: '0.3rem 0.5rem', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', backgroundColor: 'white' }}
-                                  >
-                                    <option value="" disabled>Select unit...</option>
-                                    {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-                                    <option value="__custom__">Custom unit...</option>
-                                    {isCustomUnit && <option value={p.unit}>{p.unit} (custom)</option>}
-                                  </select>
-                                ) : (
-                                  <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{p.unit}</span>
-                                )}
-                                {!editingJobId && (
-                                  <button type="button" onClick={() => removeParam(index)} style={{ background: 'none', border: 'none', color: p.type === 'Micro' ? '#166534' : '#075985', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center', opacity: 0.6 }}
-                                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                                    onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {selectedParams.length > 0 && (
-                        <div style={{ marginTop: '0.8rem', fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Activity size={14} style={{ color: 'var(--color-text-muted)' }} />
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            {selectedParams.some(p => p.type === 'Micro') && (
-                              <span style={{ color: '#166534' }}>M</span>
-                            )}
-                            {selectedParams.some(p => p.type === 'Micro') && selectedParams.some(p => p.type === 'Chemical') && (
-                              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.6rem' }}>●</span>
-                            )}
-                            {selectedParams.some(p => p.type === 'Chemical') && (
-                              <span style={{ color: '#075985' }}>C</span>
-                            )}
-                          </div>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: '0.2rem' }}>
-                            Departments Assigned
-                          </span>
-                        </div>
                       )}
                     </div>
                   </div>
@@ -1114,7 +1325,7 @@ function Jobs() {
             </div>
 
             {/* ── SAMPLE FLOW ── */}
-            {selectedParams.some(p => p.type === 'Micro') && selectedParams.some(p => p.type === 'Chemical') && (
+            {needsMicro && needsChemical && (
               <div className="card" style={{ position: 'relative', padding: 0, overflow: 'hidden', border: '2px solid var(--color-primary)', borderRadius: 'var(--radius-lg)' }}>
                 <div style={{ padding: '1rem 1.5rem', backgroundColor: 'var(--color-primary)10', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid var(--color-border)' }}>
                   <ArrowRightLeft size={20} color="var(--color-primary)" />
@@ -1182,7 +1393,7 @@ function Jobs() {
 
                   {/* ── Head Assignment ── */}
                   <div className="grid-2" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
-                    {selectedParams.some(p => p.type === 'Micro') && (
+                    {needsMicro && (
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Microbiology Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                         <select
@@ -1197,7 +1408,7 @@ function Jobs() {
                         </select>
                       </div>
                     )}
-                    {selectedParams.some(p => p.type === 'Chemical') && (
+                    {needsChemical && (
                       <div>
                         <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Chemical Analysis Head <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                         <select

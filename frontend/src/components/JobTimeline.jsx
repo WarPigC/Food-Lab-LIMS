@@ -13,6 +13,11 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
 
   const formatDate = (d) => new Date(d).toLocaleString();
 
+  const formatJobCode = (code) => {
+    if (!code) return '';
+    return code.replace(/-N[12]$/, '-N');
+  };
+
   const JobCycle = ({ cycleJob, isRetest }) => {
     const instances = cycleJob.testInstances || [];
 
@@ -177,7 +182,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
           <div>
             <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.2rem', color: isRetest ? '#B45309' : 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               {isRetest && <RotateCcw size={20} />}
-              Telemetry: Job {cycleJob.jobCode}
+              Telemetry: Job {formatJobCode(cycleJob.jobCode)}
             </h3>
             <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
               {isRetest ? `Retest Cycle #${cycleJob.retestNumber}` : 'Real-time lifecycle tracking across analytical departments.'}
@@ -307,7 +312,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <CheckCircle size={20} color="#10B981" />
               <div>
-                <div style={{ fontWeight: 600, color: '#065F46', fontSize: '0.9rem' }}>All analyses complete for {cycleJob.jobCode}</div>
+                <div style={{ fontWeight: 600, color: '#065F46', fontSize: '0.9rem' }}>All analyses complete for {formatJobCode(cycleJob.jobCode)}</div>
                 <div style={{ fontSize: '0.78rem', color: '#6EE7B7' }}>Download individual or combined reports above</div>
               </div>
             </div>

@@ -41,7 +41,7 @@ const jobSchema = new mongoose.Schema({
     sample_source:         { type: String },
     received_date:         { type: Date, required: true },
     received_mode:         { type: String },
-    nabl_type:             { type: String, enum: ['Nabl', 'Non Nabl'] },
+    nabl_type:             { type: String, enum: ['Nabl', 'Non Nabl', 'Hybrid'] },
     ulr_no:                { type: String },
     test_parameters:       [{ type: String }]
   },
@@ -86,6 +86,7 @@ const jobSchema = new mongoose.Schema({
   // Retest/Reopen Fields
   isRetest: { type: Boolean, default: false },
   parentJobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+  siblingJobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
   reopenReason: { type: String, default: null },
   retestNumber: { type: Number, default: 0 },
 }, { timestamps: true });

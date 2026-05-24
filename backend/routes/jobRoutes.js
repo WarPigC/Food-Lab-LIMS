@@ -8,6 +8,7 @@ const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 const { createNotification, notifyAdmins } = require('../utils/notifier');
 const User = require('../models/User');
+const UlrCounter = require('../models/UlrCounter');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,20 @@ async function getNextSerial() {
   return last && last.sampleSerial ? last.sampleSerial + 1 : start;
 }
 
+/**
+ * Atomically increment and return the next ULR string.
+ */
+async function getNextUlr() {
+  const counter = await UlrCounter.findOneAndUpdate(
+    {},
+    { $inc: { currentValue: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+  const effectiveValue = counter.currentValue + counter.offset;
+  const numStr = String(effectiveValue).padStart(8, '0');
+  return `${counter.prefix}${numStr}${counter.suffix}`;
+}
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 
 /**
@@ -47,6 +62,39 @@ router.get('/next-sample-id', protect, async (req, res) => {
     res.json({ serial, padded: String(serial).padStart(4, '0') });
   } catch (err) {
     res.status(500).json({ message: 'Error calculating next sample ID', error: err.message });
+  }
+});
+
+/**
+ * GET /api/jobs/next-ulr
+ * Returns a preview of the next ULR string.
+ */
+router.get('/next-ulr', protect, async (req, res) => {
+  try {
+    const counter = await UlrCounter.findOne({}) || { prefix: 'TC-12434260', currentValue: 0, offset: 0, suffix: 'F' };
+    const nextValue = counter.currentValue + 1 + counter.offset;
+    const numStr = String(nextValue).padStart(8, '0');
+    res.json({ ulr: `${counter.prefix}${numStr}${counter.suffix}`, currentValue: counter.currentValue, offset: counter.offset });
+  } catch (err) {
+    res.status(500).json({ message: 'Error calculating next ULR', error: err.message });
+  }
+});
+
+/**
+ * PUT /api/jobs/ulr-offset
+ * Adjusts the offset value for the ULR counter.
+ */
+router.put('/ulr-offset', protect, authorize('LAB_HEAD'), async (req, res) => {
+  try {
+    const { offset } = req.body;
+    const counter = await UlrCounter.findOneAndUpdate(
+      {},
+      { $set: { offset: parseInt(offset, 10) } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.json({ message: 'ULR offset updated', currentValue: counter.currentValue, offset: counter.offset });
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating ULR offset', error: err.message });
   }
 });
 
@@ -70,6 +118,7 @@ router.get('/', protect, async (req, res) => {
       .populate('parameters.parameterId', 'name unit type')
       .populate('distribution.micro.assignedHead', 'name email')
       .populate('distribution.chemical.assignedHead', 'name email')
+      .populate('siblingJobId', 'jobCode')
       .sort({ createdAt: -1 });
 
     // Attach test instances for timeline view
@@ -94,115 +143,153 @@ router.get('/', protect, async (req, res) => {
 // Create a new job (LAB_HEAD only)
 router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
   try {
-    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead } = req.body;
+    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters } = req.body;
 
-    // ── Generate serial & job code ──────────────────────────────────────────
     const serial = await getNextSerial();
-    const jobCode = buildJobCode(serial);
+    const baseJobCode = buildJobCode(serial);
 
-    // Derive distribution from parameter types (no manual selection needed)
-    const hasMicro = parameters && parameters.some(p => p.type === 'Micro');
-    const hasChemical = parameters && parameters.some(p => p.type === 'Chemical');
-
-    // Determine flow config
-    const flowType = sampleFlow?.type || 'PARALLEL';
-    const firstDept = sampleFlow?.firstDepartment || 'micro';
-    const isSequential = flowType === 'SEQUENTIAL' && hasMicro && hasChemical;
-
-    // Set distribution statuses based on flow
-    let microStatus = 'PENDING';
-    let chemicalStatus = 'PENDING';
-
-    if (isSequential) {
-      // In sequential flow, only the first department starts as PENDING
-      // The second department waits for the sample transfer
-      if (firstDept === 'micro') {
-        chemicalStatus = 'AWAITING_TRANSFER';
-      } else {
-        microStatus = 'AWAITING_TRANSFER';
-      }
-    }
-
-    const distribution = {
-      micro: { 
-        required: hasMicro, 
-        status: hasMicro ? microStatus : 'PENDING',
-        assignedHead: assignedMicroHead || null
-      },
-      chemical: { 
-        required: hasChemical, 
-        status: hasChemical ? chemicalStatus : 'PENDING',
-        assignedHead: assignedChemicalHead || null
-      }
-    };
-
-    // Ensure the sample_id in the payload matches our serial (override if different)
     const sampleWithId = {
       ...sample,
       sample_id: String(serial).padStart(4, '0')
     };
 
-    const job = await Job.create({
-      jobCode,
-      sampleSerial: serial,
-      clientName: customer?.customer_name || '',
-      totalSampleVolume: parseFloat(sample?.sample_quantity) || 0,
-      customer,
-      sample: sampleWithId,
-      compliance,
-      parameters,
-      distribution,
-      sampleFlow: (hasMicro && hasChemical) ? {
-        type: flowType,
-        firstDepartment: firstDept,
-        transferDeadline: sampleFlow?.transferDeadline || null
-      } : undefined,
-      createdBy: req.user._id
-    });
-
-    // ── Notifications ───────────────────────────────────────────────────────
-    await notifyAdmins({
-      type: 'INFO',
-      title: 'New Job Logged',
-      message: `Job ${jobCode} (Sample #${serial}) for ${customer?.customer_name} has been created.${isSequential ? ` Flow: Sequential (${firstDept === 'micro' ? 'Micro' : 'Chemical'} first).` : ''}`,
-      relatedJobId: job._id
-    });
-
-    // Notify Micro HEAD — only if Micro dept is involved AND not awaiting transfer
-    if (hasMicro && microStatus !== 'AWAITING_TRANSFER') {
-      const microHeads = await User.find({ role: 'HEAD', department: { $regex: /^micro$/i } });
-      for (const head of microHeads) {
-        await createNotification({
-          recipient: head._id,
-          type: 'ACTION_REQUIRED',
-          title: 'New Job Available',
-          message: `Job ${jobCode} requires MICRO analysis. Child code: ${jobCode}-1`,
-          relatedJobId: job._id,
-          link: '/head/dispatcher'
-        });
+    const flowType = sampleFlow?.type || 'PARALLEL';
+    const firstDept = sampleFlow?.firstDepartment || 'micro';
+    
+    // Helper to determine distribution object for a set of parameters
+    const getDistribution = (params) => {
+      const hasMicro = params && params.some(p => p.type === 'Micro');
+      const hasChemical = params && params.some(p => p.type === 'Chemical');
+      const isSequential = flowType === 'SEQUENTIAL' && hasMicro && hasChemical;
+      
+      let microStatus = 'PENDING';
+      let chemicalStatus = 'PENDING';
+      
+      if (isSequential) {
+        if (firstDept === 'micro') {
+          chemicalStatus = 'AWAITING_TRANSFER';
+        } else {
+          microStatus = 'AWAITING_TRANSFER';
+        }
       }
-    }
 
-    // Notify Chemical HEAD — only if Chemical dept is involved AND not awaiting transfer
-    if (hasChemical && chemicalStatus !== 'AWAITING_TRANSFER') {
-      const chemicalHeads = await User.find({ role: 'HEAD', department: { $regex: /^(chemical|chemical)$/i } });
-      for (const head of chemicalHeads) {
-        await createNotification({
-          recipient: head._id,
-          type: 'ACTION_REQUIRED',
-          title: 'New Job Available',
-          message: `Job ${jobCode} requires CHEMICAL analysis. Child code: ${jobCode}-2`,
-          relatedJobId: job._id,
-          link: '/head/dispatcher'
-        });
+      return {
+        micro: { required: hasMicro, status: hasMicro ? microStatus : 'PENDING', assignedHead: assignedMicroHead || null },
+        chemical: { required: hasChemical, status: hasChemical ? chemicalStatus : 'PENDING', assignedHead: assignedChemicalHead || null }
+      };
+    };
+
+    // Helper to send notifications for a job
+    const sendNotifications = async (createdJob, params, dist) => {
+      const hasMicro = dist.micro.required;
+      const hasChemical = dist.chemical.required;
+      const isSequential = flowType === 'SEQUENTIAL' && hasMicro && hasChemical;
+
+      await notifyAdmins({
+        type: 'INFO',
+        title: 'New Job Logged',
+        message: `Job ${createdJob.jobCode} (Sample #${serial}) for ${customer?.customer_name} has been created.${isSequential ? ` Flow: Sequential (${firstDept === 'micro' ? 'Micro' : 'Chemical'} first).` : ''}`,
+        relatedJobId: createdJob._id
+      });
+
+      if (hasMicro && dist.micro.status !== 'AWAITING_TRANSFER') {
+        const microHeads = await User.find({ role: 'HEAD', department: { $regex: /^micro$/i } });
+        for (const head of microHeads) {
+          await createNotification({
+            recipient: head._id, type: 'ACTION_REQUIRED', title: 'New Job Available',
+            message: `Job ${createdJob.jobCode} requires MICRO analysis. Child code: ${createdJob.jobCode}-1`,
+            relatedJobId: createdJob._id, link: '/head/dispatcher'
+          });
+        }
       }
+
+      if (hasChemical && dist.chemical.status !== 'AWAITING_TRANSFER') {
+        const chemicalHeads = await User.find({ role: 'HEAD', department: { $regex: /^(chemical|chemical)$/i } });
+        for (const head of chemicalHeads) {
+          await createNotification({
+            recipient: head._id, type: 'ACTION_REQUIRED', title: 'New Job Available',
+            message: `Job ${createdJob.jobCode} requires CHEMICAL analysis. Child code: ${createdJob.jobCode}-2`,
+            relatedJobId: createdJob._id, link: '/head/dispatcher'
+          });
+        }
+      }
+    };
+
+    let createdJobs = [];
+
+    if (nablMode === 'hybrid') {
+      const ulr = await getNextUlr();
+      const nablDist = getDistribution(nablParameters);
+      const nonNablDist = getDistribution(nonNablParameters);
+
+      // Create NABL job
+      const nablJob = await Job.create({
+        jobCode: `${baseJobCode}-N1`,
+        sampleSerial: serial,
+        clientName: customer?.customer_name || '',
+        totalSampleVolume: parseFloat(sample?.sample_quantity) || 0,
+        customer,
+        sample: { ...sampleWithId, nabl_type: 'Nabl', ulr_no: ulr },
+        compliance,
+        parameters: nablParameters,
+        distribution: nablDist,
+        sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: flowType, firstDepartment: firstDept, transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        createdBy: req.user._id
+      });
+
+      // Create Non-NABL job
+      const nonNablJob = await Job.create({
+        jobCode: `${baseJobCode}-N2`,
+        sampleSerial: serial,
+        clientName: customer?.customer_name || '',
+        totalSampleVolume: parseFloat(sample?.sample_quantity) || 0,
+        customer,
+        sample: { ...sampleWithId, nabl_type: 'Non Nabl', ulr_no: null },
+        compliance,
+        parameters: nonNablParameters,
+        distribution: nonNablDist,
+        sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: flowType, firstDepartment: firstDept, transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        createdBy: req.user._id,
+        siblingJobId: nablJob._id
+      });
+
+      // Update NABL job with sibling link
+      nablJob.siblingJobId = nonNablJob._id;
+      await nablJob.save();
+
+      await sendNotifications(nablJob, nablParameters, nablDist);
+      await sendNotifications(nonNablJob, nonNablParameters, nonNablDist);
+      createdJobs = [nablJob, nonNablJob];
+
+    } else {
+      // nabl or non_nabl
+      const isNabl = nablMode === 'nabl';
+      const ulr = isNabl ? await getNextUlr() : null;
+      const dist = getDistribution(parameters);
+
+      const job = await Job.create({
+        jobCode: baseJobCode,
+        sampleSerial: serial,
+        clientName: customer?.customer_name || '',
+        totalSampleVolume: parseFloat(sample?.sample_quantity) || 0,
+        customer,
+        sample: { ...sampleWithId, nabl_type: isNabl ? 'Nabl' : 'Non Nabl', ulr_no: ulr },
+        compliance,
+        parameters,
+        distribution: dist,
+        sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: flowType, firstDepartment: firstDept, transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        createdBy: req.user._id
+      });
+
+      await sendNotifications(job, parameters, dist);
+      createdJobs = [job];
     }
 
     if (req.app.get('io')) {
-      req.app.get('io').emit('JOB_CREATED', job);
+      req.app.get('io').emit('JOB_CREATED'); // Not emitting specific job since it could be multiple
     }
 
-    res.status(201).json(job);
+    res.status(201).json(createdJobs.length === 1 ? createdJobs[0] : createdJobs);
   } catch (error) {
     res.status(500).json({ message: 'Error creating job', error: error.message });
   }
