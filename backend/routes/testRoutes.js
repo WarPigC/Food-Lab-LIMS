@@ -290,8 +290,8 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
               await createNotification({
                 recipient: head._id,
                 type: 'ACTION_REQUIRED',
-                title: 'Sample Hand-Over Required',
-                message: `${firstDeptLabel} testing for job ${job.jobCode} is complete. Please hand over the sample to ${secondDeptLabel} department.`,
+                title: 'Sample Hand-Over Reminder',
+                message: `Reminder: You have not yet transferred the physical sample for job ${job.jobCode}. Please hand it over to the ${secondDeptLabel} department.`,
                 relatedJobId: job._id,
                 link: '/head/dispatcher'
               });

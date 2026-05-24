@@ -182,6 +182,16 @@ router.put('/:id/receive', protect, authorize('HEAD'), async (req, res) => {
       relatedJobId: transfer.jobId
     });
 
+    // Notify the Head who originally sent the sample
+    await createNotification({
+      recipient: transfer.sentBy,
+      type: 'SUCCESS',
+      title: 'Transfer Receipt Confirmed',
+      message: `${toLabel} department has received your sample transfer for job ${job.jobCode}.`,
+      relatedJobId: transfer.jobId,
+      link: '/head/dispatcher'
+    });
+
     if (req.app.get('io')) {
       req.app.get('io').emit('TRANSFER_RECEIVED');
     }
