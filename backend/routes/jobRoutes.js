@@ -160,17 +160,13 @@ router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
     const getDistribution = (params) => {
       const hasMicro = params && params.some(p => p.type === 'Micro');
       const hasChemical = params && params.some(p => p.type === 'Chemical');
-      const isSequential = flowType === 'SEQUENTIAL' && hasMicro && hasChemical;
       
       let microStatus = 'PENDING';
       let chemicalStatus = 'PENDING';
       
-      if (isSequential) {
-        if (firstDept === 'micro') {
-          chemicalStatus = 'AWAITING_TRANSFER';
-        } else {
-          microStatus = 'AWAITING_TRANSFER';
-        }
+      // If both departments are required, Micro ALWAYS gets it first. Chemical must wait.
+      if (hasMicro && hasChemical) {
+        chemicalStatus = 'AWAITING_TRANSFER';
       }
 
       return {
@@ -188,7 +184,7 @@ router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
       await notifyAdmins({
         type: 'INFO',
         title: 'New Job Logged',
-        message: `Job ${createdJob.jobCode} (Sample #${serial}) for ${customer?.customer_name} has been created.${isSequential ? ` Flow: Sequential (${firstDept === 'micro' ? 'Micro' : 'Chemical'} first).` : ''}`,
+        message: `Job ${createdJob.jobCode} (Sample #${serial}) for ${customer?.customer_name} has been created.${(hasMicro && hasChemical) ? ` Flow: Sequential (Micro first).` : ''}`,
         relatedJobId: createdJob._id
       });
 
@@ -233,7 +229,7 @@ router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
         compliance,
         parameters: nablParameters,
         distribution: nablDist,
-        sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: flowType, firstDepartment: firstDept, transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id
       });
 
@@ -248,7 +244,7 @@ router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
         compliance,
         parameters: nonNablParameters,
         distribution: nonNablDist,
-        sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: flowType, firstDepartment: firstDept, transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id,
         siblingJobId: nablJob._id
       });
@@ -277,7 +273,7 @@ router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
         compliance,
         parameters,
         distribution: dist,
-        sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: flowType, firstDepartment: firstDept, transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id
       });
 

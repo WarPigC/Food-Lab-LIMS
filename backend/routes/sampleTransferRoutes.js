@@ -44,11 +44,10 @@ router.get('/outgoing', protect, authorize('HEAD'), async (req, res) => {
     const dept = req.user.department ? req.user.department.toLowerCase() : '';
     const fromDept = (dept === 'chemical') ? 'chemical' : 'micro';
     
-    // Find jobs where this dept is done, flow is SEQUENTIAL, this dept is first, and no transfer sent yet
+    // Find jobs where this dept is first and no transfer sent yet
     const jobs = await Job.find({
       'sampleFlow.type': 'SEQUENTIAL',
-      'sampleFlow.firstDepartment': fromDept,
-      [`distribution.${fromDept}.status`]: 'COMPLETED'
+      'sampleFlow.firstDepartment': fromDept
     });
 
     // Filter out jobs that already have a transfer record
@@ -79,12 +78,9 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
     const fromDept = (dept === 'chemical') ? 'chemical' : 'micro';
     const toDept = fromDept === 'micro' ? 'chemical' : 'micro';
 
-    // Validate sender's department is the first and is completed
+    // Validate sender's department is the first
     if (job.sampleFlow.firstDepartment !== fromDept) {
       return res.status(400).json({ message: 'Your department is not the first in the sequential flow' });
-    }
-    if (job.distribution[fromDept]?.status !== 'COMPLETED') {
-      return res.status(400).json({ message: 'Your department has not completed testing yet' });
     }
 
     // Check no existing transfer
@@ -109,7 +105,7 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
         recipient: head._id,
         type: 'ACTION_REQUIRED',
         title: 'Sample Transfer — Action Required',
-        message: `${fromDept.toUpperCase()} dept has completed testing and sent the sample for job ${job.jobCode}. Please confirm receipt.`,
+        message: `${fromDept.toUpperCase()} dept has taken their portion and sent the sample for job ${job.jobCode}. Please confirm receipt.`,
         relatedJobId: jobId,
         link: '/head/dispatcher'
       });

@@ -557,7 +557,14 @@ function Dispatcher() {
       <h1 style={{ marginBottom: '1.5rem' }}>Job Dispatcher</h1>
       {success && <div style={{ marginBottom: '1rem', color: 'var(--color-success)', backgroundColor: 'var(--color-success-light)', padding: '1rem', borderRadius: 'var(--radius-md)', fontWeight: 500 }}>{success}</div>}
 
-      {/* ── Incoming Transfers ── */}
+      {/* ── Sample Transfers Section ── */}
+      {(incomingTransfers.length > 0 || outgoingJobs.length > 0) && (
+        <div style={{ marginBottom: '2.5rem', paddingBottom: '2rem', borderBottom: '2px dashed var(--color-border)' }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-main)' }}>
+            <ArrowRightLeft size={24} /> Sample Transfer Management
+          </h1>
+
+          {/* ── Incoming Transfers ── */}
       {transferListLoading && incomingTransfers.length === 0 && outgoingJobs.length === 0 ? (
         <Spinner message="Loading transfers..." />
       ) : incomingTransfers.length > 0 && (
@@ -623,7 +630,7 @@ function Dispatcher() {
                       Job: <strong>{formatJobCode(job.jobCode)}</strong> — {job.clientName || 'N/A'}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
-                      Your testing is complete. The {secondDept} department is waiting for this sample.
+                      Please hand over the sample to the {secondDept} department once you have taken your required portion.
                       {job.sampleFlow?.transferDeadline && (
                         <span style={{ color: new Date(job.sampleFlow.transferDeadline) < new Date() ? 'var(--color-danger)' : 'var(--color-warning)', fontWeight: 600 }}>
                           {' '}· Deadline: {new Date(job.sampleFlow.transferDeadline).toLocaleString()}
@@ -648,6 +655,9 @@ function Dispatcher() {
           </div>
         </div>
       )}
+        </div>
+      )}
+      {/* ── End Sample Transfers Section ── */}
 
       {dispatchLoading ? (
         <Spinner message="Loading pending jobs..." />

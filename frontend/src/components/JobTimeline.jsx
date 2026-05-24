@@ -240,7 +240,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
                 <PipelineTrack title="CHEMICAL Department" distData={cycleJob.distribution?.chemical} instance={chemicalInstance} deptColor="#3B82F6" richInstance={richChemical} />
               )}
               {user?.role !== 'HEAD' && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
-                <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px', width: '100%', boxSizing: 'border-box' }}>
+                <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minWidth: '150px', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.25rem 1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: '12px', border: '1px dashed var(--color-border)', width: '100%', height: '100%', justifyContent: 'center', boxSizing: 'border-box' }}>
                     <ArrowRightLeft size={28} style={{ color: cycleJob.sampleTransfers[0].status === 'RECEIVED' ? 'var(--color-success)' : 'var(--color-warning)' }} />
                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
@@ -274,7 +274,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
                 <PipelineTrack title="MICRO Department" distData={cycleJob.distribution?.micro} instance={microInstance} deptColor="#10B981" richInstance={richMicro} />
               )}
               {user?.role !== 'HEAD' && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
-                <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px', width: '100%', boxSizing: 'border-box' }}>
+                <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minWidth: '150px', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.25rem 1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: '12px', border: '1px dashed var(--color-border)', width: '100%', height: '100%', justifyContent: 'center', boxSizing: 'border-box' }}>
                     <ArrowRightLeft size={28} style={{ color: cycleJob.sampleTransfers[0].status === 'RECEIVED' ? 'var(--color-success)' : 'var(--color-warning)' }} />
                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
