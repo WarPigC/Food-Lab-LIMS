@@ -446,7 +446,10 @@ tr:hover {
   }
 
   .header-user-name {
-    display: none !important;
+    max-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Hide the border-left divider on user avatar section */

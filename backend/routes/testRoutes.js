@@ -6,7 +6,7 @@ const { authorize } = require('../middlewares/roleMiddleware');
 const Job = require('../models/Job');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const { createNotification, notifyLabHeads, notifyAdmins } = require('../utils/notifier');
+const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../utils/notifier');
 
 // --- TEST INSTANCES ---
 
@@ -18,8 +18,8 @@ router.get('/instances', protect, async (req, res) => {
     if (req.user.role === 'HEAD') {
       // HEAD sees: instances they created, excluding REOPENED
       query = { createdBy: req.user._id, status: { $ne: 'REOPENED' } };
-    } else if (req.user.role === 'LAB_HEAD') {
-      // LAB_HEAD sees all instances
+    } else if (req.user.role === 'ADMIN_OFFICER') {
+      // ADMIN_OFFICER sees all instances
       query = {};
     } else if (req.user.role === 'ASSISTANT') {
       // ASSISTANT sees: only their PENDING tasks
@@ -135,8 +135,8 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
       await job.save();
     }
 
-    // Notify Lab Heads
-    await notifyLabHeads({
+    // Notify Admin Officers
+    await notifyAdminOfficers({
       type: 'INFO',
       title: 'Job Dispatched',
       message: `${dept.toUpperCase()} HEAD has dispatched tests for job ${job.jobCode} to analysts.`,
@@ -300,13 +300,13 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
         }
       }
 
-      await notifyLabHeads({
+      await notifyAdminOfficers({
         type: 'SUCCESS',
         title: 'Report Generated',
         message: `Department Head has approved test ${instance.testCode}. Report generated.`,
         relatedJobId: instance.jobId,
         relatedInstanceId: instance._id,
-        link: '/lab-head/audit'
+        link: '/admin-officer/audit'
       });
       
       await notifyAdmins({
@@ -467,7 +467,7 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
         });
       }
 
-      await notifyLabHeads({
+      await notifyAdminOfficers({
         type: 'INFO',
         title: 'Job Reassigned by HEAD',
         message: `HEAD rejected results for test ${instance.testCode} and sent it back for retesting.`,
@@ -489,8 +489,8 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
 
 
 
-// LAB_HEAD reopens a completed instance
-router.post('/instances/:id/reopen', protect, authorize('LAB_HEAD'), async (req, res) => {
+// ADMIN_OFFICER reopens a completed instance
+router.post('/instances/:id/reopen', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
     const { reopenNote, assignedHeadId } = req.body;
     if (!reopenNote) return res.status(400).json({ message: 'Reopen note is required' });

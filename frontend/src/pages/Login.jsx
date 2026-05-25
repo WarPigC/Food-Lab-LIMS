@@ -58,7 +58,7 @@ export default function Login() {
 
   const redirectRole = (role) => {
     if (role === 'ADMIN') navigate('/admin');
-    else if (role === 'LAB_HEAD') navigate('/lab-head');
+    else if (role === 'ADMIN_OFFICER') navigate('/admin-officer');
     else if (role === 'HEAD') navigate('/head');
     else if (role === 'ASSISTANT') navigate('/assistant');
   };

@@ -100,7 +100,7 @@ function Dashboard() {
   return (
     <div>
       <div style={{ marginBottom: '2.5rem' }}>
-        <h1 style={{ marginBottom: '0.5rem', letterSpacing: '-0.025em' }}>Lab Head Dashboard</h1>
+        <h1 style={{ marginBottom: '0.5rem', letterSpacing: '-0.025em' }}>Admin Officer Dashboard</h1>
       </div>
 
       <div className="stat-cards">
@@ -132,7 +132,7 @@ function Dashboard() {
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={18} /> Recent Pipeline Activity
+            <Activity size={18} /> Recent Activity
           </h3>
         </div>
         <div className="table-scroll">
@@ -248,7 +248,7 @@ function UsersPage() {
       await fetchWithCache(
         `${API_URL}/api/users`,
         CACHE_KEYS.USERS,
-        (data) => setUsers(data.filter(u => u.role !== 'ADMIN' && u.role !== 'LAB_HEAD'))
+        (data) => setUsers(data.filter(u => u.role !== 'ADMIN' && u.role !== 'ADMIN_OFFICER'))
       );
     } catch (err) { console.error(err); } finally { setUsersLoading(false); }
   };
@@ -1414,7 +1414,7 @@ function Jobs() {
           title="All Client Sample Jobs"
           onDeleteJob={handleDeleteJob}
           onEditJob={handleEditJob}
-          onReopen={(job) => navigate('/lab-head/jobs', { state: { reopenJob: job } })}
+          onReopen={(job) => navigate('/admin-officer/jobs', { state: { reopenJob: job } })}
         />
       </div>
 
@@ -1532,7 +1532,7 @@ function Audit() {
           <JobLogTable
             jobs={jobs}
             title="Lifecycle Tracker"
-            onReopen={(job) => navigate('/lab-head/jobs', { state: { reopenJob: job } })}
+            onReopen={(job) => navigate('/admin-officer/jobs', { state: { reopenJob: job } })}
           />
         )}
       </div>
@@ -1542,7 +1542,7 @@ function Audit() {
 
 
 
-export default function LabHeadDashboard() {
+export default function AdminOfficerDashboard() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />

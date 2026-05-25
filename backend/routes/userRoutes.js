@@ -4,8 +4,8 @@ const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 
-// Get all users (Admin sees all, Lab Head sees all except Admin maybe? Let's just let Admin/Lab Head see all. Head sees their assistants)
-router.get('/', protect, authorize('ADMIN', 'LAB_HEAD', 'HEAD'), async (req, res) => {
+// Get all users (Admin sees all, Admin Officer sees all except Admin maybe? Let's just let Admin/Admin Officer see all. Head sees their assistants)
+router.get('/', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (req, res) => {
   try {
     let query = {};
     if (req.user.role === 'HEAD') {
@@ -20,16 +20,16 @@ router.get('/', protect, authorize('ADMIN', 'LAB_HEAD', 'HEAD'), async (req, res
 });
 
 // Create a new user
-router.post('/', protect, authorize('ADMIN', 'LAB_HEAD', 'HEAD'), async (req, res) => {
+router.post('/', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (req, res) => {
   try {
     const { name, email, phone, role, department, branch } = req.body;
 
     // Validation logic for role hierarchy
-    if (req.user.role === 'ADMIN' && role !== 'LAB_HEAD') {
-      return res.status(403).json({ message: 'Admin can only create LAB_HEAD users' });
+    if (req.user.role === 'ADMIN' && role !== 'ADMIN_OFFICER') {
+      return res.status(403).json({ message: 'Admin can only create ADMIN_OFFICER users' });
     }
-    if (req.user.role === 'LAB_HEAD' && !['HEAD', 'ASSISTANT'].includes(role)) {
-      return res.status(403).json({ message: 'Lab Head can only create HEAD or ASSISTANT users' });
+    if (req.user.role === 'ADMIN_OFFICER' && !['HEAD', 'ASSISTANT'].includes(role)) {
+      return res.status(403).json({ message: 'Admin Officer can only create HEAD or ASSISTANT users' });
     }
     if (req.user.role === 'HEAD' && role !== 'ASSISTANT') {
       return res.status(403).json({ message: 'Head can only create ASSISTANT users' });
@@ -69,7 +69,7 @@ router.post('/', protect, authorize('ADMIN', 'LAB_HEAD', 'HEAD'), async (req, re
 });
 
 // Update a user
-router.put('/:id', protect, authorize('LAB_HEAD', 'HEAD'), async (req, res) => {
+router.put('/:id', protect, authorize('ADMIN_OFFICER', 'HEAD'), async (req, res) => {
   try {
     const userToEdit = await User.findById(req.params.id);
     if (!userToEdit) {
@@ -80,7 +80,7 @@ router.put('/:id', protect, authorize('LAB_HEAD', 'HEAD'), async (req, res) => {
     if (req.user.role === 'HEAD' && String(userToEdit.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Not authorized to edit this user' });
     }
-    if (req.user.role === 'LAB_HEAD' && userToEdit.role === 'ADMIN') {
+    if (req.user.role === 'ADMIN_OFFICER' && userToEdit.role === 'ADMIN') {
       return res.status(403).json({ message: 'Not authorized to edit Admin users' });
     }
 
@@ -88,7 +88,7 @@ router.put('/:id', protect, authorize('LAB_HEAD', 'HEAD'), async (req, res) => {
     userToEdit.name = name || userToEdit.name;
     userToEdit.email = email || userToEdit.email;
     userToEdit.phone = phone || userToEdit.phone;
-    if (req.user.role === 'LAB_HEAD') {
+    if (req.user.role === 'ADMIN_OFFICER') {
       userToEdit.department = department || userToEdit.department;
       userToEdit.branch = branch || userToEdit.branch;
     }
@@ -101,7 +101,7 @@ router.put('/:id', protect, authorize('LAB_HEAD', 'HEAD'), async (req, res) => {
 });
 
 // Delete a user
-router.delete('/:id', protect, authorize('LAB_HEAD', 'HEAD'), async (req, res) => {
+router.delete('/:id', protect, authorize('ADMIN_OFFICER', 'HEAD'), async (req, res) => {
   try {
     const userToDelete = await User.findById(req.params.id);
     if (!userToDelete) {
@@ -112,7 +112,7 @@ router.delete('/:id', protect, authorize('LAB_HEAD', 'HEAD'), async (req, res) =
     if (req.user.role === 'HEAD' && String(userToDelete.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Not authorized to delete this user' });
     }
-    if (req.user.role === 'LAB_HEAD' && userToDelete.role === 'ADMIN') {
+    if (req.user.role === 'ADMIN_OFFICER' && userToDelete.role === 'ADMIN') {
       return res.status(403).json({ message: 'Not authorized to delete Admin users' });
     }
 

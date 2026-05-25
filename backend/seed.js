@@ -25,20 +25,20 @@ mongoose.connect(process.env.MONGODB_URI)
       console.log('Admin already exists');
     }
 
-    const labHeadExists = await User.findOne({ email: 'labhead@foodlab.com' });
-    if (!labHeadExists) {
-      const labHead = new User({
-        name: 'Lab Head',
-        email: 'labhead@foodlab.com',
+    const adminOfficerExists = await User.findOne({ email: 'adminofficer@foodlab.com' });
+    if (!adminOfficerExists) {
+      const adminOfficer = new User({
+        name: 'Admin Officer',
+        email: 'adminofficer@foodlab.com',
         phone: '1234567890',
-        role: 'LAB_HEAD',
-        password: 'LabHeadPassword123!',
+        role: 'ADMIN_OFFICER',
+        password: 'adminofficer123',
         requiresPasswordChange: false
       });
-      await labHead.save();
-      console.log('Lab Head user created: labhead@foodlab.com / LabHeadPassword123!');
+      await adminOfficer.save();
+      console.log('Admin Officer user created: adminofficer@foodlab.com / adminofficer123');
     } else {
-      console.log('Lab Head already exists');
+      console.log('Admin Officer already exists');
     }
     process.exit(0);
   })

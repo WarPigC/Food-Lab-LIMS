@@ -53,23 +53,23 @@ const notifyAdmins = async ({ type = 'INFO', title, message, link, relatedJobId,
 };
 
 /**
- * Notify Lab Head(s) (Assuming usually one or a few)
+ * Notify Admin Officer(s) (Assuming usually one or a few)
  */
-const notifyLabHeads = async ({ type = 'INFO', title, message, link, relatedJobId, relatedInstanceId }) => {
+const notifyAdminOfficers = async ({ type = 'INFO', title, message, link, relatedJobId, relatedInstanceId }) => {
   try {
-    const labHeads = await User.find({ role: 'LAB_HEAD' });
-    const promises = labHeads.map(lh => 
+    const adminOfficers = await User.find({ role: 'ADMIN_OFFICER' });
+    const promises = adminOfficers.map(lh => 
       createNotification({ recipient: lh._id, type, title, message, link, relatedJobId, relatedInstanceId })
     );
     await Promise.all(promises);
   } catch (err) {
-    console.error('Error notifying lab heads:', err);
+    console.error('Error notifying Admin Officers:', err);
   }
 };
 
 module.exports = {
   createNotification,
   notifyAdmins,
-  notifyLabHeads,
+  notifyAdminOfficers,
   setNotifierIo
 };

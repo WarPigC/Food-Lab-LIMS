@@ -35,7 +35,7 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
-// Get all reports (ADMIN / LAB_HEAD only — future use)
+// Get all reports (ADMIN / ADMIN_OFFICER only — future use)
 router.get('/', protect, async (req, res) => {
   try {
     const reports = await BugReport.find()

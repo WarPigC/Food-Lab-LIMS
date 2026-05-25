@@ -7,7 +7,7 @@ const ulrCounterSchema = new mongoose.Schema({
   suffix: { type: String, required: true, default: 'F' },
   // Current counter value (the number between prefix and suffix)
   currentValue: { type: Number, required: true, default: 0 },
-  // Manual offset applied by Lab Head to correct accidental increments
+  // Manual offset applied by Admin Officer to correct accidental increments
   offset: { type: Number, required: true, default: 0 }
 }, { timestamps: true });
 

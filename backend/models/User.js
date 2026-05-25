@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
-  role: { type: String, enum: ['ADMIN', 'LAB_HEAD', 'HEAD', 'ASSISTANT'], required: true },
+  role: { type: String, enum: ['ADMIN', 'ADMIN_OFFICER', 'HEAD', 'ASSISTANT'], required: true },
   department: { type: String }, // e.g. Micro, Chemical (For Head and Assistant)
   branch: { type: String }, // e.g. Main Branch
   password: { type: String, required: true },

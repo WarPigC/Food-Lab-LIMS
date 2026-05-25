@@ -147,7 +147,7 @@ function Dashboard() {
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={18} /> Recent Pipeline Activity
+            <Activity size={18} /> Recent Activity
           </h3>
         </div>
         <div className="table-scroll">
@@ -349,7 +349,7 @@ function Assistants() {
   );
 }
 
-// Blueprints section removed per requirement: Lab Head adds parameters directly.
+// Blueprints section removed per requirement: Admin Officer adds parameters directly.
 
 function Dispatcher() {
   const [assistants, setAssistants] = useState([]);

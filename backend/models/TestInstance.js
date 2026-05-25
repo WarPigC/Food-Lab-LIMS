@@ -14,13 +14,13 @@ const resultParameterSchema = new mongoose.Schema({
 const reviewEntrySchema = new mongoose.Schema({
   action: { type: String, enum: ['APPROVE', 'REASSIGN'], required: true },
   by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  role: { type: String }, // 'HEAD' or 'LAB_HEAD'
+  role: { type: String }, // 'HEAD' or 'ADMIN_OFFICER'
   note: { type: String },
   date: { type: Date, default: Date.now }
 });
 
 const testInstanceSchema = new mongoose.Schema({
-  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' }, // Link to Lab Head created Job
+  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' }, // Link to Admin Officer created Job
   // Removed blueprintId dependency
   testCode: { type: String, required: true, unique: true }, // e.g. #UL-782X
   clientName: { type: String },

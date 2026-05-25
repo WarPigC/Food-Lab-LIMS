@@ -133,7 +133,7 @@ function Dashboard() {
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={18} /> Recent Pipeline Activity
+            <Activity size={18} /> Recent Activity
           </h3>
         </div>
         <div className="table-scroll">
@@ -197,7 +197,7 @@ function StaffTable({ users, isLoading, emptyMessage }) {
             <td style={{ fontWeight: 500 }}>{u.name}</td>
             <td>{u.email}</td>
             <td>
-              <span className={`badge ${u.role === 'ADMIN' || u.role === 'LAB_HEAD' ? 'badge-primary' : u.role === 'HEAD' ? 'badge-warning' : 'badge-success'}`}>
+              <span className={`badge ${u.role === 'ADMIN' || u.role === 'ADMIN_OFFICER' ? 'badge-primary' : u.role === 'HEAD' ? 'badge-warning' : 'badge-success'}`}>
                 {u.role}
               </span>
             </td>
@@ -287,8 +287,8 @@ function UsersPage() {
     e.preventDefault();
     setError(''); setSuccess('');
     try {
-      const res = await axios.post(`${API_URL}/api/users`, { ...formData, role: 'LAB_HEAD' });
-      setSuccess(`Lab Head created successfully. Temporary password is: ${res.data.temporaryPassword}`);
+      const res = await axios.post(`${API_URL}/api/users`, { ...formData, role: 'ADMIN_OFFICER' });
+      setSuccess(`Admin Officer created successfully. Temporary password is: ${res.data.temporaryPassword}`);
       setFormData({ name: '', email: '', phone: '', password: '' });
       setShowForm(false);
       invalidateCache(CACHE_KEYS.USERS);
@@ -298,7 +298,7 @@ function UsersPage() {
     }
   };
 
-  const managementUsers = users.filter(u => u.role === 'ADMIN' || u.role === 'LAB_HEAD');
+  const managementUsers = users.filter(u => u.role === 'ADMIN' || u.role === 'ADMIN_OFFICER');
   const headUsers = users.filter(u => u.role === 'HEAD');
   const assistantUsers = users.filter(u => u.role === 'ASSISTANT');
 
@@ -307,7 +307,7 @@ function UsersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h1>Staff Directory</h1>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Close Form' : '+ Create Lab Head'}
+          {showForm ? 'Close Form' : '+ Create Admin Officer'}
         </button>
       </div>
 
@@ -328,7 +328,7 @@ function UsersPage() {
 
       {showForm && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Create New Lab Head</h3>
+          <h3 style={{ marginBottom: '1rem' }}>Create New Admin Officer</h3>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <div style={{ flex: 1 }}>
@@ -353,7 +353,7 @@ function UsersPage() {
             </div>
             
             <div>
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>Submit & Create Lab Head</button>
+              <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>Submit & Create Admin Officer</button>
             </div>
           </form>
         </div>

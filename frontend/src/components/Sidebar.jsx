@@ -16,12 +16,12 @@ export default function Sidebar({ isOpen, onClose }) {
           { to: '/admin/users', icon: <Users size={20} />, label: 'Staff Directory' },
           { to: '/admin/audit', icon: <FileText size={20} />, label: 'Activity Logs' },
         ];
-      case 'LAB_HEAD':
+      case 'ADMIN_OFFICER':
         return [
-          { to: '/lab-head', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-          { to: '/lab-head/jobs', icon: <Activity size={20} />, label: 'Job Distributor' },
-          { to: '/lab-head/users', icon: <Users size={20} />, label: 'User Management' },
-          { to: '/lab-head/audit', icon: <FileText size={20} />, label: 'Activity Logs' },
+          { to: '/admin-officer', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+          { to: '/admin-officer/jobs', icon: <Activity size={20} />, label: 'Job Distributor' },
+          { to: '/admin-officer/users', icon: <Users size={20} />, label: 'User Management' },
+          { to: '/admin-officer/audit', icon: <FileText size={20} />, label: 'Activity Logs' },
         ];
       case 'HEAD':
         return [
@@ -67,7 +67,7 @@ export default function Sidebar({ isOpen, onClose }) {
           <NavLink
             key={link.to}
             to={link.to}
-            end={link.to === '/admin' || link.to === '/lab-head' || link.to === '/head' || link.to === '/assistant'}
+            end={link.to === '/admin' || link.to === '/admin-officer' || link.to === '/head' || link.to === '/assistant'}
             onClick={handleNavClick}
             style={({ isActive }) => ({
               display: 'flex',

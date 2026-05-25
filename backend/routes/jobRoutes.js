@@ -54,7 +54,7 @@ async function getNextUlr() {
 /**
  * GET /api/jobs/next-sample-id
  * Returns the next sampleSerial so the form can pre-fill the Sample ID field.
- * Public to any authenticated user so the Lab Head form can fetch it.
+ * Public to any authenticated user so the Admin Officer form can fetch it.
  */
 router.get('/next-sample-id', protect, async (req, res) => {
   try {
@@ -84,7 +84,7 @@ router.get('/next-ulr', protect, async (req, res) => {
  * PUT /api/jobs/ulr-offset
  * Adjusts the offset value for the ULR counter.
  */
-router.put('/ulr-offset', protect, authorize('LAB_HEAD'), async (req, res) => {
+router.put('/ulr-offset', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
     const { offset } = req.body;
     const counter = await UlrCounter.findOneAndUpdate(
@@ -112,7 +112,7 @@ router.get('/', protect, async (req, res) => {
         query = { _id: null };
       }
     }
-    // LAB_HEAD and ADMIN see all jobs.
+    // ADMIN_OFFICER and ADMIN see all jobs.
     const jobs = await Job.find(query)
       .populate('createdBy', 'name email')
       .populate('parameters.parameterId', 'name unit type')
@@ -140,8 +140,8 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
-// Create a new job (LAB_HEAD only)
-router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
+// Create a new job (ADMIN_OFFICER only)
+router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
     const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters } = req.body;
 
@@ -291,8 +291,8 @@ router.post('/', protect, authorize('LAB_HEAD'), async (req, res) => {
   }
 });
 
-// Update an existing job (LAB_HEAD only)
-router.put('/:id', protect, authorize('LAB_HEAD'), async (req, res) => {
+// Update an existing job (ADMIN_OFFICER only)
+router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
@@ -334,8 +334,8 @@ router.put('/:id', protect, authorize('LAB_HEAD'), async (req, res) => {
   }
 });
 
-// Spawn a Child Retest Job (LAB_HEAD only)
-router.post('/:id/retest', protect, authorize('LAB_HEAD'), async (req, res) => {
+// Spawn a Child Retest Job (ADMIN_OFFICER only)
+router.post('/:id/retest', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
     const parentJob = await Job.findById(req.params.id);
     if (!parentJob) return res.status(404).json({ message: 'Job not found' });
@@ -422,7 +422,7 @@ router.post('/:id/retest', protect, authorize('LAB_HEAD'), async (req, res) => {
 });
 
 // Delete a job
-router.delete('/:id', protect, authorize('LAB_HEAD', 'ADMIN'), async (req, res) => {
+router.delete('/:id', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) {

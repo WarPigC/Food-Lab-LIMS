@@ -1,6 +1,6 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Menu, ChevronDown, Lock, Mail } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, ChevronDown, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import axios from 'axios';
@@ -19,6 +19,8 @@ export default function Header({ onToggleSidebar }) {
   const [updateError, setUpdateError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const menuRef = useRef(null);
 
@@ -119,7 +121,7 @@ export default function Header({ onToggleSidebar }) {
           }}>
             <button 
               onClick={() => { setUpdateType('email'); setShowUpdateModal(true); setShowProfileMenu(false); }}
-              style={{ width: '100%', textAlign: 'left', padding: '0.75rem 1rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-main)', borderBottom: '1px solid var(--color-border)' }}
+              style={{ width: '100%', textAlign: 'center', padding: '0.75rem 1rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-main)', borderBottom: '1px solid var(--color-border)' }}
               onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)'}
               onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
@@ -127,7 +129,7 @@ export default function Header({ onToggleSidebar }) {
             </button>
             <button 
               onClick={() => { setUpdateType('password'); setShowUpdateModal(true); setShowProfileMenu(false); }}
-              style={{ width: '100%', textAlign: 'left', padding: '0.75rem 1rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-main)' }}
+              style={{ width: '100%', textAlign: 'center', padding: '0.75rem 1rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-main)' }}
               onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)'}
               onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
@@ -160,18 +162,38 @@ export default function Header({ onToggleSidebar }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Current Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
+                <div style={{ position: 'relative' }}>
+                  <input type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required style={{ paddingRight: '2.5rem' }} />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)} 
+                    style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                  >
+                    {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>New {updateType === 'email' ? 'Email' : 'Password'} <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                <input type={updateType === 'email' ? 'email' : 'password'} value={newValue} onChange={e => setNewValue(e.target.value)} required />
+                <div style={{ position: 'relative' }}>
+                  <input type={updateType === 'email' ? 'email' : (showNewPassword ? "text" : "password")} value={newValue} onChange={e => setNewValue(e.target.value)} required style={updateType === 'password' ? { paddingRight: '2.5rem' } : {}} />
+                  {updateType === 'password' && (
+                    <button 
+                      type="button" 
+                      onClick={() => setShowNewPassword(!showNewPassword)} 
+                      style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                    >
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
               <button
                 className="btn"
-                onClick={() => { setShowUpdateModal(false); setCurrentPassword(''); setNewValue(''); setUpdateError(''); setUpdateSuccess(''); }}
+                onClick={() => { setShowUpdateModal(false); setCurrentPassword(''); setNewValue(''); setUpdateError(''); setUpdateSuccess(''); setShowCurrentPassword(false); setShowNewPassword(false); }}
                 style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-main)', padding: '0.6rem 2rem', backgroundColor: 'transparent' }}
               >
                 Cancel

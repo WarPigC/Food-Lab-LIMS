@@ -5,7 +5,7 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
-const { createNotification, notifyLabHeads, notifyAdmins } = require('../utils/notifier');
+const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../utils/notifier');
 
 // GET transfer history for a job
 router.get('/', protect, async (req, res) => {
@@ -111,10 +111,10 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
       });
     }
 
-    // Notify Lab Heads & Admins
+    // Notify Admin Officers & Admins
     const fromLabel = fromDept === 'chemical' ? 'Chemical' : 'Micro';
     const toLabel = toDept === 'chemical' ? 'Chemical' : 'Micro';
-    await notifyLabHeads({
+    await notifyAdminOfficers({
       type: 'INFO',
       title: 'Sample Transferred',
       message: `Sample for job ${job.jobCode} has been sent from ${fromLabel} to ${toLabel} department by ${req.user.name}.`,
@@ -169,7 +169,7 @@ router.put('/:id/receive', protect, authorize('HEAD'), async (req, res) => {
     const fromLabel = transfer.fromDepartment === 'chemical' ? 'Chemical' : 'Micro';
     const toLabel = transfer.toDepartment === 'chemical' ? 'Chemical' : 'Micro';
 
-    await notifyLabHeads({
+    await notifyAdminOfficers({
       type: 'SUCCESS',
       title: 'Sample Received',
       message: `${toLabel} HEAD (${req.user.name}) has confirmed receipt of sample for job ${job.jobCode}.`,
