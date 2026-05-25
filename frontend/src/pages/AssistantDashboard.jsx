@@ -19,7 +19,7 @@ export default function AssistantDashboard() {
 
   const formatJobCode = (code) => {
     if (!code) return '';
-    return code.replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
+    return code.replace(/-N[12]([a-z]?)(?:-v\d+)?$/g, '-N$1').replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
   };
 
   const fetchTasks = async () => {

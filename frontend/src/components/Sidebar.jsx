@@ -12,7 +12,7 @@ export default function Sidebar({ isOpen, onClose }) {
     switch(user?.role) {
       case 'ADMIN':
         return [
-          { to: '/admin', icon: <LayoutDashboard size={20} />, label: 'Super Admin Tracker' },
+          { to: '/admin', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
           { to: '/admin/users', icon: <Users size={20} />, label: 'Staff Directory' },
           { to: '/admin/audit', icon: <FileText size={20} />, label: 'Activity Logs' },
         ];

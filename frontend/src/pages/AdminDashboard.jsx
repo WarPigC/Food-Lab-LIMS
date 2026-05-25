@@ -11,7 +11,7 @@ import API_URL from '../utils/api';
 
 const formatJobCode = (code) => {
   if (!code) return '';
-  return code.replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
+  return code.replace(/-N[12]([a-z]?)(?:-v\d+)?$/g, '-N$1').replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
 };
 
 function Dashboard() {
@@ -427,7 +427,7 @@ function Audit() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
         <h1 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <FileText size={28} style={{ color: 'var(--color-primary)' }} /> Super Admin Tracker
+          <FileText size={28} style={{ color: 'var(--color-primary)' }} /> Activity Logs
         </h1>
 
         {auditLoading && jobs.length === 0 ? (
@@ -447,7 +447,7 @@ function Audit() {
               <tr>
                 <th>Test Code</th>
                 <th>Client Name</th>
-                <th>Blueprint</th>
+
                 <th>Analyst</th>
                 <th>Date Completed</th>
               </tr>
@@ -462,7 +462,7 @@ function Audit() {
                   <tr key={inst._id}>
                     <td style={{ fontFamily: 'monospace' }}>{formatJobCode(inst.testCode)}</td>
                     <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
-                    <td>{inst.blueprintId?.name}</td>
+
                     <td>{inst.assignedTo?.name}</td>
                     <td>{new Date(inst.completedAt).toLocaleDateString('en-IN')}</td>
                   </tr>

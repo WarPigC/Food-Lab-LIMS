@@ -12,7 +12,7 @@ import API_URL from '../utils/api';
 
 const formatJobCode = (code) => {
   if (!code) return '';
-  return code.replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
+  return code.replace(/-N[12]([a-z]?)(?:-v\d+)?$/g, '-N$1').replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
 };
 
 function Dashboard() {
@@ -1108,7 +1108,7 @@ function Jobs() {
               setAssignedChemicalHead('');
             }
           }}>
-            {showForm ? 'Cancel Edit/Close Form' : '+ New Client Sample Job'}
+            {showForm ? 'Close' : '+ New Client Sample Job'}
           </button>
         </div>
       </div>
@@ -1175,7 +1175,7 @@ function Jobs() {
                 <span style={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--color-primary)', backgroundColor: 'var(--color-surface-hover)', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
                   {buildJobCodePreview(nextSerial.serial)}
                 </span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Micro: …-1 &nbsp;|&nbsp; Chemical: …-2</span>
+
               </div>
             )}
           </div>
@@ -1191,7 +1191,7 @@ function Jobs() {
                   {sections.customer ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                   <span style={{ fontWeight: 600 }}>Customer Information</span>
                 </div>
-                <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>Required</span>
+
               </div>
               {sections.customer && (
                 <div className="grid-2" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
@@ -1212,7 +1212,7 @@ function Jobs() {
                   {sections.sample ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                   <span style={{ fontWeight: 600 }}>Sample Information</span>
                 </div>
-                <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>Required</span>
+
               </div>
               {sections.sample && (
                 <div className="grid-2" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
@@ -1342,7 +1342,7 @@ function Jobs() {
                   {sections.compliance ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                   <span style={{ fontWeight: 600 }}>Compliance & Legal Information</span>
                 </div>
-                <span className="badge badge-secondary" style={{ fontSize: '0.75rem' }}>Important</span>
+
               </div>
               {sections.compliance && (
                 <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
