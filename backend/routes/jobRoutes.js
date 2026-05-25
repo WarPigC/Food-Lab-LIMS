@@ -218,7 +218,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
       // Create NABL job
       const nablJob = await Job.create({
-        jobCode: `${baseJobCode}-N1`,
+        jobCode: `${baseJobCode}`,
         sampleSerial: serial,
         clientName: customer?.customer_name || '',
         totalSampleVolume: parseFloat(sample?.sample_quantity) || 0,
@@ -233,7 +233,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
       // Create Non-NABL job
       const nonNablJob = await Job.create({
-        jobCode: `${baseJobCode}-N2`,
+        jobCode: `${baseJobCode}-N`,
         sampleSerial: serial,
         clientName: customer?.customer_name || '',
         totalSampleVolume: parseFloat(sample?.sample_quantity) || 0,
