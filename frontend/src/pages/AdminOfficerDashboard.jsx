@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Trash2, Edit, Activity, Users as UsersIcon, Clock, CheckCircle, FileText, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, X, Calendar, ArrowRightLeft } from 'lucide-react';
 import JobLogTable from '../components/JobLogTable';
 import ReportViewer from '../components/ReportViewer';
+import CascadingParameterSelector from '../components/CascadingParameterSelector';
 import { AuthContext } from '../context/AuthContext';
 import { fetchWithCache, invalidateCache, CACHE_KEYS } from '../utils/cache';
 import Spinner from '../components/Spinner';
@@ -445,211 +446,7 @@ const CHEMICAL_UNITS = [
   'pH units', 'Aw', '°Bx', 'ppm',
 ];
 
-const ParameterPicker = ({
-  params, setParams, searchTerm, setSearchTerm, searchResults, setSearchResults,
-  showAddParam, setShowAddParam, newParam, setNewParam, handleAddNewParam,
-  editingJobId, label, isSearching
-}) => {
-  const handleAddExistingParam = (param) => {
-    if (!params.find(p => p._id === param._id)) {
-      setParams([...params, param]);
-    }
-    setSearchTerm('');
-    setSearchResults([]);
-  };
 
-  const removeParam = (index) => {
-    setParams(params.filter((_, i) => i !== index));
-  };
-
-  const updateParamUnit = (index, newUnit) => {
-    setParams(prev => prev.map((p, i) => i === index ? { ...p, unit: newUnit } : p));
-  };
-
-  const handleDeleteParam = async (e, param) => {
-    e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to permanently delete "${param.name}" from the parameter library? This action cannot be undone.`)) return;
-    try {
-      await axios.delete(`${API_URL}/api/parameters/${param._id}`);
-      setSearchResults(searchResults.filter(p => p._id !== param._id));
-      setParams(params.filter(p => p._id !== param._id));
-    } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting parameter');
-    }
-  };
-
-  return (
-    <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-surface-hover)' }}>
-      <label style={{ display: 'block', fontWeight: 600, fontSize: '1rem', color: 'var(--color-primary)' }}>{label} <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-
-      {!editingJobId ? (
-        <div style={{ position: 'relative' }}>
-          <input
-            placeholder="Type to search (e.g. Moisture...)"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ width: '100%' }}
-          />
-          {searchTerm.trim() && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, width: '100%', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', zIndex: 20, boxShadow: 'var(--shadow-md)', maxHeight: '200px', overflowY: 'auto' }}>
-              {isSearching ? (
-                <div style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>Loading...</div>
-              ) : (
-                <>
-                  {searchResults.map(p => (
-                    <div key={p._id} style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div onClick={() => handleAddExistingParam(p)} style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{p.name}</span>
-                        <span style={{ fontSize: '0.8rem', color: p.type === 'Micro' ? 'var(--color-success)' : 'var(--color-info)' }}>{p.type}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteParam(e, p)}
-                        title={`Delete "${p.name}" from library`}
-                        style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.2rem 0.4rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', opacity: 0.6 }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                        onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                  {searchResults.length === 0 && (
-                    <div style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>No parameters found.</div>
-                  )}
-                  <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-hover)', cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 500 }} onClick={() => { setShowAddParam(true); setNewParam({ name: searchTerm, type: 'Micro', unit: '' }); setSearchTerm(''); }}>
-                    + Add New Parameter "{searchTerm}"
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-          Parameters cannot be changed once a job is created.
-        </div>
-      )}
-
-      {showAddParam && (
-        <div style={{ padding: '1rem', border: '1px dashed var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
-          <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>Add New Parameter</h4>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-            <input style={{ flex: '1 1 100%' }} type="text" value={newParam.name} onChange={e => setNewParam({ ...newParam, name: e.target.value })} placeholder="Name" required />
-            <select style={{ flex: '1 1 45%' }} value={newParam.type} onChange={e => setNewParam({ ...newParam, type: e.target.value, unit: '' })}>
-              <option value="Micro">Micro</option>
-              <option value="Chemical">Chemical</option>
-            </select>
-            <select
-              style={{ flex: '1 1 45%' }}
-              value={(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).includes(newParam.unit) ? newParam.unit : (newParam.unit ? '__custom__' : '')}
-              onChange={e => {
-                if (e.target.value === '__custom__') {
-                  setNewParam({ ...newParam, unit: '' });
-                } else {
-                  setNewParam({ ...newParam, unit: e.target.value });
-                }
-              }}
-            >
-              <option value="" disabled>Select unit...</option>
-              {(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).map(u => <option key={u} value={u}>{u}</option>)}
-              <option value="__custom__">✏️ Custom unit...</option>
-            </select>
-            {!(newParam.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS).includes(newParam.unit) && newParam.unit !== '' && (
-              <input style={{ flex: '1 1 100%' }} type="text" value={newParam.unit} onChange={e => setNewParam({ ...newParam, unit: e.target.value })} placeholder="Custom unit" required />
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button type="button" onClick={(e) => {
-              e.preventDefault();
-              if (!newParam.name || !newParam.unit) return alert('Name and Unit are required');
-              axios.post(`${API_URL}/api/parameters`, newParam).then(res => {
-                setParams([...params, res.data]);
-                setShowAddParam(false);
-                setNewParam({ name: '', type: 'Micro', unit: '' });
-                setSearchTerm('');
-              }).catch(err => alert(err.response?.data?.message || 'Error adding parameter'));
-            }} className="btn btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Save</button>
-            <button type="button" onClick={() => setShowAddParam(false)} className="btn" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      <div>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.9rem' }}>Selected Parameters</label>
-        {params.length === 0 ? <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>None selected</span> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {params.map((p, index) => {
-              const unitOptions = p.type === 'Micro' ? MICRO_UNITS : CHEMICAL_UNITS;
-              const isCustomUnit = p.unit && !unitOptions.includes(p.unit);
-              return (
-                <div key={index} style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
-                  borderRadius: 'var(--radius-md)', fontSize: '0.85rem', flexWrap: 'wrap',
-                  backgroundColor: p.type === 'Micro' ? '#dcfce7' : '#e0f2fe',
-                  border: `1px solid ${p.type === 'Micro' ? '#bbf7d0' : '#bae6fd'}`
-                }}>
-                  <span style={{ flex: '1 1 auto', fontWeight: 600, color: p.type === 'Micro' ? '#166534' : '#075985' }}>{p.name}</span>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: p.type === 'Micro' ? '#166534' : '#075985', color: 'white', textTransform: 'uppercase' }}>{p.type}</span>
-                  {!editingJobId ? (
-                    <select
-                      value={p.unit || ''}
-                      onChange={async (e) => {
-                        if (e.target.value === '__custom__') {
-                          const custom = prompt('Enter custom unit:');
-                          if (custom && custom.trim()) {
-                            const trimmed = custom.trim();
-                            updateParamUnit(index, trimmed);
-                            try {
-                              await axios.put(`${API_URL}/api/parameters/${p._id}`, { unit: trimmed });
-                            } catch (err) {
-                              console.error('Failed to save custom unit', err);
-                            }
-                          }
-                        } else {
-                          updateParamUnit(index, e.target.value);
-                          try {
-                            await axios.put(`${API_URL}/api/parameters/${p._id}`, { unit: e.target.value });
-                          } catch (err) {
-                            console.error('Failed to save unit', err);
-                          }
-                        }
-                      }}
-                      style={{ width: 'auto', padding: '0.2rem 0.4rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', backgroundColor: 'white' }}
-                    >
-                      <option value="" disabled>Select unit...</option>
-                      {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-                      <option value="__custom__">✏️ Custom unit...</option>
-                      {isCustomUnit && <option value={p.unit}>{p.unit} (custom)</option>}
-                    </select>
-                  ) : (
-                    <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{p.unit}</span>
-                  )}
-                  {!editingJobId && (
-                    <button type="button" onClick={() => removeParam(index)} style={{ background: 'none', border: 'none', color: p.type === 'Micro' ? '#166534' : '#075985', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center' }}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {params.length > 0 && (
-          <div style={{ marginTop: '0.8rem', fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              {params.some(p => p.type === 'Micro') && <span style={{ color: '#166534' }}>M</span>}
-              {params.some(p => p.type === 'Micro') && params.some(p => p.type === 'Chemical') && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.6rem' }}>●</span>}
-              {params.some(p => p.type === 'Chemical') && <span style={{ color: '#075985' }}>C</span>}
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Depts</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 function Jobs() {
   const location = useLocation();
@@ -711,49 +508,7 @@ function Jobs() {
   const toggleSection = (s) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
   const setField = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
 
-  const handleAddExistingParam = (param) => {
-    if (!selectedParams.find(p => p._id === param._id)) {
-      setSelectedParams([...selectedParams, param]);
-    }
-    setSearchTerm('');
-    setSearchResults([]);
-  };
 
-  const handleAddNewParam = async (e) => {
-    e.preventDefault();
-    if (!newParam.name || !newParam.unit) return alert('Name and Unit are required');
-    try {
-      const res = await axios.post(`${API_URL}/api/parameters`, newParam);
-      setSelectedParams([...selectedParams, res.data]);
-      setShowAddParam(false);
-      setNewParam({ name: '', type: 'Micro', unit: 'mg/L' });
-      setSearchTerm('');
-    } catch (err) {
-      alert(err.response?.data?.message || 'Error adding parameter');
-    }
-  };
-
-  const removeParam = (index) => {
-    setSelectedParams(selectedParams.filter((_, i) => i !== index));
-  };
-
-  const updateParamUnit = (index, newUnit) => {
-    setSelectedParams(prev => prev.map((p, i) => i === index ? { ...p, unit: newUnit } : p));
-  };
-
-  const handleDeleteParam = async (e, param) => {
-    e.stopPropagation(); // Don't trigger the row click (add)
-    if (!window.confirm(`Delete "${param.name}" from the parameter library permanently?`)) return;
-    try {
-      await axios.delete(`${API_URL}/api/parameters/${param._id}`);
-      // Remove from search results
-      setSearchResults(prev => prev.filter(p => p._id !== param._id));
-      // Also remove from selected if it was picked
-      setSelectedParams(prev => prev.filter(p => p._id !== param._id));
-    } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting parameter');
-    }
-  };
 
   const fetchJobs = async () => {
     try {
@@ -809,54 +564,7 @@ function Jobs() {
     }
   }, [formData.nabl_mode]);
 
-  // Parameter search debounce
-  useEffect(() => {
-    if (searchTerm.trim()) setIsSearching(true);
-    const delayDebounceFn = setTimeout(async () => {
-      if (searchTerm.trim()) {
-        try {
-          const res = await axios.get(`${API_URL}/api/parameters?search=${searchTerm}`);
-          setSearchResults(res.data);
-        } catch (err) { console.error(err); } finally { setIsSearching(false); }
-      } else {
-        setSearchResults([]);
-        setIsSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
 
-  useEffect(() => {
-    if (nablSearchTerm.trim()) setIsNablSearching(true);
-    const delayDebounceFn = setTimeout(async () => {
-      if (nablSearchTerm.trim()) {
-        try {
-          const res = await axios.get(`${API_URL}/api/parameters?search=${nablSearchTerm}`);
-          setNablSearchResults(res.data);
-        } catch (err) { console.error(err); } finally { setIsNablSearching(false); }
-      } else {
-        setNablSearchResults([]);
-        setIsNablSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [nablSearchTerm]);
-
-  useEffect(() => {
-    if (nonNablSearchTerm.trim()) setIsNonNablSearching(true);
-    const delayDebounceFn = setTimeout(async () => {
-      if (nonNablSearchTerm.trim()) {
-        try {
-          const res = await axios.get(`${API_URL}/api/parameters?search=${nonNablSearchTerm}`);
-          setNonNablSearchResults(res.data);
-        } catch (err) { console.error(err); } finally { setIsNonNablSearching(false); }
-      } else {
-        setNonNablSearchResults([]);
-        setIsNonNablSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [nonNablSearchTerm]);
 
   // Handle incoming Reopen request from JobLogTable
   useEffect(() => {
@@ -1319,28 +1027,36 @@ function Jobs() {
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
                       {formData.nabl_mode === 'hybrid' ? (
                         <>
-                          <ParameterPicker
-                            label="NABL Job Parameters" params={nablParams} setParams={setNablParams}
-                            searchTerm={nablSearchTerm} setSearchTerm={setNablSearchTerm} searchResults={nablSearchResults} setSearchResults={setNablSearchResults}
-                            showAddParam={showAddParam} setShowAddParam={setShowAddParam} newParam={newParam} setNewParam={setNewParam}
-                            editingJobId={editingJobId} isSearching={isNablSearching}
+                          <CascadingParameterSelector
+                            label="NABL Job Parameters"
+                            modeClass="nabl-card"
+                            onDataChange={(data) => {
+                              setNablParams(data.parameters);
+                              setNablGroupMetadata(data.groupMetadata);
+                              setNablPesticidePanel(data.pesticidePanel);
+                            }}
                           />
-                          <ParameterPicker
-                            label="Non-NABL Job Parameters" params={nonNablParams} setParams={setNonNablParams}
-                            searchTerm={nonNablSearchTerm} setSearchTerm={setNonNablSearchTerm} searchResults={nonNablSearchResults} setSearchResults={setNonNablSearchResults}
-                            showAddParam={showAddParam} setShowAddParam={setShowAddParam} newParam={newParam} setNewParam={setNewParam}
-                            editingJobId={editingJobId} isSearching={isNonNablSearching}
+                          <CascadingParameterSelector
+                            label="Non-NABL Job Parameters"
+                            modeClass="non-nabl-card"
+                            onDataChange={(data) => {
+                              setNonNablParams(data.parameters);
+                              setNonNablGroupMetadata(data.groupMetadata);
+                              setNonNablPesticidePanel(data.pesticidePanel);
+                            }}
                           />
                         </>
                       ) : (
-                        <ParameterPicker
-                          label="Test Parameters" params={selectedParams} setParams={setSelectedParams}
-                          searchTerm={searchTerm} setSearchTerm={setSearchTerm} searchResults={searchResults} setSearchResults={setSearchResults}
-                          showAddParam={showAddParam} setShowAddParam={setShowAddParam} newParam={newParam} setNewParam={setNewParam}
-                          editingJobId={editingJobId} isSearching={isSearching}
+                        <CascadingParameterSelector
+                          label="Test Parameters"
+                          onDataChange={(data) => {
+                            setSelectedParams(data.parameters);
+                            setGroupMetadata(data.groupMetadata);
+                            setPesticidePanel(data.pesticidePanel);
+                          }}
                         />
                       )}
                     </div>

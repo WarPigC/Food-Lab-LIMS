@@ -430,13 +430,35 @@ function Dispatcher() {
   };
 
   const getDeptParams = (job) => {
-    return job?.parameters?.filter(p => {
+    const params = job?.parameters?.filter(p => {
       const d = user?.department ? user.department.toLowerCase() : '';
       const pt = p.type ? p.type.toLowerCase() : '';
       if ((d === 'chemical' || d === 'chemical') && pt === 'chemical') return true;
       if (d === 'micro' && pt === 'micro') return true;
       return false;
     }) || [];
+
+    // Inject virtual parameters for Food Pesticide Panels (only for Chemical department)
+    if (user?.department?.toLowerCase() === 'chemical' && job?.pesticidePanel?.enabled && job?.pesticidePanel?.panelType === 'food') {
+      params.push({
+        parameterId: { _id: 'panel-gcmsms' },
+        name: 'Pesticide Panel (GCMSMS)',
+        type: 'Chemical',
+        unit: 'mg/kg',
+        isPanel: true,
+        panelName: 'GCMSMS'
+      });
+      params.push({
+        parameterId: { _id: 'panel-lcmsms' },
+        name: 'Pesticide Panel (LCMSMS)',
+        type: 'Chemical',
+        unit: 'mg/kg',
+        isPanel: true,
+        panelName: 'LCMSMS'
+      });
+    }
+
+    return params;
   };
 
   const handleAssign = (jobId, paramId, assistantId) => {
@@ -470,6 +492,8 @@ function Dispatcher() {
         name: p.name,
         type: p.type,
         unit: p.unit,
+        isPanel: p.isPanel,
+        panelName: p.panelName,
         assignedTo: assignments[`${job._id}-${p.parameterId._id}`]
       }));
 
@@ -929,13 +953,19 @@ function ReviewQueue() {
 
   const enterReassignMode = (inst) => {
     setShowReassignForm(inst._id);
-    // Initialize all params as unselected, with the original analyst as default
     const selections = {};
     inst.results.forEach(r => {
-      selections[r.parameterId] = {
-        selected: false,
-        assignedTo: inst.assignedTo?._id || inst.assignedTo || ''
-      };
+      if (r.isPanel && r.panelName) {
+        const pKey = `panel-${r.panelName.toLowerCase()}`;
+        if (!selections[pKey]) {
+          selections[pKey] = { selected: false, assignedTo: r.assignedTo || inst.assignedTo?._id || inst.assignedTo || '' };
+        }
+      } else {
+        selections[r.parameterId] = {
+          selected: false,
+          assignedTo: r.assignedTo || inst.assignedTo?._id || inst.assignedTo || ''
+        };
+      }
     });
     setParamSelections(selections);
     setReassignNote('');
@@ -968,9 +998,24 @@ function ReviewQueue() {
   };
 
   const handleReassign = async (id) => {
-    const selected = Object.entries(paramSelections)
-      .filter(([, v]) => v.selected)
-      .map(([parameterId, v]) => ({ parameterId, assignedTo: v.assignedTo }));
+    const inst = jobs.find(j => j._id === id);
+    if (!inst) return;
+    
+    const selected = [];
+    Object.entries(paramSelections).forEach(([key, v]) => {
+      if (v.selected) {
+        if (key.startsWith('panel-')) {
+          const panelName = key.replace('panel-', '').toUpperCase();
+          inst.results.forEach(r => {
+            if (r.isPanel && r.panelName === panelName) {
+              selected.push({ parameterId: r.parameterId, assignedTo: v.assignedTo });
+            }
+          });
+        } else {
+          selected.push({ parameterId: key, assignedTo: v.assignedTo });
+        }
+      }
+    });
 
     if (selected.length === 0) {
       return alert('Please select at least one parameter to reassign.');
@@ -1098,56 +1143,82 @@ function ReviewQueue() {
                       </tr>
                     </thead>
                     <tbody>
-                      {inst.results.map(r => {
-                        const sel = paramSelections[r.parameterId];
-                        const isSelected = sel?.selected;
+                      {(() => {
+                        const displayResults = [];
+                        const panelGroups = {};
+                        inst.results.forEach(r => {
+                          if (r.isPanel && r.panelName) {
+                            if (!panelGroups[r.panelName]) {
+                              panelGroups[r.panelName] = {
+                                parameterId: `panel-${r.panelName.toLowerCase()}`,
+                                name: `Pesticide Panel (${r.panelName})`,
+                                value: 'Multiple',
+                                unit: 'mg/kg',
+                                testMethod: '—',
+                                referenceRange: '—',
+                                isPanelGroup: true
+                              };
+                              displayResults.push(panelGroups[r.panelName]);
+                            }
+                          } else {
+                            displayResults.push(r);
+                          }
+                        });
+                        return displayResults.map(r => {
+                          const sel = paramSelections[r.parameterId];
+                          const isSelected = sel?.selected;
 
-                        return (
-                        <tr 
-                          key={r.parameterId} 
-                          onClick={isReassignMode ? () => toggleParamSelection(r.parameterId) : undefined}
-                          style={{ 
-                            cursor: isReassignMode ? 'pointer' : 'default',
-                            backgroundColor: isSelected ? 'rgba(231, 76, 60, 0.06)' : 'transparent',
-                            transition: 'background-color 0.15s'
-                          }}
-                        >
-                          {isReassignMode && (
-                            <td style={{ textAlign: 'center' }}>
-                              <input 
-                                type="checkbox" 
-                                checked={!!isSelected} 
-                                onChange={() => toggleParamSelection(r.parameterId)}
-                                onClick={e => e.stopPropagation()}
-                                style={{ width: '16px', height: '16px', accentColor: 'var(--color-danger)', cursor: 'pointer' }}
-                              />
+                          return (
+                          <tr 
+                            key={r.parameterId} 
+                            onClick={isReassignMode ? () => toggleParamSelection(r.parameterId) : undefined}
+                            style={{ 
+                              cursor: isReassignMode ? 'pointer' : 'default',
+                              backgroundColor: isSelected ? 'rgba(231, 76, 60, 0.06)' : 'transparent',
+                              transition: 'background-color 0.15s'
+                            }}
+                          >
+                            {isReassignMode && (
+                              <td style={{ textAlign: 'center' }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={!!isSelected} 
+                                  onChange={() => toggleParamSelection(r.parameterId)}
+                                  onClick={e => e.stopPropagation()}
+                                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-danger)', cursor: 'pointer' }}
+                                />
+                              </td>
+                            )}
+                            <td style={{ fontWeight: 500 }}>
+                              {r.name}
+                              {r.isPanelGroup && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', padding: '0.1rem 0.3rem', backgroundColor: '#e0e7ff', color: '#3730a3', borderRadius: '4px' }}>PANEL</span>}
                             </td>
-                          )}
-                          <td style={{ fontWeight: 500 }}>{r.name}</td>
-                          <td style={{ fontFamily: 'monospace', fontWeight: 600, color: isSelected ? 'var(--color-danger)' : 'var(--color-primary)' }}>{r.value || '—'}</td>
-                          <td>{r.unit}</td>
-                          <td style={{ fontSize: '0.85rem' }}>{r.testMethod || '—'}</td>
-                          <td style={{ color: 'var(--color-text-muted)' }}>{r.referenceRange}</td>
-                          {isReassignMode && (
-                            <td onClick={e => e.stopPropagation()}>
-                              {isSelected ? (
-                                <select
-                                  value={sel?.assignedTo || ''}
-                                  onChange={e => changeParamAnalyst(r.parameterId, e.target.value)}
-                                  style={{ minWidth: '140px', fontSize: '0.85rem' }}
-                                >
-                                  {assistants.map(a => (
-                                    <option key={a._id} value={a._id}>{a.name}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>—</span>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                        );
-                      })}
+                            <td style={{ fontFamily: 'monospace', fontWeight: 600, color: isSelected ? 'var(--color-danger)' : 'var(--color-primary)' }}>{r.value || '—'}</td>
+                            <td>{r.unit}</td>
+                            <td style={{ fontSize: '0.85rem' }}>{r.testMethod || '—'}</td>
+                            <td style={{ color: 'var(--color-text-muted)' }}>{r.referenceRange}</td>
+                            {isReassignMode && (
+                              <td onClick={e => e.stopPropagation()}>
+                                {isSelected ? (
+                                  <select
+                                    value={sel?.assignedTo || ''}
+                                    onChange={e => changeParamAnalyst(r.parameterId, e.target.value)}
+                                    style={{ minWidth: '140px', fontSize: '0.85rem' }}
+                                  >
+                                    <option value="" disabled>Select Analyst...</option>
+                                    {assistants.map(a => (
+                                      <option key={a._id} value={a._id}>{a.name}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>—</span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                   </div>

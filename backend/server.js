@@ -42,6 +42,7 @@ app.use('/api/tests', require('./routes/testRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/parameters', require('./routes/parameterRoutes'));
+app.use('/api/parameter-groups', require('./routes/parameterGroupRoutes'));
 app.use('/api/sample-transfers', require('./routes/sampleTransferRoutes'));
 app.use('/api/bug-reports', require('./routes/bugReportRoutes'));
 

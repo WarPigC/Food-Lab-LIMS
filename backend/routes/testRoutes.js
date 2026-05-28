@@ -6,6 +6,7 @@ const { authorize } = require('../middlewares/roleMiddleware');
 const Job = require('../models/Job');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const ParameterGroup = require('../models/ParameterGroup');
 const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../utils/notifier');
 
 // --- TEST INSTANCES ---
@@ -68,19 +69,44 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
     // Group assignments by assignedTo (assistant ID)
     const assistantMap = {};
     if (assignments && Array.isArray(assignments)) {
-      assignments.forEach(assignment => {
+      for (const assignment of assignments) {
         const astId = assignment.assignedTo;
         if (!assistantMap[astId]) {
           assistantMap[astId] = [];
         }
-        assistantMap[astId].push({
-          parameterId: assignment.parameterId,
-          name: assignment.name,
-          value: '',
-          unit: assignment.unit,
-          referenceRange: ''
-        });
-      });
+        
+        if (assignment.isPanel) {
+          // Fetch the parameters for the specific sub-panel (GCMSMS or LCMSMS)
+          const group = await ParameterGroup.findOne({ isPesticidePanel: true, pesticidePanelType: 'food' }).populate('pesticideSubPanels.parameters.parameterId');
+          if (group) {
+            const panel = group.pesticideSubPanels.find(p => p.panelName === assignment.panelName);
+            if (panel) {
+              for (const param of panel.parameters) {
+                // Ensure no duplicate params just in case
+                if (!assistantMap[astId].some(existing => String(existing.parameterId) === String(param.parameterId._id))) {
+                  assistantMap[astId].push({
+                    parameterId: param.parameterId._id,
+                    name: param.name,
+                    value: '',
+                    unit: 'mg/kg',
+                    referenceRange: '',
+                    isPanel: true,
+                    panelName: assignment.panelName
+                  });
+                }
+              }
+            }
+          }
+        } else {
+          assistantMap[astId].push({
+            parameterId: assignment.parameterId,
+            name: assignment.name,
+            value: '',
+            unit: assignment.unit,
+            referenceRange: ''
+          });
+        }
+      }
     }
 
     const createdInstances = [];

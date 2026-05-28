@@ -141,7 +141,7 @@ router.get('/', protect, async (req, res) => {
 // Create a new job (ADMIN_OFFICER only)
 router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
-    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters } = req.body;
+    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters, groupMetadata, pesticidePanel, nablGroupMetadata, nablPesticidePanel, nonNablGroupMetadata, nonNablPesticidePanel } = req.body;
 
     const serial = await getNextSerial();
     const baseJobCode = buildJobCode(serial);
@@ -226,6 +226,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         sample: { ...sampleWithId, nabl_type: 'Nabl', ulr_no: ulr },
         compliance,
         parameters: nablParameters,
+        groupMetadata: nablGroupMetadata,
+        pesticidePanel: nablPesticidePanel,
         distribution: nablDist,
         sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id
@@ -241,6 +243,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         sample: { ...sampleWithId, nabl_type: 'Non Nabl', ulr_no: null },
         compliance,
         parameters: nonNablParameters,
+        groupMetadata: nonNablGroupMetadata,
+        pesticidePanel: nonNablPesticidePanel,
         distribution: nonNablDist,
         sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id,
@@ -270,6 +274,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         sample: { ...sampleWithId, nabl_type: isNabl ? 'Nabl' : 'Non Nabl', ulr_no: ulr },
         compliance,
         parameters,
+        groupMetadata,
+        pesticidePanel,
         distribution: dist,
         sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id

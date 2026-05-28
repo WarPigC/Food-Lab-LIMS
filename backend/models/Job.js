@@ -11,6 +11,15 @@ const jobSchema = new mongoose.Schema({
   totalSampleVolume: { type: Number },
 
   // --- Parameter System ---
+  groupMetadata: {
+    group: { type: String },
+    subGroup: { type: String },
+    productCategory: { type: String }
+  },
+  pesticidePanel: {
+    enabled: { type: Boolean, default: false },
+    panelType: { type: String, enum: ['food', null], default: null }
+  },
   parameters: [{
     parameterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parameter' },
     name: { type: String },
