@@ -3,6 +3,49 @@ const router = express.Router();
 const ParameterGroup = require('../models/ParameterGroup');
 const { protect } = require('../middlewares/authMiddleware');
 
+// GET /api/parameter-groups/all — fetch everything in one shot for local filtering
+router.get('/all', protect, async (req, res) => {
+  try {
+    const docs = await ParameterGroup.find()
+      .populate('parameters.parameterId', 'name type unit')
+      .populate('pesticideSubPanels.parameters.parameterId', 'name type unit')
+      .sort({ group: 1, subGroup: 1 });
+
+    const results = docs.map(d => {
+      if (d.isPesticidePanel) {
+        return {
+          group: d.group,
+          subGroup: d.subGroup,
+          productCategories: d.productCategories || [],
+          isPesticidePanel: true,
+          pesticidePanelType: d.pesticidePanelType,
+          pesticideSubPanels: (d.pesticideSubPanels || []).map(sp => ({
+            panelName: sp.panelName,
+            parameterCount: sp.parameters.length
+          })),
+          parameters: []
+        };
+      }
+      return {
+        group: d.group,
+        subGroup: d.subGroup,
+        productCategories: d.productCategories || [],
+        isPesticidePanel: false,
+        pesticidePanelType: null,
+        pesticideSubPanels: [],
+        parameters: (d.parameters || []).map(p => {
+          const param = p.parameterId;
+          return param ? { _id: param._id, name: param.name, type: param.type, unit: param.unit } : null;
+        }).filter(Boolean)
+      };
+    });
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching all parameter groups', error: err.message });
+  }
+});
+
 // GET /api/parameter-groups/groups — distinct group names
 router.get('/groups', protect, async (req, res) => {
   try {

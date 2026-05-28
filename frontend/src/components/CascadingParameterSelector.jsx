@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import API_URL from '../utils/api';
 import Spinner from './Spinner';
@@ -7,20 +7,17 @@ import { AlertCircle, Beaker, Search, X, Plus, Save } from 'lucide-react';
 const CascadingParameterSelector = ({ 
   label = "Parameters", 
   onDataChange, 
-  modeClass = "", // For styling specific to nabl/non-nabl cards
+  modeClass = "",
   initialData = null 
 }) => {
-  const [groups, setGroups] = useState([]);
+  // All data fetched once
+  const [allData, setAllData] = useState([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+
   const [selectedGroups, setSelectedGroups] = useState([]);
-  
-  const [subGroups, setSubGroups] = useState([]);
   const [selectedSubGroups, setSelectedSubGroups] = useState([]);
-  
-  const [productCategories, setProductCategories] = useState([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState('');
   
-  // Available parameters from selected subgroups (suggestion pool)
-  const [availableParameters, setAvailableParameters] = useState([]);
   // Officer's curated pick list
   const [selectedParams, setSelectedParams] = useState([]);
   
@@ -28,14 +25,6 @@ const CascadingParameterSelector = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef(null);
-  
-  const [isPesticidePanel, setIsPesticidePanel] = useState(false);
-  const [pesticidePanelType, setPesticidePanelType] = useState(null);
-  const [pesticideSubPanels, setPesticideSubPanels] = useState([]);
-
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [loadingSubGroups, setLoadingSubGroups] = useState(false);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   
   const [error, setError] = useState('');
 
@@ -50,7 +39,98 @@ const CascadingParameterSelector = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Notify parent whenever significant data changes
+  // ═══════ SINGLE FETCH ON MOUNT ═══════
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoadingAll(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/api/parameter-groups/all`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setAllData(res.data || []);
+      } catch (err) {
+        setError('Failed to load parameter data');
+        console.error(err);
+      } finally {
+        setLoadingAll(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  // ═══════ ALL LOCAL FILTERING (no API calls) ═══════
+  const groups = useMemo(() => {
+    const s = new Set(allData.map(d => d.group));
+    return Array.from(s).sort();
+  }, [allData]);
+
+  const subGroups = useMemo(() => {
+    if (selectedGroups.length === 0) return [];
+    const filtered = allData.filter(d => selectedGroups.includes(d.group));
+    // Deduplicate by subGroup name
+    const seen = new Set();
+    return filtered.filter(d => {
+      if (seen.has(d.subGroup)) return false;
+      seen.add(d.subGroup);
+      return true;
+    });
+  }, [allData, selectedGroups]);
+
+  const matchedDocs = useMemo(() => {
+    if (selectedGroups.length === 0 || selectedSubGroups.length === 0) return [];
+    return allData.filter(d => 
+      selectedGroups.includes(d.group) && selectedSubGroups.includes(d.subGroup)
+    );
+  }, [allData, selectedGroups, selectedSubGroups]);
+
+  const isPesticidePanel = useMemo(() => matchedDocs.some(d => d.isPesticidePanel), [matchedDocs]);
+  const pesticidePanelType = useMemo(() => {
+    const panel = matchedDocs.find(d => d.isPesticidePanel);
+    return panel ? panel.pesticidePanelType : null;
+  }, [matchedDocs]);
+  const pesticideSubPanels = useMemo(() => {
+    const panel = matchedDocs.find(d => d.isPesticidePanel);
+    return panel ? (panel.pesticideSubPanels || []) : [];
+  }, [matchedDocs]);
+
+  const productCategories = useMemo(() => {
+    const cats = new Set();
+    matchedDocs.forEach(d => (d.productCategories || []).forEach(c => cats.add(c)));
+    return Array.from(cats).sort();
+  }, [matchedDocs]);
+
+  const availableParameters = useMemo(() => {
+    const params = [];
+    matchedDocs.forEach(d => {
+      if (!d.isPesticidePanel) {
+        (d.parameters || []).forEach(p => {
+          if (!params.some(ext => ext._id === p._id)) {
+            params.push(p);
+          }
+        });
+      }
+    });
+    return params;
+  }, [matchedDocs]);
+
+  // True if any selected subgroup is a regular (non-panel) subgroup
+  const hasNonPanelSubGroups = useMemo(() => matchedDocs.some(d => !d.isPesticidePanel), [matchedDocs]);
+
+  // Reset product category when it's no longer valid
+  useEffect(() => {
+    if (selectedProductCategory && !productCategories.includes(selectedProductCategory)) {
+      setSelectedProductCategory('');
+    }
+  }, [productCategories, selectedProductCategory]);
+
+  // Retain selected subgroups only if they still exist
+  useEffect(() => {
+    const validSgs = subGroups.map(s => s.subGroup);
+    setSelectedSubGroups(prev => prev.filter(sg => validSgs.includes(sg)));
+  }, [subGroups]);
+
+  // ═══════ NOTIFY PARENT ═══════
   useEffect(() => {
     if (onDataChange) {
       onDataChange({
@@ -68,137 +148,14 @@ const CascadingParameterSelector = ({
     }
   }, [selectedParams, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType, onDataChange]);
 
-  // Fetch groups on mount
-  useEffect(() => {
-    const fetchGroups = async () => {
-      setLoadingGroups(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_URL}/api/parameter-groups/groups`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setGroups(res.data || []);
-      } catch (err) {
-        setError('Failed to fetch parameter groups');
-        console.error(err);
-      } finally {
-        setLoadingGroups(false);
-      }
-    };
-    fetchGroups();
-  }, []);
-
-  // Fetch subgroups when groups change
-  useEffect(() => {
-    if (selectedGroups.length === 0) {
-      setSubGroups([]);
-      setSelectedSubGroups([]);
-      return;
-    }
-    
-    const fetchSubGroups = async () => {
-      setLoadingSubGroups(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_URL}/api/parameter-groups/subgroups?groups=${encodeURIComponent(selectedGroups.join(','))}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        // Remove duplicates if any
-        const uniqueSubGroups = Array.from(new Set(res.data.map(s => s.subGroup)))
-          .map(name => res.data.find(s => s.subGroup === name));
-          
-        setSubGroups(uniqueSubGroups);
-        
-        // Retain selected subgroups if they still exist in the new list, otherwise clear
-        setSelectedSubGroups(prev => prev.filter(sg => uniqueSubGroups.some(u => u.subGroup === sg)));
-      } catch (err) {
-        setError('Failed to fetch subgroups');
-        console.error(err);
-      } finally {
-        setLoadingSubGroups(false);
-      }
-    };
-    fetchSubGroups();
-  }, [selectedGroups]);
-
-  // Fetch details when subgroups change — populate availableParameters (suggestion pool)
-  useEffect(() => {
-    if (selectedGroups.length === 0 || selectedSubGroups.length === 0) {
-      setAvailableParameters([]);
-      setProductCategories([]);
-      setSelectedProductCategory('');
-      setIsPesticidePanel(false);
-      setPesticideSubPanels([]);
-      // Also remove any selected params that no longer have a valid subgroup
-      // (Keep params that might have been manually typed — we don't clear the list automatically)
-      return;
-    }
-
-    const fetchDetails = async () => {
-      setLoadingDetails(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_URL}/api/parameter-groups/details?groups=${encodeURIComponent(selectedGroups.join(','))}&subGroups=${encodeURIComponent(selectedSubGroups.join(','))}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        let allParams = [];
-        let allCats = new Set();
-        let isPanel = false;
-        let panelType = null;
-        let pSubPanels = [];
-        
-        res.data.forEach(detail => {
-          (detail.productCategories || []).forEach(c => allCats.add(c));
-          
-          if (detail.isPesticidePanel) {
-            isPanel = true;
-            panelType = detail.pesticidePanelType;
-            pSubPanels = detail.pesticideSubPanels || [];
-          } else {
-            (detail.parameters || []).forEach(p => {
-              if (!allParams.some(ext => ext.name === p.name)) {
-                allParams.push({
-                  _id: p._id,
-                  name: p.name,
-                  type: p.type,
-                  unit: p.unit
-                });
-              }
-            });
-          }
-        });
-        
-        setProductCategories(Array.from(allCats).sort());
-        setAvailableParameters(allParams);
-        setIsPesticidePanel(isPanel);
-        setPesticidePanelType(panelType);
-        setPesticideSubPanels(pSubPanels);
-        
-        // Reset product category if it's no longer in the list
-        if (selectedProductCategory && !allCats.has(selectedProductCategory)) {
-          setSelectedProductCategory('');
-        }
-      } catch (err) {
-        setError('Failed to fetch parameter details');
-        console.error(err);
-      } finally {
-        setLoadingDetails(false);
-      }
-    };
-    fetchDetails();
-  }, [selectedSubGroups, selectedGroups]);
-
+  // ═══════ HANDLERS ═══════
   const handleGroupSelect = (e) => {
     const value = e.target.value;
     if (value && !selectedGroups.includes(value)) {
       setSelectedGroups([...selectedGroups, value]);
     }
   };
-
-  const handleGroupRemove = (group) => {
-    setSelectedGroups(selectedGroups.filter(g => g !== group));
-  };
+  const handleGroupRemove = (group) => setSelectedGroups(selectedGroups.filter(g => g !== group));
 
   const handleSubGroupSelect = (e) => {
     const value = e.target.value;
@@ -206,16 +163,10 @@ const CascadingParameterSelector = ({
       setSelectedSubGroups([...selectedSubGroups, value]);
     }
   };
+  const handleSubGroupRemove = (subGroup) => setSelectedSubGroups(selectedSubGroups.filter(sg => sg !== subGroup));
 
-  const handleSubGroupRemove = (subGroup) => {
-    setSelectedSubGroups(selectedSubGroups.filter(sg => sg !== subGroup));
-  };
-
-  // --- Parameter search and selection ---
   const filteredSuggestions = availableParameters.filter(p => {
-    // Don't show already-selected params
     if (selectedParams.some(sp => sp._id === p._id)) return false;
-    // Filter by search term
     if (!searchTerm.trim()) return true;
     return p.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -228,9 +179,7 @@ const CascadingParameterSelector = ({
     setShowSuggestions(false);
   };
 
-  const removeParameter = (paramId) => {
-    setSelectedParams(prev => prev.filter(p => p._id !== paramId));
-  };
+  const removeParameter = (paramId) => setSelectedParams(prev => prev.filter(p => p._id !== paramId));
 
   const addAllAvailable = () => {
     const newParams = availableParameters.filter(p => !selectedParams.some(sp => sp._id === p._id));
@@ -256,6 +205,19 @@ const CascadingParameterSelector = ({
     }
   };
 
+  // ═══════ RENDER ═══════
+  if (loadingAll) {
+    return (
+      <div className={`cascading-selector ${modeClass}`} style={{ 
+        padding: '2rem', textAlign: 'center',
+        backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-md)', 
+        border: '1px solid var(--color-border)' 
+      }}>
+        <Spinner message="Loading parameter data..." />
+      </div>
+    );
+  }
+
   return (
     <div className={`cascading-selector ${modeClass}`} style={{ 
       display: 'flex', flexDirection: 'column', gap: '1rem', 
@@ -275,10 +237,9 @@ const CascadingParameterSelector = ({
           <select 
             onChange={handleGroupSelect} 
             value=""
-            disabled={loadingGroups}
             style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
           >
-            <option value="">{loadingGroups ? 'Loading...' : '-- Add Group --'}</option>
+            <option value="">-- Add Group --</option>
             {groups.filter(g => !selectedGroups.includes(g)).map(g => (
               <option key={g} value={g}>{g}</option>
             ))}
@@ -306,10 +267,10 @@ const CascadingParameterSelector = ({
           <select 
             onChange={handleSubGroupSelect} 
             value=""
-            disabled={loadingSubGroups || selectedGroups.length === 0}
+            disabled={selectedGroups.length === 0}
             style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
           >
-            <option value="">{loadingSubGroups ? 'Loading...' : '-- Add Sub-Group --'}</option>
+            <option value="">-- Add Sub-Group --</option>
             {subGroups.filter(sg => !selectedSubGroups.includes(sg.subGroup)).map(sg => (
               <option key={sg.subGroup} value={sg.subGroup}>
                 {sg.subGroup}
@@ -375,9 +336,9 @@ const CascadingParameterSelector = ({
       )}
 
       {/* PARAMETER SEARCH & SELECTION */}
-      {!isPesticidePanel && selectedSubGroups.length > 0 && (
+      {hasNonPanelSubGroups && selectedSubGroups.length > 0 && (
         <div style={{ marginTop: '0.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <h4 style={{ margin: 0, fontSize: '0.95rem' }}>
               Test Parameters 
               <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>
@@ -410,11 +371,10 @@ const CascadingParameterSelector = ({
               <Search size={16} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
               <input
                 type="text"
-                placeholder={loadingDetails ? 'Loading parameters...' : `Search from ${availableParameters.length} parameters...`}
+                placeholder={`Search from ${availableParameters.length} parameters...`}
                 value={searchTerm}
                 onChange={e => { setSearchTerm(e.target.value); setShowSuggestions(true); }}
                 onFocus={() => setShowSuggestions(true)}
-                disabled={loadingDetails}
                 style={{ 
                   border: 'none', outline: 'none', width: '100%', 
                   backgroundColor: 'transparent', fontSize: '0.9rem' 
@@ -490,12 +450,12 @@ const CascadingParameterSelector = ({
                   <tr>
                     <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Parameter Name</th>
                     <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '80px' }}>Type</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Unit</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '140px' }}>Unit</th>
                     <th style={{ padding: '0.5rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '40px' }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedParams.map((p, i) => (
+                  {selectedParams.map((p) => (
                     <tr key={p._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                       <td style={{ padding: '0.4rem 0.5rem' }}>{p.name}</td>
                       <td style={{ padding: '0.4rem 0.5rem' }}>
@@ -560,7 +520,7 @@ const CascadingParameterSelector = ({
       )}
 
       {/* No subgroups selected state */}
-      {!isPesticidePanel && selectedSubGroups.length === 0 && selectedGroups.length > 0 && (
+      {!hasNonPanelSubGroups && !isPesticidePanel && selectedSubGroups.length === 0 && selectedGroups.length > 0 && (
         <div style={{ 
           color: 'var(--color-text-muted)', fontSize: '0.9rem', fontStyle: 'italic', 
           padding: '1rem', textAlign: 'center', 
