@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import API_URL from '../utils/api';
 import Spinner from './Spinner';
-import { AlertCircle, FileText, Beaker } from 'lucide-react';
+import { AlertCircle, Beaker, Search, X, Plus } from 'lucide-react';
 
 const CascadingParameterSelector = ({ 
   label = "Parameters", 
@@ -19,7 +19,16 @@ const CascadingParameterSelector = ({
   const [productCategories, setProductCategories] = useState([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState('');
   
-  const [parameters, setParameters] = useState([]);
+  // Available parameters from selected subgroups (suggestion pool)
+  const [availableParameters, setAvailableParameters] = useState([]);
+  // Officer's curated pick list
+  const [selectedParams, setSelectedParams] = useState([]);
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef(null);
+  
   const [isPesticidePanel, setIsPesticidePanel] = useState(false);
   const [pesticidePanelType, setPesticidePanelType] = useState(null);
   const [pesticideSubPanels, setPesticideSubPanels] = useState([]);
@@ -30,11 +39,22 @@ const CascadingParameterSelector = ({
   
   const [error, setError] = useState('');
 
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Notify parent whenever significant data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange({
-        parameters: isPesticidePanel ? [] : parameters,
+        parameters: selectedParams,
         groupMetadata: {
           group: selectedGroups.join(', '),
           subGroup: selectedSubGroups.join(', '),
@@ -46,7 +66,7 @@ const CascadingParameterSelector = ({
         }
       });
     }
-  }, [parameters, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType, onDataChange]);
+  }, [selectedParams, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType, onDataChange]);
 
   // Fetch groups on mount
   useEffect(() => {
@@ -101,14 +121,16 @@ const CascadingParameterSelector = ({
     fetchSubGroups();
   }, [selectedGroups]);
 
-  // Fetch details when subgroups change
+  // Fetch details when subgroups change — populate availableParameters (suggestion pool)
   useEffect(() => {
     if (selectedGroups.length === 0 || selectedSubGroups.length === 0) {
-      setParameters([]);
+      setAvailableParameters([]);
       setProductCategories([]);
       setSelectedProductCategory('');
       setIsPesticidePanel(false);
       setPesticideSubPanels([]);
+      // Also remove any selected params that no longer have a valid subgroup
+      // (Keep params that might have been manually typed — we don't clear the list automatically)
       return;
     }
 
@@ -137,7 +159,7 @@ const CascadingParameterSelector = ({
             (detail.parameters || []).forEach(p => {
               if (!allParams.some(ext => ext.name === p.name)) {
                 allParams.push({
-                  parameterId: p._id,
+                  _id: p._id,
                   name: p.name,
                   type: p.type,
                   unit: p.unit
@@ -148,7 +170,7 @@ const CascadingParameterSelector = ({
         });
         
         setProductCategories(Array.from(allCats).sort());
-        setParameters(allParams);
+        setAvailableParameters(allParams);
         setIsPesticidePanel(isPanel);
         setPesticidePanelType(panelType);
         setPesticideSubPanels(pSubPanels);
@@ -187,6 +209,32 @@ const CascadingParameterSelector = ({
 
   const handleSubGroupRemove = (subGroup) => {
     setSelectedSubGroups(selectedSubGroups.filter(sg => sg !== subGroup));
+  };
+
+  // --- Parameter search and selection ---
+  const filteredSuggestions = availableParameters.filter(p => {
+    // Don't show already-selected params
+    if (selectedParams.some(sp => sp._id === p._id)) return false;
+    // Filter by search term
+    if (!searchTerm.trim()) return true;
+    return p.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const addParameter = (param) => {
+    if (!selectedParams.some(sp => sp._id === param._id)) {
+      setSelectedParams(prev => [...prev, param]);
+    }
+    setSearchTerm('');
+    setShowSuggestions(false);
+  };
+
+  const removeParameter = (paramId) => {
+    setSelectedParams(prev => prev.filter(p => p._id !== paramId));
+  };
+
+  const addAllAvailable = () => {
+    const newParams = availableParameters.filter(p => !selectedParams.some(sp => sp._id === p._id));
+    setSelectedParams(prev => [...prev, ...newParams]);
   };
 
   return (
@@ -285,72 +333,199 @@ const CascadingParameterSelector = ({
         </div>
       </div>
 
-      {/* PARAMETERS PREVIEW */}
-      <div style={{ marginTop: '1rem' }}>
-        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>Auto-Selected Parameters</h4>
-        {loadingDetails ? (
-          <Spinner message="Loading parameters..." />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {isPesticidePanel && (
-              <div style={{ 
-                backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', 
-                padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '1rem' 
+      {/* PESTICIDE PANEL BANNER */}
+      {isPesticidePanel && (
+        <div style={{ 
+          backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', 
+          padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '1rem' 
+        }}>
+          <Beaker size={24} style={{ flexShrink: 0 }} />
+          <div>
+            <h5 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>Pesticide Panel Selected (Food)</h5>
+            <p style={{ margin: 0, fontSize: '0.85rem' }}>
+              This will automatically create separate assignments for:
+              <ul style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.5rem' }}>
+                {pesticideSubPanels.map(sp => (
+                  <li key={sp.panelName}>{sp.panelName} ({sp.parameterCount} parameters)</li>
+                ))}
+              </ul>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* PARAMETER SEARCH & SELECTION */}
+      {!isPesticidePanel && selectedSubGroups.length > 0 && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <h4 style={{ margin: 0, fontSize: '0.95rem' }}>
+              Test Parameters 
+              <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>
+                ({selectedParams.length} selected, {availableParameters.length} available)
+              </span>
+            </h4>
+            {availableParameters.length > 0 && (
+              <button
+                type="button"
+                onClick={addAllAvailable}
+                style={{ 
+                  fontSize: '0.8rem', padding: '0.3rem 0.6rem', 
+                  backgroundColor: 'var(--color-primary)', color: '#fff',
+                  border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.3rem'
+                }}
+              >
+                <Plus size={14} /> Add All
+              </button>
+            )}
+          </div>
+          
+          {/* Search box */}
+          <div ref={searchRef} style={{ position: 'relative', marginBottom: '0.75rem' }}>
+            <div style={{ 
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+              padding: '0.5rem 0.75rem', backgroundColor: 'var(--color-surface)'
+            }}>
+              <Search size={16} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder={loadingDetails ? 'Loading parameters...' : `Search from ${availableParameters.length} parameters...`}
+                value={searchTerm}
+                onChange={e => { setSearchTerm(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                disabled={loadingDetails}
+                style={{ 
+                  border: 'none', outline: 'none', width: '100%', 
+                  backgroundColor: 'transparent', fontSize: '0.9rem' 
+                }}
+              />
+              {searchTerm && (
+                <button 
+                  type="button" 
+                  onClick={() => { setSearchTerm(''); setShowSuggestions(false); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--color-text-muted)' }}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* Suggestions dropdown */}
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                maxHeight: '200px', overflowY: 'auto',
+                backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                borderTop: 'none', borderRadius: '0 0 var(--radius-sm) var(--radius-sm)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}>
-                <Beaker size={24} style={{ flexShrink: 0 }} />
-                <div>
-                  <h5 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>Pesticide Panel Selected (Food)</h5>
-                  <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                    This will automatically create separate assignments for:
-                    <ul style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.5rem' }}>
-                      {pesticideSubPanels.map(sp => (
-                        <li key={sp.panelName}>{sp.panelName} ({sp.parameterCount} parameters)</li>
-                      ))}
-                    </ul>
-                  </p>
-                </div>
+                {filteredSuggestions.map(p => (
+                  <div
+                    key={p._id}
+                    onClick={() => addParameter(p)}
+                    style={{
+                      padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      borderBottom: '1px solid var(--color-border)',
+                      transition: 'background-color 0.1s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span>{p.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className={`badge ${p.type === 'Micro' ? 'badge-primary' : 'badge-secondary'}`} style={{ fontSize: '0.65rem' }}>
+                        {p.type}
+                      </span>
+                      <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>{p.unit}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             
-            {parameters.length > 0 && (
-              <div style={{ 
-                maxHeight: '200px', overflowY: 'auto', 
-                border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', 
-                backgroundColor: 'var(--color-surface)' 
+            {showSuggestions && searchTerm && filteredSuggestions.length === 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                padding: '0.75rem', textAlign: 'center',
+                backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                borderTop: 'none', borderRadius: '0 0 var(--radius-sm) var(--radius-sm)',
+                color: 'var(--color-text-muted)', fontSize: '0.85rem', fontStyle: 'italic'
               }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                  <thead style={{ backgroundColor: 'var(--color-surface-hover)', position: 'sticky', top: 0 }}>
-                    <tr>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Parameter Name</th>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '80px' }}>Type</th>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Default Unit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parameters.map((p, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                        <td style={{ padding: '0.4rem 0.5rem' }}>{p.name}</td>
-                        <td style={{ padding: '0.4rem 0.5rem' }}>
-                          <span className={`badge ${p.type === 'Micro' ? 'badge-primary' : 'badge-secondary'}`} style={{ fontSize: '0.7rem' }}>
-                            {p.type}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.4rem 0.5rem', color: 'var(--color-text-muted)' }}>{p.unit}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            
-            {!isPesticidePanel && parameters.length === 0 && selectedSubGroups.length > 0 && (
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', fontStyle: 'italic', padding: '1rem', textAlign: 'center', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)' }}>
-                No standard parameters found for selected sub-groups.
+                No matching parameters found
               </div>
             )}
           </div>
-        )}
-      </div>
+
+          {/* Selected parameters list */}
+          {selectedParams.length > 0 && (
+            <div style={{ 
+              maxHeight: '250px', overflowY: 'auto', 
+              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', 
+              backgroundColor: 'var(--color-surface)' 
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead style={{ backgroundColor: 'var(--color-surface-hover)', position: 'sticky', top: 0 }}>
+                  <tr>
+                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Parameter Name</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '80px' }}>Type</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Unit</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '40px' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedParams.map((p, i) => (
+                    <tr key={p._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      <td style={{ padding: '0.4rem 0.5rem' }}>{p.name}</td>
+                      <td style={{ padding: '0.4rem 0.5rem' }}>
+                        <span className={`badge ${p.type === 'Micro' ? 'badge-primary' : 'badge-secondary'}`} style={{ fontSize: '0.7rem' }}>
+                          {p.type}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: 'var(--color-text-muted)' }}>{p.unit}</td>
+                      <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => removeParameter(p._id)}
+                          style={{ 
+                            background: 'none', border: 'none', cursor: 'pointer', 
+                            color: 'var(--color-danger)', padding: 0, display: 'flex' 
+                          }}
+                          title="Remove parameter"
+                        >
+                          <X size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          {selectedParams.length === 0 && (
+            <div style={{ 
+              color: 'var(--color-text-muted)', fontSize: '0.9rem', fontStyle: 'italic', 
+              padding: '1rem', textAlign: 'center', 
+              backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)' 
+            }}>
+              Type above to search and add parameters from the selected sub-group(s).
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* No subgroups selected state */}
+      {!isPesticidePanel && selectedSubGroups.length === 0 && selectedGroups.length > 0 && (
+        <div style={{ 
+          color: 'var(--color-text-muted)', fontSize: '0.9rem', fontStyle: 'italic', 
+          padding: '1rem', textAlign: 'center', 
+          backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)' 
+        }}>
+          Select a sub-group to start adding parameters.
+        </div>
+      )}
     </div>
   );
 };
