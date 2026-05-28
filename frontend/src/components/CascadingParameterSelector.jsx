@@ -312,7 +312,7 @@ const CascadingParameterSelector = ({
             <option value="">{loadingSubGroups ? 'Loading...' : '-- Add Sub-Group --'}</option>
             {subGroups.filter(sg => !selectedSubGroups.includes(sg.subGroup)).map(sg => (
               <option key={sg.subGroup} value={sg.subGroup}>
-                {sg.subGroup} {sg.isPesticidePanel ? '(Panel)' : ''}
+                {sg.subGroup}
               </option>
             ))}
           </select>
@@ -355,8 +355,9 @@ const CascadingParameterSelector = ({
       {/* PESTICIDE PANEL BANNER */}
       {isPesticidePanel && (
         <div style={{ 
-          backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', 
-          padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '1rem' 
+          backgroundColor: '#e8f4fd', color: '#1a5276', 
+          padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', gap: '1rem',
+          border: '1px solid #aed6f1'
         }}>
           <Beaker size={24} style={{ flexShrink: 0 }} />
           <div>
