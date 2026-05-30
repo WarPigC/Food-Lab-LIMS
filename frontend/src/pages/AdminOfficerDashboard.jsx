@@ -475,6 +475,9 @@ function Jobs() {
   const [nonNablPesticidePanel, setNonNablPesticidePanel] = useState({ enabled: false, panelType: null });
   const [ulrPreview, setUlrPreview] = useState('');
 
+  // Fix 2: Shared group data — fetched once, passed to all CascadingParameterSelector instances
+  const [allGroupData, setAllGroupData] = useState(null);
+
     const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [deleteConfirmJobId, setDeleteConfirmJobId] = useState(null);
   const [heads, setHeads] = useState([]);
@@ -524,7 +527,24 @@ function Jobs() {
     fetchJobs();
     fetchNextSerial();
     fetchHeads();
+    // Fetch group data once for all CascadingParameterSelector instances
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/api/parameter-groups/all`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setAllGroupData(res.data || []);
+      } catch (err) { console.error('Failed to fetch group data', err); }
+    })();
   }, []);
+
+  const fetchUlrPreview = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/jobs/next-ulr`);
+      setUlrPreview(res.data.ulr);
+    } catch (err) { console.error('Could not fetch next ULR', err); }
+  };
 
   useEffect(() => {
     if (formData.nabl_mode === 'nabl' || formData.nabl_mode === 'hybrid') {
@@ -963,6 +983,7 @@ function Jobs() {
                           <CascadingParameterSelector
                             label="NABL Job Parameters"
                             modeClass="nabl-card"
+                            allGroupData={allGroupData}
                             onDataChange={(data) => {
                               setNablParams(data.parameters);
                               setNablGroupMetadata(data.groupMetadata);
@@ -972,6 +993,7 @@ function Jobs() {
                           <CascadingParameterSelector
                             label="Non-NABL Job Parameters"
                             modeClass="non-nabl-card"
+                            allGroupData={allGroupData}
                             onDataChange={(data) => {
                               setNonNablParams(data.parameters);
                               setNonNablGroupMetadata(data.groupMetadata);
@@ -982,6 +1004,7 @@ function Jobs() {
                       ) : (
                         <CascadingParameterSelector
                           label="Test Parameters"
+                          allGroupData={allGroupData}
                           onDataChange={(data) => {
                             setSelectedParams(data.parameters);
                             setGroupMetadata(data.groupMetadata);

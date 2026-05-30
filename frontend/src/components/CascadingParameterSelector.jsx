@@ -1,19 +1,15 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import axios from 'axios';
-import API_URL from '../utils/api';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Spinner from './Spinner';
 import { AlertCircle, Beaker, Search, X, Plus, Save } from 'lucide-react';
+import axios from 'axios';
+import API_URL from '../utils/api';
 
 const CascadingParameterSelector = ({ 
   label = "Parameters", 
   onDataChange, 
   modeClass = "",
-  initialData = null 
+  allGroupData = null // Fix 2: Accept pre-fetched data from parent
 }) => {
-  // All data fetched once
-  const [allData, setAllData] = useState([]);
-  const [loadingAll, setLoadingAll] = useState(false);
-
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [selectedSubGroups, setSelectedSubGroups] = useState([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState('');
@@ -25,8 +21,6 @@ const CascadingParameterSelector = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef(null);
-  
-  const [error, setError] = useState('');
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -39,27 +33,9 @@ const CascadingParameterSelector = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ═══════ SINGLE FETCH ON MOUNT ═══════
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoadingAll(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_URL}/api/parameter-groups/all`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setAllData(res.data || []);
-      } catch (err) {
-        setError('Failed to load parameter data');
-        console.error(err);
-      } finally {
-        setLoadingAll(false);
-      }
-    };
-    fetchAll();
-  }, []);
+  // ═══════ ALL LOCAL FILTERING — zero API calls on interaction ═══════
+  const allData = allGroupData || [];
 
-  // ═══════ ALL LOCAL FILTERING (no API calls) ═══════
   const groups = useMemo(() => {
     const s = new Set(allData.map(d => d.group));
     return Array.from(s).sort();
@@ -68,7 +44,6 @@ const CascadingParameterSelector = ({
   const subGroups = useMemo(() => {
     if (selectedGroups.length === 0) return [];
     const filtered = allData.filter(d => selectedGroups.includes(d.group));
-    // Deduplicate by subGroup name
     const seen = new Set();
     return filtered.filter(d => {
       if (seen.has(d.subGroup)) return false;
@@ -114,23 +89,10 @@ const CascadingParameterSelector = ({
     return params;
   }, [matchedDocs]);
 
-  // True if any selected subgroup is a regular (non-panel) subgroup
   const hasNonPanelSubGroups = useMemo(() => matchedDocs.some(d => !d.isPesticidePanel), [matchedDocs]);
 
-  // Reset product category when it's no longer valid
-  useEffect(() => {
-    if (selectedProductCategory && !productCategories.includes(selectedProductCategory)) {
-      setSelectedProductCategory('');
-    }
-  }, [productCategories, selectedProductCategory]);
-
-  // Retain selected subgroups only if they still exist
-  useEffect(() => {
-    const validSgs = subGroups.map(s => s.subGroup);
-    setSelectedSubGroups(prev => prev.filter(sg => validSgs.includes(sg)));
-  }, [subGroups]);
-
   // ═══════ NOTIFY PARENT ═══════
+  // Fix 1: onDataChange is NOT in the dependency array — breaks the infinite loop
   useEffect(() => {
     if (onDataChange) {
       onDataChange({
@@ -146,24 +108,40 @@ const CascadingParameterSelector = ({
         }
       });
     }
-  }, [selectedParams, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType, onDataChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedParams, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType]);
 
   // ═══════ HANDLERS ═══════
+  // Fix 3: Inline cleanup in handlers instead of cascading useEffects
   const handleGroupSelect = (e) => {
     const value = e.target.value;
     if (value && !selectedGroups.includes(value)) {
-      setSelectedGroups([...selectedGroups, value]);
+      setSelectedGroups(prev => [...prev, value]);
     }
   };
-  const handleGroupRemove = (group) => setSelectedGroups(selectedGroups.filter(g => g !== group));
+
+  const handleGroupRemove = (group) => {
+    const newGroups = selectedGroups.filter(g => g !== group);
+    setSelectedGroups(newGroups);
+    // Immediately prune subgroups that no longer belong to any selected group
+    const validSubGroupNames = allData
+      .filter(d => newGroups.includes(d.group))
+      .map(d => d.subGroup);
+    setSelectedSubGroups(prev => prev.filter(sg => validSubGroupNames.includes(sg)));
+  };
 
   const handleSubGroupSelect = (e) => {
     const value = e.target.value;
     if (value && !selectedSubGroups.includes(value)) {
-      setSelectedSubGroups([...selectedSubGroups, value]);
+      setSelectedSubGroups(prev => [...prev, value]);
     }
   };
-  const handleSubGroupRemove = (subGroup) => setSelectedSubGroups(selectedSubGroups.filter(sg => sg !== subGroup));
+
+  const handleSubGroupRemove = (subGroup) => {
+    setSelectedSubGroups(prev => prev.filter(sg => sg !== subGroup));
+    // Reset product category if it's no longer valid after subgroup removal
+    // (will be handled naturally by the productCategories memo + render)
+  };
 
   const filteredSuggestions = availableParameters.filter(p => {
     if (selectedParams.some(sp => sp._id === p._id)) return false;
@@ -206,7 +184,7 @@ const CascadingParameterSelector = ({
   };
 
   // ═══════ RENDER ═══════
-  if (loadingAll) {
+  if (!allGroupData) {
     return (
       <div className={`cascading-selector ${modeClass}`} style={{ 
         padding: '2rem', textAlign: 'center',
@@ -227,8 +205,6 @@ const CascadingParameterSelector = ({
       <h3 style={{ margin: 0, fontSize: '1.1rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
         {label}
       </h3>
-      
-      {error && <div style={{ color: 'var(--color-danger)', fontSize: '0.9rem' }}>{error}</div>}
       
       <div className="flex-row-responsive">
         {/* GROUPS */}
