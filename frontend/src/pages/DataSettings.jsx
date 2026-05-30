@@ -411,10 +411,10 @@ export default function DataSettings() {
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group); }}
-                          style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', opacity: isExpanded ? 1 : 0.5 }}
+                          style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', opacity: isExpanded ? 1 : 0.5, padding: '0.25rem' }}
                           title="Delete Group"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
@@ -466,10 +466,10 @@ export default function DataSettings() {
                                 {!doc.isPesticidePanel && (
                                   <button 
                                     onClick={(e) => { e.stopPropagation(); handleDeleteSubgroup(doc); }}
-                                    style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', opacity: isSelected ? 1 : 0.5 }}
+                                    style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', opacity: isSelected ? 1 : 0.5, padding: '0.25rem' }}
                                     title="Delete Subgroup"
                                   >
-                                    <Trash2 size={12} />
+                                    <Trash2 size={16} />
                                   </button>
                                 )}
                               </div>
@@ -488,8 +488,8 @@ export default function DataSettings() {
                               onKeyDown={e => e.key === 'Enter' && handleAddSubgroup(group)}
                               style={{ flex: 1, padding: '0.3rem', fontSize: '0.85rem' }}
                             />
-                            <button onClick={() => setIsAddingSubgroup(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={14}/></button>
-                            <button onClick={() => handleAddSubgroup(group)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}><Check size={14}/></button>
+                            <button onClick={() => setIsAddingSubgroup(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}><X size={18}/></button>
+                            <button onClick={() => handleAddSubgroup(group)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-primary)' }}><Check size={18}/></button>
                           </div>
                         ) : (
                           <div 
@@ -516,8 +516,8 @@ export default function DataSettings() {
                     onKeyDown={e => e.key === 'Enter' && handleAddGroup()}
                     style={{ flex: 1, padding: '0.4rem', fontSize: '0.9rem' }}
                   />
-                  <button onClick={() => setIsAddingGroup(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16}/></button>
-                  <button onClick={handleAddGroup} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}><Check size={16}/></button>
+                  <button onClick={() => setIsAddingGroup(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}><X size={18}/></button>
+                  <button onClick={handleAddGroup} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-primary)' }}><Check size={18}/></button>
                 </div>
               ) : (
                 <button 
@@ -553,7 +553,7 @@ export default function DataSettings() {
                   {selectedSubgroup.productCategories?.map(cat => (
                     <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', backgroundColor: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                       {cat}
-                      <button onClick={() => handleRemoveCategory(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--color-text-muted)' }}><X size={12} /></button>
+                      <button onClick={() => handleRemoveCategory(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', display: 'flex', color: 'var(--color-text-muted)' }}><X size={16} /></button>
                     </div>
                   ))}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -564,7 +564,7 @@ export default function DataSettings() {
                       onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
                       style={{ padding: '0.2rem 0.4rem', fontSize: '0.85rem', width: '120px' }}
                     />
-                    <button onClick={handleAddCategory} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}><Plus size={16}/></button>
+                    <button onClick={handleAddCategory} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-primary)' }}><Plus size={18}/></button>
                   </div>
                 </div>
               </div>
@@ -633,7 +633,7 @@ export default function DataSettings() {
                               </div>
                             </td>
                             <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
-                              <button onClick={() => handleRemoveParameter(p._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: 0 }}><Trash2 size={14}/></button>
+                              <button onClick={() => handleRemoveParameter(p._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.25rem' }}><Trash2 size={18}/></button>
                             </td>
                           </tr>
                         ))}
@@ -654,7 +654,7 @@ export default function DataSettings() {
                         </select>
                         <input placeholder="Unit..." value={newParam.unit} onChange={e => setNewParam({...newParam, unit: e.target.value})} style={{ flex: 1, padding: '0.3rem', fontSize: '0.85rem' }} />
                         <button onClick={handleAddParameter} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.85rem' }}>Save</button>
-                        <button onClick={() => setIsAddingParam(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}><X size={16}/></button>
+                        <button onClick={() => setIsAddingParam(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-text-muted)' }}><X size={18}/></button>
                       </div>
                     ) : (
                       <button onClick={() => setIsAddingParam(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.9rem' }}>

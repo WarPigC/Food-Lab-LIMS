@@ -230,7 +230,7 @@ const CascadingParameterSelector = ({
                   onClick={() => handleGroupRemove(g)} 
                   style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}
                 >
-                  <AlertCircle size={14} style={{ transform: 'rotate(45deg)' }} />
+                  <AlertCircle size={18} style={{ transform: 'rotate(45deg)' }} />
                 </button>
               </div>
             ))}
@@ -263,7 +263,7 @@ const CascadingParameterSelector = ({
                   onClick={() => handleSubGroupRemove(sg)} 
                   style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}
                 >
-                  <AlertCircle size={14} style={{ transform: 'rotate(45deg)' }} />
+                  <AlertCircle size={18} style={{ transform: 'rotate(45deg)' }} />
                 </button>
               </div>
             ))}
@@ -360,9 +360,9 @@ const CascadingParameterSelector = ({
                 <button 
                   type="button" 
                   onClick={() => { setSearchTerm(''); setShowSuggestions(false); }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--color-text-muted)' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', display: 'flex', color: 'var(--color-text-muted)' }}
                 >
-                  <X size={16} />
+                  <X size={20} />
                 </button>
               )}
             </div>
@@ -455,11 +455,11 @@ const CascadingParameterSelector = ({
                             onClick={() => handleSaveUnit(p._id, p.unit)}
                             style={{ 
                               background: 'none', border: 'none', cursor: 'pointer', 
-                              color: 'var(--color-primary)', padding: '0.25rem', display: 'flex' 
+                              color: 'var(--color-primary)', padding: '0.35rem', display: 'flex' 
                             }}
                             title="Save as default for this parameter"
                           >
-                            <Save size={14} />
+                            <Save size={18} />
                           </button>
                         </div>
                       </td>
@@ -469,11 +469,11 @@ const CascadingParameterSelector = ({
                           onClick={() => removeParameter(p._id)}
                           style={{ 
                             background: 'none', border: 'none', cursor: 'pointer', 
-                            color: 'var(--color-danger)', padding: 0, display: 'flex' 
+                            color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' 
                           }}
                           title="Remove parameter"
                         >
-                          <X size={16} />
+                          <X size={20} />
                         </button>
                       </td>
                     </tr>
