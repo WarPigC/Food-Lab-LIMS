@@ -1128,6 +1128,7 @@ function Jobs() {
           onDeleteJob={handleDeleteJob}
           onEditJob={handleEditJob}
           onReopen={(job) => navigate('/admin-officer/jobs', { state: { reopenJob: job } })}
+          defaultExpandedId={location.state?.expandJobId}
         />
       </div>
 

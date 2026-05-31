@@ -152,7 +152,7 @@ const CascadingParameterSelector = ({
   // Reset active index when search term changes
   useEffect(() => {
     setActiveIndex(0);
-  }, [searchTerm, filteredSuggestions]);
+  }, [searchTerm]);
 
   const handleSearchKeyDown = (e) => {
     if (!showSuggestions || filteredSuggestions.length === 0) return;

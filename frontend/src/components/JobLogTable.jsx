@@ -2,10 +2,20 @@ import React, { useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Filter, Clock, Trash2, Edit } from 'lucide-react';
 import JobTimeline from './JobTimeline';
 
-export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDeleteJob, onEditJob }) {
+export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDeleteJob, onEditJob, defaultExpandedId }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [expandedJobId, setExpandedJobId] = useState(null);
+  const [expandedJobId, setExpandedJobId] = useState(defaultExpandedId || null);
+
+  React.useEffect(() => {
+    if (defaultExpandedId) {
+      setExpandedJobId(defaultExpandedId);
+      setTimeout(() => {
+        const row = document.getElementById(`job-row-${defaultExpandedId}`);
+        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [defaultExpandedId]);
 
   // Helper to determine a simple global status for a job
   const getJobStatus = (job) => {
@@ -98,7 +108,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
           ) : (
             filteredJobs.map(job => (
               <React.Fragment key={job._id}>
-                <tr style={{ cursor: 'pointer', borderBottom: expandedJobId === job._id ? 'none' : '1px solid var(--color-border)' }} onClick={() => toggleExpand(job._id)}>
+                <tr id={`job-row-${job._id}`} style={{ cursor: 'pointer', borderBottom: expandedJobId === job._id ? 'none' : '1px solid var(--color-border)' }} onClick={() => toggleExpand(job._id)}>
                   <td style={{ textAlign: 'center' }}>
                     {expandedJobId === job._id ? <ChevronDown size={20} color="var(--color-primary)" /> : <ChevronRight size={20} color="var(--color-text-muted)" />}
                   </td>
