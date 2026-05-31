@@ -299,6 +299,18 @@ function UsersPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setSuccess('');
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\+?[\d\s-]{10,15}$/;
+    
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!phoneRegex.test(formData.phone)) {
+      setError("Please enter a valid phone number (10-15 digits).");
+      return;
+    }
     try {
       const res = await axios.post(`${API_URL}/api/users`, formData);
       setSuccess(`User created successfully. Temporary password is: ${res.data.temporaryPassword}`);

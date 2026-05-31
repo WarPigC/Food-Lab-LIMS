@@ -578,7 +578,7 @@ export default function DataSettings() {
               {/* Product Categories */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>Product Categories</h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', maxHeight: '120px', overflowY: 'auto', paddingRight: '0.5rem' }}>
                   {selectedSubgroup.productCategories?.map(cat => (
                     <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', backgroundColor: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                       {cat}

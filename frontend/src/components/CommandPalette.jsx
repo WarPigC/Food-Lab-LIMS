@@ -53,17 +53,17 @@ export default function CommandPalette() {
     const commands = [];
     
     if (user?.role === 'ADMIN') {
-      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Admin Dashboard', icon: <LayoutDashboard size={18} />, action: () => navigate('/admin') });
+      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Dashboard', icon: <LayoutDashboard size={18} />, action: () => navigate('/admin') });
       commands.push({ id: 'nav-users', type: 'navigation', title: 'Go to User Management', icon: <Users size={18} />, action: () => navigate('/admin/users') });
-      commands.push({ id: 'nav-audit', type: 'navigation', title: 'Go to Audit Logs', icon: <FileText size={18} />, action: () => navigate('/admin/audit') });
+      commands.push({ id: 'nav-audit', type: 'navigation', title: 'Go to Activity Logs', icon: <FileText size={18} />, action: () => navigate('/admin/audit') });
     } else if (user?.role === 'ADMIN_OFFICER') {
-      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Job Distributor (Dashboard)', icon: <LayoutDashboard size={18} />, action: () => navigate('/admin-officer') });
+      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Job Distributor', icon: <LayoutDashboard size={18} />, action: () => navigate('/admin-officer') });
       commands.push({ id: 'nav-settings', type: 'navigation', title: 'Go to Data Settings', icon: <Settings size={18} />, action: () => navigate('/admin-officer/data-settings') });
       commands.push({ id: 'act-new-job', type: 'action', title: 'Create New Job', icon: <Plus size={18} />, action: () => { navigate('/admin-officer'); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
     } else if (user?.role === 'HEAD') {
-      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Head Dashboard', icon: <LayoutDashboard size={18} />, action: () => navigate('/head') });
+      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Department Dashboard', icon: <LayoutDashboard size={18} />, action: () => navigate('/head') });
     } else if (user?.role === 'ASSISTANT') {
-      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Assistant Dashboard', icon: <LayoutDashboard size={18} />, action: () => navigate('/assistant') });
+      commands.push({ id: 'nav-dashboard', type: 'navigation', title: 'Go to Task Queue', icon: <LayoutDashboard size={18} />, action: () => navigate('/assistant') });
     }
   
     // Common commands
