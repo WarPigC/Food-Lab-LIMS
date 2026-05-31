@@ -368,8 +368,7 @@ export default function AssistantDashboard() {
         <div className="card" style={{ marginBottom: '2rem', borderTop: `4px solid ${isReassigned(activeTask) ? 'var(--color-danger)' : 'var(--color-primary)'}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-border)', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
-              <h2 style={{ margin: 0 }}>Test {formatJobCode(activeTask.testCode)}</h2>
-              <p style={{ color: 'var(--color-text-muted)', margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>Client: {activeTask.clientName}</p>
+              <h2 style={{ margin: 0 }}>Job {formatJobCode(activeTask.testCode)}</h2>
             </div>
             <div style={{ textAlign: 'right' }}>
               <span className="badge badge-warning" style={{ fontSize: '0.9rem' }}>
@@ -404,7 +403,6 @@ export default function AssistantDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <Calendar size={16} style={{ color: 'var(--color-primary)' }} />
                 <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Testing Period</span>
-                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>(dates will appear in the report)</span>
               </div>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '250px' }}>
@@ -431,7 +429,6 @@ export default function AssistantDashboard() {
             <div>
               <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Test Parameters ({resultsData.length})</span>
-                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>Fill result value and test method for each parameter</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {resultsData.map((resItem, i) => {
@@ -454,7 +451,6 @@ export default function AssistantDashboard() {
                         <div>
                           <div style={{ fontWeight: 600, color: 'var(--color-text-main)', fontSize: '0.95rem' }}>{i + 1}. {resItem.name}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-                            Ref Range: {resItem.referenceRange || '—'} &nbsp;|&nbsp; Unit: {resItem.unit || '—'}
                           </div>
                           {prevResult?.value && (
                             <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)', marginTop: '0.25rem', fontStyle: 'italic' }}>
@@ -517,7 +513,7 @@ export default function AssistantDashboard() {
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>Test Method</label>
-                                <input type="text" value={resItem.testMethod} onChange={e => handleResultChange(i, 'testMethod', e.target.value)} placeholder="Standard / method used…" style={inputStyle} />
+                                <input type="text" value={resItem.testMethod} onChange={e => handleResultChange(i, 'testMethod', e.target.value)} placeholder="Method used" style={inputStyle} />
                               </div>
                             </div>
                           )}
@@ -552,9 +548,8 @@ export default function AssistantDashboard() {
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{new Date(task.deadline).toLocaleDateString('en-IN')}</span>
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 0.3rem 0', color: 'var(--color-primary-dark)' }}>Test {formatJobCode(task.testCode)}</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Client: {task.clientName}</span>
+                  <h3 style={{ margin: '0 0 0.3rem 0', color: 'var(--color-primary-dark)' }}>Job {formatJobCode(task.testCode)}</h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'flex-end' }}>
                     <span>Params: {task.results.length}</span>
                   </div>
                 </div>
