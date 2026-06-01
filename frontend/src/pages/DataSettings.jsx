@@ -4,12 +4,14 @@ import API_URL from '../utils/api';
 import { AuthContext } from '../context/AuthContext';
 import { Database, Plus, Edit, Trash2, X, Check, Search, AlertCircle, Activity, Save } from 'lucide-react';
 import Spinner from '../components/Spinner';
+import { fetchWithCache, invalidateCache, CACHE_KEYS } from '../utils/cache';
 
 export default function DataSettings() {
   const { user } = useContext(AuthContext);
   const [data, setData] = useState([]);
   const [globalParameters, setGlobalParameters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paramsLoading, setParamsLoading] = useState(true);
   const [error, setError] = useState('');
   const [recentUlrs, setRecentUlrs] = useState([]);
 
@@ -43,15 +45,23 @@ export default function DataSettings() {
   const [newParam, setNewParam] = useState({ name: '', type: 'Chemical', unit: '' });
 
   const fetchData = async () => {
-    setLoading(true);
+    // Only set page loading to true if we have NO cached groups data
+    if (!sessionStorage.getItem(CACHE_KEYS.GROUPS)) {
+      setLoading(true);
+    }
+    // Only show params loading if we have NO cached params
+    if (!sessionStorage.getItem(CACHE_KEYS.GLOBAL_PARAMS)) {
+      setParamsLoading(true);
+    }
+    
     try {
       const token = localStorage.getItem('token');
-      const [groupsRes, paramsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/parameter-groups/all`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/api/parameters`, { headers: { Authorization: `Bearer ${token}` } })
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      await Promise.all([
+        fetchWithCache(`${API_URL}/api/parameter-groups/all`, CACHE_KEYS.GROUPS, setData, headers),
+        fetchWithCache(`${API_URL}/api/parameters`, CACHE_KEYS.GLOBAL_PARAMS, setGlobalParameters, headers).finally(() => setParamsLoading(false))
       ]);
-      setData(groupsRes.data || []);
-      setGlobalParameters(paramsRes.data || []);
     } catch (err) {
       console.error(err);
       setError('Failed to load data');
@@ -153,6 +163,7 @@ export default function DataSettings() {
       });
       setNewGroupName('');
       setIsAddingGroup(false);
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error adding group');
@@ -171,6 +182,7 @@ export default function DataSettings() {
       });
       setEditingGroupId(null);
       if (selectedGroup === oldName) setSelectedGroup(newName);
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error renaming group');
@@ -188,6 +200,7 @@ export default function DataSettings() {
         setSelectedGroup(null);
         setSelectedSubgroup(null);
       }
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error deleting group');
@@ -207,6 +220,7 @@ export default function DataSettings() {
       });
       setNewSubgroupName('');
       setIsAddingSubgroup(false);
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error adding subgroup');
@@ -231,6 +245,7 @@ export default function DataSettings() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setEditingSubgroupId(null);
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error renaming subgroup');
@@ -245,6 +260,7 @@ export default function DataSettings() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (selectedSubgroup?._id === doc._id) setSelectedSubgroup(null);
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error deleting subgroup');
@@ -264,6 +280,7 @@ export default function DataSettings() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewCategory('');
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error adding category');
@@ -278,6 +295,7 @@ export default function DataSettings() {
       await axios.put(`${API_URL}/api/data-settings/subgroups/${selectedSubgroup._id}/categories`, { categories: updatedCategories }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error removing category');
@@ -293,6 +311,7 @@ export default function DataSettings() {
       });
       setNewParam({ name: '', type: 'Chemical', unit: '' });
       setIsAddingParam(false);
+      invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error adding parameter');
@@ -306,6 +325,7 @@ export default function DataSettings() {
       await axios.delete(`${API_URL}/api/parameters/${paramId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error deleting parameter');
@@ -318,6 +338,7 @@ export default function DataSettings() {
       await axios.put(`${API_URL}/api/parameters/${paramId}`, { [field]: value }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Error updating parameter');
@@ -628,67 +649,73 @@ export default function DataSettings() {
         </div>
 
         <div style={{ flex: 1, maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', marginBottom: '1rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-            <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-surface-hover)', zIndex: 1 }}>
-              <tr>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Name</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Type</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '150px' }}>Unit</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '60px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {globalParameters
-                .filter(p => !paramSearch || p.name.toLowerCase().includes(paramSearch.toLowerCase()))
-                .map(p => (
-                <tr key={p._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <input
-                      type="text"
-                      defaultValue={p.name}
-                      onBlur={(e) => {
-                        if(e.target.value !== p.name && e.target.value.trim() !== '') handleUpdateGlobalParameter(p._id, 'name', e.target.value);
-                      }}
-                      style={{ width: '100%', padding: '0.2rem', fontSize: '0.9rem', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
-                      onFocus={e => Object.assign(e.target.style, { border: '1px solid var(--color-primary)', background: '#fff' })}
-                    />
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <select
-                      defaultValue={p.type}
-                      onChange={(e) => handleUpdateGlobalParameter(p._id, 'type', e.target.value)}
-                      style={{ padding: '0.2rem', fontSize: '0.9rem', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
-                    >
-                      <option value="Chemical">Chemical</option>
-                      <option value="Micro">Micro</option>
-                    </select>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {paramsLoading ? (
+            <div style={{ padding: '3rem', display: 'flex', justifyContent: 'center' }}>
+              <Spinner message="Loading parameter library..." />
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-surface-hover)', zIndex: 1 }}>
+                <tr>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Name</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Type</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '150px' }}>Unit</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '60px' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {globalParameters
+                  .filter(p => !paramSearch || p.name.toLowerCase().includes(paramSearch.toLowerCase()))
+                  .map(p => (
+                  <tr key={p._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    <td style={{ padding: '0.75rem 1rem' }}>
                       <input
                         type="text"
-                        defaultValue={p.unit}
+                        defaultValue={p.name}
                         onBlur={(e) => {
-                          if(e.target.value !== p.unit) handleUpdateGlobalParameter(p._id, 'unit', e.target.value);
+                          if(e.target.value !== p.name && e.target.value.trim() !== '') handleUpdateGlobalParameter(p._id, 'name', e.target.value);
                         }}
-                        style={{ width: '100px', padding: '0.2rem', fontSize: '0.9rem', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
+                        style={{ width: '100%', padding: '0.2rem', fontSize: '0.9rem', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
                         onFocus={e => Object.assign(e.target.style, { border: '1px solid var(--color-primary)', background: '#fff' })}
                       />
-                      <Save size={14} style={{ color: 'var(--color-text-muted)' }} />
-                    </div>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                    <button onClick={() => handleRemoveGlobalParameter(p._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.25rem' }}><Trash2 size={18}/></button>
-                  </td>
-                </tr>
-              ))}
-              {globalParameters.length === 0 && (
-                <tr>
-                  <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No parameters found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <select
+                        defaultValue={p.type}
+                        onChange={(e) => handleUpdateGlobalParameter(p._id, 'type', e.target.value)}
+                        style={{ padding: '0.2rem', fontSize: '0.9rem', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
+                      >
+                        <option value="Chemical">Chemical</option>
+                        <option value="Micro">Micro</option>
+                      </select>
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <input
+                          type="text"
+                          defaultValue={p.unit}
+                          onBlur={(e) => {
+                            if(e.target.value !== p.unit) handleUpdateGlobalParameter(p._id, 'unit', e.target.value);
+                          }}
+                          style={{ width: '100px', padding: '0.2rem', fontSize: '0.9rem', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
+                          onFocus={e => Object.assign(e.target.style, { border: '1px solid var(--color-primary)', background: '#fff' })}
+                        />
+                        <Save size={14} style={{ color: 'var(--color-text-muted)' }} />
+                      </div>
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                      <button onClick={() => handleRemoveGlobalParameter(p._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.25rem' }}><Trash2 size={18}/></button>
+                    </td>
+                  </tr>
+                ))}
+                {globalParameters.length === 0 && (
+                  <tr>
+                    <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No parameters found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Add Global Parameter Row */}

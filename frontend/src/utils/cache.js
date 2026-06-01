@@ -65,4 +65,6 @@ export const CACHE_KEYS = {
   MY_TASKS: 'aiper_my_tasks',
   TRANSFERS_IN: 'aiper_transfers_in',
   TRANSFERS_OUT: 'aiper_transfers_out',
+  GROUPS: 'aiper_groups',
+  GLOBAL_PARAMS: 'aiper_global_params',
 };
