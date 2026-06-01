@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Filter, Clock, Trash2, Edit } from 'lucide-react';
 import JobTimeline from './JobTimeline';
+import GlobalJobHistory from './GlobalJobHistory';
 
 export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDeleteJob, onEditJob, defaultExpandedId }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +25,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
     if (job.distribution?.chemical?.required) statuses.push(job.distribution.chemical.status);
 
     if (statuses.length === 0) return 'PENDING';
+    if (statuses.some(s => s === 'RETURNED')) return 'RETURNED';
     if (statuses.every(s => s === 'COMPLETED')) return 'COMPLETED';
     if (statuses.every(s => s === 'PENDING')) return 'PENDING';
     // Any mix (e.g. one COMPLETED + one PENDING, or any ASSIGNED_TO_ASSISTANT) = in progress
@@ -45,12 +47,14 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
     setExpandedJobId(expandedJobId === id ? null : id);
   };
 
+  const [historyJob, setHistoryJob] = useState(null);
 
   const StatusBadge = ({ status }) => {
     switch (status) {
       case 'COMPLETED': return <span className="badge badge-success">Completed</span>;
       case 'IN_PROGRESS': return <span className="badge badge-warning">In Progress</span>;
       case 'REOPENED': return <span className="badge badge-warning" style={{ backgroundColor: '#f59e0b' }}>Reopened</span>;
+      case 'RETURNED': return <span className="badge" style={{ backgroundColor: '#EF4444', color: 'white' }}>Returned</span>;
       default: return <span className="badge" style={{ backgroundColor: 'var(--color-border)', color: 'var(--color-text-main)' }}>Pending</span>;
     }
   };
@@ -85,6 +89,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
               <option value="ALL">All Status</option>
               <option value="PENDING">Pending</option>
               <option value="IN_PROGRESS">In Progress</option>
+              <option value="RETURNED">Returned</option>
               <option value="COMPLETED">Completed</option>
             </select>
           </div>
@@ -116,8 +121,15 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
                   <td style={{ fontWeight: 500 }}>{job.clientName}</td>
                   <td>{new Date(job.createdAt).toLocaleDateString('en-IN')}</td>
                   <td><StatusBadge status={getJobStatus(job)} /></td>
-                  {(onDeleteJob || onEditJob) && (
+                  {(onDeleteJob || onEditJob || job.history?.length > 0) && (
                     <td style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setHistoryJob(job); }}
+                        style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center' }}
+                        title="View Job History"
+                      >
+                        <Clock size={16} />
+                      </button>
                       {onEditJob && getJobStatus(job) !== 'COMPLETED' && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onEditJob(job); }}
@@ -153,6 +165,9 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
           )}
         </tbody>
       </table>
+      {historyJob && (
+        <GlobalJobHistory history={historyJob.history} onClose={() => setHistoryJob(null)} />
+      )}
     </div>
   );
 }

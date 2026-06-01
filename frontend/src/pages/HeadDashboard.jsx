@@ -378,6 +378,11 @@ function Dispatcher() {
   );
   const [submittingJobId, setSubmittingJobId] = useState(null);
 
+  // Return Job State
+  const [returnModalData, setReturnModalData] = useState(null); // { jobId: string, dept: string }
+  const [returnNote, setReturnNote] = useState('');
+  const [isReturning, setIsReturning] = useState(false);
+
   // Sample transfer state
   const [incomingTransfers, setIncomingTransfers] = useState([]);
   const [outgoingJobs, setOutgoingJobs] = useState([]);
@@ -537,6 +542,33 @@ function Dispatcher() {
       alert('Error: ' + (err.response?.data?.message || err.message));
     } finally {
       setSubmittingJobId(null);
+    }
+  };
+
+  const handleReturn = async (e) => {
+    e.preventDefault();
+    if (!returnModalData || !returnNote.trim()) return;
+    
+    setIsReturning(true);
+    try {
+      await axios.post(`${API_URL}/api/jobs/${returnModalData.jobId}/return`, {
+        department: returnModalData.dept,
+        note: returnNote
+      });
+      
+      setJobs(prev => prev.filter(j => j._id !== returnModalData.jobId));
+      setSuccess(`Job returned to Admin Officer successfully.`);
+      setReturnModalData(null);
+      setReturnNote('');
+      setTimeout(() => setSuccess(''), 4000);
+      
+      invalidateCache(CACHE_KEYS.JOBS);
+      fetchJobs();
+    } catch (err) {
+      console.error(err);
+      alert('Error returning job: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -834,15 +866,30 @@ function Dispatcher() {
                               style={{ width: '100%' }}
                             />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleSubmit(job)}
-                            className="btn btn-primary"
-                            disabled={submittingJobId === job._id}
-                            style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', justifyContent: 'center' }}
-                          >
-                            {submittingJobId === job._id ? <Spinner size="sm" message="Dispatching..." color="#fff" /> : 'Dispatch Job'}
-                          </button>
+                          <div style={{ flex: '0 0 auto', display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const dept = user?.department ? user.department.toLowerCase() : '';
+                                const dKey = dept === 'chemical' ? 'chemical' : dept;
+                                setReturnModalData({ jobId: job._id, dept: dKey });
+                                setReturnNote('');
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#B45309', border: '1px solid #F59E0B', backgroundColor: '#FFFBEB' }}
+                            >
+                              <RotateCcw size={16} /> Return
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSubmit(job)}
+                              className="btn btn-primary"
+                              disabled={submittingJobId === job._id}
+                              style={{ padding: '0.6rem 1.5rem', justifyContent: 'center' }}
+                            >
+                              {submittingJobId === job._id ? <Spinner size="sm" message="Dispatching..." color="#fff" /> : 'Dispatch Job'}
+                            </button>
+                          </div>
                         </div>
                       </>
                     )}
@@ -882,13 +929,50 @@ function Dispatcher() {
               </button>
               <button 
                 className="btn btn-primary" 
-                onClick={executeTransfer}
+                onClick={() => transferConfirmData.type === 'send' ? executeSendTransfer() : executeReceiveTransfer()}
                 style={{ padding: '0.6rem 2rem' }}
                 disabled={transferLoading}
               >
                 {transferLoading ? 'Processing...' : 'Confirm'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Return to Officer Modal */}
+      {returnModalData && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', animation: 'slideUp 0.3s ease', borderTop: '4px solid #EF4444' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#B45309', margin: '0 0 1rem 0', fontSize: '1.25rem' }}>
+              <RotateCcw size={20} /> Return Job to Admin Officer
+            </h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Please provide a clear reason for returning this job. The Admin Officer will see this note.
+            </p>
+            <form onSubmit={handleReturn}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>Reason for Return <span style={{color: 'var(--color-danger)'}}>*</span></label>
+                <textarea
+                  value={returnNote}
+                  onChange={e => setReturnNote(e.target.value)}
+                  placeholder="e.g. Missing required test parameter, incorrect volume stated, etc."
+                  rows="4"
+                  required
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', resize: 'vertical' }}
+                ></textarea>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn" style={{ border: '1px solid var(--color-border)', padding: '0.6rem 1.5rem' }} onClick={() => setReturnModalData(null)} disabled={isReturning}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ backgroundColor: '#EF4444', border: 'none', padding: '0.6rem 1.5rem' }} disabled={isReturning || !returnNote.trim()}>
+                  {isReturning ? <Spinner size="sm" color="#fff" /> : 'Return Job'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

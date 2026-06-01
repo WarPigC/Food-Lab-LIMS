@@ -6,7 +6,7 @@ const SampleTransfer = require('../models/SampleTransfer');
 const Notification = require('../models/Notification');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
-const { createNotification, notifyAdmins } = require('../utils/notifier');
+const { createNotification, notifyAdmins, notifyAdminOfficers } = require('../utils/notifier');
 const User = require('../models/User');
 const UlrCounter = require('../models/UlrCounter');
 
@@ -116,6 +116,7 @@ router.get('/', protect, async (req, res) => {
       .populate('parameters.parameterId', 'name unit type')
       .populate('distribution.micro.assignedHead', 'name email')
       .populate('distribution.chemical.assignedHead', 'name email')
+      .populate('history.by', 'name')
       .populate('siblingJobId', 'jobCode')
       .sort({ createdAt: -1 });
 
@@ -230,7 +231,12 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         pesticidePanel: nablPesticidePanel,
         distribution: nablDist,
         sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
-        createdBy: req.user._id
+        createdBy: req.user._id,
+        history: [{
+          action: 'CREATED',
+          by: req.user._id,
+          note: 'Job logged by Admin Officer'
+        }]
       });
 
       // Create Non-NABL job
@@ -248,7 +254,12 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         distribution: nonNablDist,
         sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id,
-        siblingJobId: nablJob._id
+        siblingJobId: nablJob._id,
+        history: [{
+          action: 'CREATED',
+          by: req.user._id,
+          note: 'Job logged by Admin Officer'
+        }]
       });
 
       // Update NABL job with sibling link
@@ -278,7 +289,12 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         pesticidePanel,
         distribution: dist,
         sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
-        createdBy: req.user._id
+        createdBy: req.user._id,
+        history: [{
+          action: 'CREATED',
+          by: req.user._id,
+          note: 'Job logged by Admin Officer'
+        }]
       });
 
       await sendNotifications(job, parameters, dist);
@@ -325,16 +341,80 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       job.totalSampleVolume = parseFloat(sample.sample_quantity) || 0;
     }
 
+    let isResubmitted = false;
+    if (job.distribution.micro.status === 'RETURNED') {
+      job.distribution.micro.status = 'PENDING';
+      isResubmitted = true;
+    }
+    if (job.distribution.chemical.status === 'RETURNED') {
+      job.distribution.chemical.status = 'PENDING';
+      isResubmitted = true;
+    }
+
+    job.history.push({
+      action: isResubmitted ? 'RESUBMITTED' : 'UPDATED',
+      by: req.user._id,
+      note: isResubmitted ? 'Job resubmitted by Admin Officer after corrections' : 'Job updated by Admin Officer'
+    });
+
     await job.save();
 
     if (req.app.get('io')) {
-      // Notify clients that jobs have changed (could use a specific JOB_UPDATED event)
+      // Notify clients that jobs have changed
       req.app.get('io').emit('JOB_CREATED'); // Re-using this event will force refresh the table
     }
 
     res.json(job);
   } catch (error) {
     res.status(500).json({ message: 'Error updating job', error: error.message });
+  }
+});
+
+// Return Job to Officer (HEAD only)
+router.post('/:id/return', protect, authorize('HEAD'), async (req, res) => {
+  try {
+    const { department, note } = req.body; // 'micro' or 'chemical'
+    if (!department || !note) {
+      return res.status(400).json({ message: 'Department and note are required' });
+    }
+
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    if (!job.distribution[department]) {
+      return res.status(400).json({ message: 'Invalid department' });
+    }
+
+    if (job.distribution[department].status !== 'PENDING') {
+      return res.status(400).json({ message: 'Job is not pending dispatch' });
+    }
+
+    job.distribution[department].status = 'RETURNED';
+    
+    job.history.push({
+      action: 'RETURNED_TO_OFFICER',
+      by: req.user._id,
+      note: note
+    });
+
+    await job.save();
+
+    // Notification to Admin Officer
+    await notifyAdminOfficers({
+      type: 'WARNING',
+      title: 'Job Returned',
+      message: `Job ${job.jobCode} was returned by ${department.toUpperCase()} HEAD. Reason: ${note}`,
+      relatedJobId: job._id,
+      link: '/admin-officer/jobs'
+    });
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('JOB_CREATED'); // Force refresh
+    }
+
+    res.json({ message: 'Job returned successfully', job });
+  } catch (error) {
+    res.status(500).json({ message: 'Error returning job', error: error.message });
   }
 });
 

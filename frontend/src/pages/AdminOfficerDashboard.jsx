@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Routes, Route, useLocation, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Trash2, Edit, Activity, Users as UsersIcon, Clock, CheckCircle, FileText, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, X, Calendar, ArrowRightLeft } from 'lucide-react';
+import { Trash2, Edit, Activity, Users as UsersIcon, Clock, CheckCircle, FileText, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, X, Calendar, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import JobLogTable from '../components/JobLogTable';
 import ReportViewer from '../components/ReportViewer';
 import CascadingParameterSelector from '../components/CascadingParameterSelector';
@@ -869,8 +869,29 @@ function Jobs() {
         </div>
       </div>
 
-      {showForm && (
+      {showForm && (() => {
+        const editingJob = editingJobId ? jobs.find(j => j._id === editingJobId) : null;
+        let returnNote = null;
+        if (editingJob) {
+          const isReturned = editingJob.distribution?.micro?.status === 'RETURNED' || editingJob.distribution?.chemical?.status === 'RETURNED';
+          if (isReturned && editingJob.history) {
+            const returnEvent = editingJob.history.slice().reverse().find(e => e.action === 'RETURNED_TO_OFFICER');
+            if (returnEvent) returnNote = returnEvent.note;
+          }
+        }
+
+        return (
         <div className="card" style={{ marginBottom: '2rem', overflow: 'visible', border: reopenParentId ? '2px solid var(--color-warning)' : 'none', maxWidth: '100%', boxSizing: 'border-box' }}>
+          {returnNote && (
+            <div style={{ padding: '1rem', backgroundColor: '#FEF2F2', border: '1px solid #F87171', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <div style={{ color: '#EF4444', marginTop: '0.1rem' }}><AlertTriangle size={20} /></div>
+              <div>
+                <h4 style={{ margin: '0 0 0.25rem 0', color: '#B91C1C' }}>Job Returned by Head</h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#991B1B' }}><strong>Reason:</strong> {returnNote}</p>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8rem', color: '#B91C1C', fontStyle: 'italic' }}>Please correct the details below and resubmit the job.</p>
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ margin: 0, color: reopenParentId ? 'var(--color-warning)' : 'inherit' }}>
               {reopenParentId ? 'Log Sample Retest' : 'Log New Sample & Distribute'}
@@ -1135,7 +1156,7 @@ function Jobs() {
             </button>
           </form>
         </div>
-      )}
+      ); })()}
 
       <div style={{ marginTop: '2rem' }}>
         <JobLogTable

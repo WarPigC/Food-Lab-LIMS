@@ -67,7 +67,7 @@ const jobSchema = new mongoose.Schema({
     micro: {
       required: { type: Boolean, default: false },
       assignedHead: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      status: { type: String, enum: ['PENDING', 'AWAITING_TRANSFER', 'ASSIGNED_TO_ASSISTANT', 'COMPLETED'], default: 'PENDING' },
+      status: { type: String, enum: ['PENDING', 'AWAITING_TRANSFER', 'ASSIGNED_TO_ASSISTANT', 'RETURNED', 'COMPLETED'], default: 'PENDING' },
       reopenInfo: {
         parentInstanceId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestInstance' },
         parentVersion: { type: Number },
@@ -77,7 +77,7 @@ const jobSchema = new mongoose.Schema({
     chemical: {
       required: { type: Boolean, default: false },
       assignedHead: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      status: { type: String, enum: ['PENDING', 'AWAITING_TRANSFER', 'ASSIGNED_TO_ASSISTANT', 'COMPLETED'], default: 'PENDING' },
+      status: { type: String, enum: ['PENDING', 'AWAITING_TRANSFER', 'ASSIGNED_TO_ASSISTANT', 'RETURNED', 'COMPLETED'], default: 'PENDING' },
       reopenInfo: {
         parentInstanceId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestInstance' },
         parentVersion: { type: Number },
@@ -91,6 +91,14 @@ const jobSchema = new mongoose.Schema({
     transferDeadline: { type: Date }
   },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  
+  // Job History Timeline
+  history: [{
+    action: { type: String, enum: ['CREATED', 'DISPATCHED', 'RETURNED_TO_OFFICER', 'RESUBMITTED', 'RETEST_REQUESTED', 'COMPLETED', 'UPDATED'] },
+    by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    note: { type: String },
+    timestamp: { type: Date, default: Date.now }
+  }],
   
   // Retest/Reopen Fields
   isRetest: { type: Boolean, default: false },
