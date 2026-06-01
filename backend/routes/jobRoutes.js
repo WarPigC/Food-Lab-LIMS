@@ -131,7 +131,11 @@ router.get('/', protect, async (req, res) => {
         .populate('sentBy', 'name department')
         .populate('receivedBy', 'name department')
         .sort({ createdAt: 1 });
-      return { ...job.toObject(), testInstances: instances, sampleTransfers: transfers };
+      const jobObj = job.toObject();
+      if (jobObj.parameters) {
+        jobObj.parameters = jobObj.parameters.filter(p => p.parameterId);
+      }
+      return { ...jobObj, testInstances: instances, sampleTransfers: transfers };
     }));
     return res.json(jobsWithTimeline);
   } catch (error) {

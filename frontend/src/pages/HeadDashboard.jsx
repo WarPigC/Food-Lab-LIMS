@@ -448,6 +448,7 @@ function Dispatcher() {
 
   const getDeptParams = (job) => {
     const params = job?.parameters?.filter(p => {
+      if (!p || !p.parameterId) return false;
       const d = user?.department ? user.department.toLowerCase() : '';
       const pt = p.type ? p.type.toLowerCase() : '';
       if ((d === 'chemical' || d === 'chemical') && pt === 'chemical') return true;
