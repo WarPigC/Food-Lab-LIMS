@@ -604,24 +604,24 @@ export default function DataSettings() {
               </div>
 
               {/* Product Categories */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>Product Categories</h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', maxHeight: '120px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, marginBottom: '1rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', flexShrink: 0 }}>Product Categories</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignContent: 'flex-start', flex: 1, overflowY: 'auto', paddingRight: '0.5rem', paddingBottom: '1rem' }}>
                   {selectedSubgroup.productCategories?.map(cat => (
-                    <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', backgroundColor: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
+                    <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.6rem', backgroundColor: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                       {cat}
                       <button onClick={() => handleRemoveCategory(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem', display: 'flex', color: 'var(--color-text-muted)' }}><X size={16} /></button>
                     </div>
                   ))}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.1rem 0' }}>
                     <input 
                       placeholder="Add category..." 
                       value={newCategory}
                       onChange={e => setNewCategory(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                      style={{ padding: '0.2rem 0.4rem', fontSize: '0.85rem', width: '120px' }}
+                      style={{ padding: '0.3rem 0.5rem', fontSize: '0.85rem', width: '130px', minWidth: '100px' }}
                     />
-                    <button onClick={handleAddCategory} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-primary)' }}><Plus size={18}/></button>
+                    <button onClick={handleAddCategory} style={{ background: 'var(--color-surface-hover)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '0.3rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={18}/></button>
                   </div>
                 </div>
               </div>
