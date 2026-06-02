@@ -19,7 +19,6 @@ const formatJobCode = (code) => {
 
 function Dashboard() {
   const { user } = useContext(AuthContext);
-  const socket = useSocket();
   const [stats, setStats] = useState({
     ongoingJobs: 0,
     completedJobs: 0,
@@ -465,6 +464,7 @@ const CHEMICAL_UNITS = [
 function Jobs() {
   const location = useLocation();
   const navigate = useNavigate();
+  const socket = useSocket();
   const [jobs, setJobs] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(() => {
