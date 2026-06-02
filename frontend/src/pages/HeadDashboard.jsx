@@ -1020,7 +1020,7 @@ function Dispatcher() {
               </button>
               <button 
                 className="btn btn-primary" 
-                onClick={() => transferConfirmData.type === 'send' ? executeSendTransfer() : executeReceiveTransfer()}
+                onClick={() => executeTransfer()}
                 style={{ padding: '0.6rem 2rem' }}
                 disabled={transferLoading}
               >
