@@ -476,6 +476,7 @@ function Jobs() {
   const [nextSerial, setNextSerial] = useState(null);
   const [reopenParentId, setReopenParentId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
+  const [isEditingReturnedJob, setIsEditingReturnedJob] = useState(false);
 
   // Parameter State - Cascading Selector
   const [selectedParams, setSelectedParams] = useState(() => {
@@ -783,6 +784,10 @@ function Jobs() {
   const handleEditJob = (job) => {
     populateFormFromJob(job);
     setEditingJobId(job._id);
+    
+    const isReturned = (job.distribution?.micro?.status === 'RETURNED' || job.distribution?.chemical?.status === 'RETURNED');
+    setIsEditingReturnedJob(isReturned);
+    
     setReopenParentId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -919,6 +924,7 @@ function Jobs() {
       setFormData({ ...BLANK_FORM, reopenReason: '' });
       setReopenParentId(null);
       setEditingJobId(null);
+      setIsEditingReturnedJob(false);
       setSelectedParams([]);
       setGroupMetadata(null);
       setPesticidePanel({ enabled: false, panelType: null });
@@ -982,6 +988,7 @@ function Jobs() {
             if (showForm) {
               setReopenParentId(null);
               setEditingJobId(null);
+              setIsEditingReturnedJob(false);
               setAssignedMicroHead('');
               setAssignedChemicalHead('');
             }
@@ -1179,7 +1186,7 @@ function Jobs() {
                             initialGroupMetadata={nablGroupMetadata}
                             initialPesticidePanel={nablPesticidePanel}
                             externalSync={nonNablGroupMetadata}
-                            immutable={!!editingJobId}
+                            immutable={!!editingJobId && !isEditingReturnedJob}
                             onDataChange={(data) => {
                               setNablParams(data.parameters);
                               setNablGroupMetadata(data.groupMetadata);
@@ -1194,7 +1201,7 @@ function Jobs() {
                             initialGroupMetadata={nonNablGroupMetadata}
                             initialPesticidePanel={nonNablPesticidePanel}
                             externalSync={nablGroupMetadata}
-                            immutable={!!editingJobId}
+                            immutable={!!editingJobId && !isEditingReturnedJob}
                             onDataChange={(data) => {
                               setNonNablParams(data.parameters);
                               setNonNablGroupMetadata(data.groupMetadata);
@@ -1209,7 +1216,7 @@ function Jobs() {
                           initialSelectedParams={selectedParams}
                           initialGroupMetadata={groupMetadata}
                           initialPesticidePanel={pesticidePanel}
-                          immutable={!!editingJobId}
+                          immutable={!!editingJobId && !isEditingReturnedJob}
                           onDataChange={(data) => {
                             setSelectedParams(data.parameters);
                             setGroupMetadata(data.groupMetadata);
