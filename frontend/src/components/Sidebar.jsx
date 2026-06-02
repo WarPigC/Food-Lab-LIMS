@@ -48,6 +48,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <link rel="preload" as="image" href={logo} />
       <div className="sidebar-logo-area" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', borderBottom: '1px solid var(--color-primary-light)', backgroundColor: 'white', position: 'relative' }}>
         <img src={logo} alt="Acropolis Logo" style={{ maxWidth: '100%', maxHeight: '60px', objectFit: 'contain' }} />
         {/* Close button — visible only on mobile */}

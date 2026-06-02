@@ -19,6 +19,7 @@ const formatJobCode = (code) => {
 
 function Dashboard() {
   const { user } = useContext(AuthContext);
+  const socket = useSocket();
   const [stats, setStats] = useState({
     ongoingJobs: 0,
     completedJobs: 0,
@@ -603,6 +604,40 @@ function Jobs() {
       }
     } catch (err) { console.error('Could not fetch next sample ID', err); }
   };
+
+
+  useEffect(() => {
+    if (!socket) return;
+    const triggerUpdate = () => {
+      invalidateCache(CACHE_KEYS.JOBS);
+      invalidateCache(CACHE_KEYS.INSTANCES);
+      fetchJobs();
+      // fetchStats is defined in another useEffect but it has its own dependency array... 
+      // Actually, since invalidateCache forces a fresh fetch, window.location.reload() might be safest or we just call fetchJobs.
+      // Wait, we can't call fetchStats from here if it's trapped in a closure. 
+      // Let's just do a fetchJobs() and that updates the table.
+    };
+
+    socket.on('JOB_CREATED', triggerUpdate);
+    socket.on('JOB_RETEST_INITIATED', triggerUpdate);
+    socket.on('TRANSFER_INITIATED', triggerUpdate);
+    socket.on('TRANSFER_RECEIVED', triggerUpdate);
+    socket.on('TEST_SUBMITTED', triggerUpdate);
+    socket.on('TEST_REVIEWED', triggerUpdate);
+    socket.on('JOB_UPDATED', triggerUpdate);
+    socket.on('JOB_RETURNED', triggerUpdate);
+
+    return () => {
+      socket.off('JOB_CREATED', triggerUpdate);
+      socket.off('JOB_RETEST_INITIATED', triggerUpdate);
+      socket.off('TRANSFER_INITIATED', triggerUpdate);
+      socket.off('TRANSFER_RECEIVED', triggerUpdate);
+      socket.off('TEST_SUBMITTED', triggerUpdate);
+      socket.off('TEST_REVIEWED', triggerUpdate);
+      socket.off('JOB_UPDATED', triggerUpdate);
+      socket.off('JOB_RETURNED', triggerUpdate);
+    };
+  }, [socket]);
 
   useEffect(() => {
     fetchJobs();
@@ -1348,6 +1383,7 @@ function Audit() {
     () => !sessionStorage.getItem(CACHE_KEYS.JOBS)
   );
   const navigate = useNavigate();
+  const socket = useSocket();
 
   const fetchData = async () => {
     try {
@@ -1358,6 +1394,35 @@ function Audit() {
       setAuditLoading(false);
     }
   };
+
+
+  useEffect(() => {
+    if (!socket) return;
+    const triggerUpdate = () => {
+      invalidateCache(CACHE_KEYS.JOBS);
+      fetchData();
+    };
+
+    socket.on('JOB_CREATED', triggerUpdate);
+    socket.on('JOB_RETEST_INITIATED', triggerUpdate);
+    socket.on('TRANSFER_INITIATED', triggerUpdate);
+    socket.on('TRANSFER_RECEIVED', triggerUpdate);
+    socket.on('TEST_SUBMITTED', triggerUpdate);
+    socket.on('TEST_REVIEWED', triggerUpdate);
+    socket.on('JOB_UPDATED', triggerUpdate);
+    socket.on('JOB_RETURNED', triggerUpdate);
+
+    return () => {
+      socket.off('JOB_CREATED', triggerUpdate);
+      socket.off('JOB_RETEST_INITIATED', triggerUpdate);
+      socket.off('TRANSFER_INITIATED', triggerUpdate);
+      socket.off('TRANSFER_RECEIVED', triggerUpdate);
+      socket.off('TEST_SUBMITTED', triggerUpdate);
+      socket.off('TEST_REVIEWED', triggerUpdate);
+      socket.off('JOB_UPDATED', triggerUpdate);
+      socket.off('JOB_RETURNED', triggerUpdate);
+    };
+  }, [socket]);
 
   useEffect(() => { fetchData(); }, []);
 

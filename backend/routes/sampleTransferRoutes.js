@@ -44,10 +44,11 @@ router.get('/outgoing', protect, authorize('HEAD'), async (req, res) => {
     const dept = req.user.department ? req.user.department.toLowerCase() : '';
     const fromDept = (dept === 'chemical') ? 'chemical' : 'micro';
     
-    // Find jobs where this dept is first and no transfer sent yet
+    // Find jobs where this dept is first, no transfer sent yet, and not returned
     const jobs = await Job.find({
       'sampleFlow.type': 'SEQUENTIAL',
-      'sampleFlow.firstDepartment': fromDept
+      'sampleFlow.firstDepartment': fromDept,
+      [`distribution.${fromDept}.status`]: { $ne: 'RETURNED' }
     });
 
     // Filter out jobs that already have a transfer record
