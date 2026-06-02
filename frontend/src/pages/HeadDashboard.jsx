@@ -421,18 +421,22 @@ function Dispatcher() {
   useEffect(() => {
     if (!socket) return;
     const updateJobs = () => { invalidateCache(CACHE_KEYS.JOBS); fetchJobs(); };
-    const updateTransfers = () => { fetchTransfers(); };
+    const updateTransfers = () => { 
+      invalidateCache(CACHE_KEYS.TRANSFERS_IN, CACHE_KEYS.TRANSFERS_OUT); 
+      fetchTransfers(); 
+    };
+    const updateBoth = () => { updateJobs(); updateTransfers(); };
 
     socket.on('JOB_CREATED', updateJobs);
     socket.on('JOB_RETEST_INITIATED', updateJobs);
     socket.on('TRANSFER_INITIATED', updateTransfers);
-    socket.on('TRANSFER_RECEIVED', () => { updateJobs(); updateTransfers(); });
+    socket.on('TRANSFER_RECEIVED', updateBoth);
 
     return () => {
       socket.off('JOB_CREATED', updateJobs);
       socket.off('JOB_RETEST_INITIATED', updateJobs);
       socket.off('TRANSFER_INITIATED', updateTransfers);
-      socket.off('TRANSFER_RECEIVED');
+      socket.off('TRANSFER_RECEIVED', updateBoth);
     };
   }, [socket, user]);
 
