@@ -389,6 +389,14 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       } else {
         job.sampleFlow = undefined;
       }
+
+      if (isResubmitted || !hasMicro || !hasChemical) {
+        await SampleTransfer.deleteMany({ jobId: job._id });
+        if (req.app.get('io')) {
+          req.app.get('io').emit('TRANSFER_INITIATED');
+          req.app.get('io').emit('TRANSFER_RECEIVED');
+        }
+      }
     }
 
     job.history.push({

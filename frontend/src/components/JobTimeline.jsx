@@ -46,6 +46,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
 
     const microRequired = !!cycleJob.distribution?.micro?.required;
     const chemicalRequired = !!cycleJob.distribution?.chemical?.required;
+    const bothRequired = microRequired && chemicalRequired;
 
     const totalRequired = (microRequired ? 1 : 0) + (chemicalRequired ? 1 : 0);
     const totalCompleted = (microRequired && microDone ? 1 : 0) + (chemicalRequired && chemicalDone ? 1 : 0);
@@ -241,7 +242,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
               {(user?.role !== 'HEAD' || user?.department?.toLowerCase() === 'chemical' || user?.department?.toLowerCase() === 'chemical') && (
                 <PipelineTrack title="CHEMICAL Department" distData={cycleJob.distribution?.chemical} instance={chemicalInstance} deptColor="#3B82F6" richInstance={richChemical} />
               )}
-              {user?.role !== 'HEAD' && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
+              {user?.role !== 'HEAD' && bothRequired && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
                 <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minWidth: '150px', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.25rem 1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: '12px', border: '1px dashed var(--color-border)', width: '100%', height: '100%', justifyContent: 'center', boxSizing: 'border-box' }}>
                     <ArrowRightLeft size={28} style={{ color: cycleJob.sampleTransfers[0].status === 'RECEIVED' ? 'var(--color-success)' : 'var(--color-warning)' }} />
@@ -275,7 +276,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
               {(user?.role !== 'HEAD' || user?.department?.toLowerCase() === 'micro') && (
                 <PipelineTrack title="MICRO Department" distData={cycleJob.distribution?.micro} instance={microInstance} deptColor="#10B981" richInstance={richMicro} />
               )}
-              {user?.role !== 'HEAD' && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
+              {user?.role !== 'HEAD' && bothRequired && cycleJob.sampleTransfers && cycleJob.sampleTransfers.length > 0 && (
                 <div className="timeline-transfer" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minWidth: '150px', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', padding: '1.25rem 1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: '12px', border: '1px dashed var(--color-border)', width: '100%', height: '100%', justifyContent: 'center', boxSizing: 'border-box' }}>
                     <ArrowRightLeft size={28} style={{ color: cycleJob.sampleTransfers[0].status === 'RECEIVED' ? 'var(--color-success)' : 'var(--color-warning)' }} />
