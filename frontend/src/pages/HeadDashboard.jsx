@@ -810,6 +810,7 @@ function Dispatcher() {
                       <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>No parameters for your department in this job.</p>
                     ) : (
                       (() => {
+                        const dept = user?.department ? user.department.toLowerCase() : '';
                         const dKey = dept === 'chemical' ? 'chemical' : dept;
                         const otherKey = dKey === 'chemical' ? 'micro' : 'chemical';
                         const distStatus = job.distribution[dKey].status;
