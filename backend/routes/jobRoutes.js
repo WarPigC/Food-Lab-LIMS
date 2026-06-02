@@ -498,7 +498,8 @@ router.post('/:id/return', protect, authorize('HEAD'), async (req, res) => {
     });
 
     if (req.app.get('io')) {
-      req.app.get('io').emit('JOB_CREATED'); // Force refresh
+      req.app.get('io').emit('JOB_RETURNED');
+      req.app.get('io').emit('JOB_UPDATED');
     }
 
     res.json({ message: 'Job returned successfully', job });
@@ -612,6 +613,10 @@ router.delete('/:id', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (req, 
 
     // Delete the job itself
     await Job.findByIdAndDelete(job._id);
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('JOB_DELETED');
+    }
 
     res.json({ message: 'Job and associated records deleted successfully' });
   } catch (error) {

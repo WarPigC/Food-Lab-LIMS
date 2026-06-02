@@ -428,12 +428,16 @@ function Dispatcher() {
     const updateBoth = () => { updateJobs(); updateTransfers(); };
 
     socket.on('JOB_CREATED', updateJobs);
+    socket.on('JOB_UPDATED', updateJobs);
+    socket.on('JOB_DELETED', updateJobs);
     socket.on('JOB_RETEST_INITIATED', updateJobs);
     socket.on('TRANSFER_INITIATED', updateTransfers);
     socket.on('TRANSFER_RECEIVED', updateBoth);
 
     return () => {
       socket.off('JOB_CREATED', updateJobs);
+      socket.off('JOB_UPDATED', updateJobs);
+      socket.off('JOB_DELETED', updateJobs);
       socket.off('JOB_RETEST_INITIATED', updateJobs);
       socket.off('TRANSFER_INITIATED', updateTransfers);
       socket.off('TRANSFER_RECEIVED', updateBoth);

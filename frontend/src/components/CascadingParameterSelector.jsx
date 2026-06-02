@@ -522,13 +522,15 @@ const CascadingParameterSelector = ({
               </div>
             )}
           </div>
+          )}
 
-
+          {!immutable && (
           <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-start' }}>
             <button type="button" onClick={() => setIsCreatingNew(!isCreatingNew)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               <Plus size={16} /> {isCreatingNew ? 'Cancel Creation' : 'Create New Parameter'}
             </button>
           </div>
+          )}
           {isCreatingNew && (
             <form onSubmit={handleCreateParameter} style={{ display: 'flex', gap: '0.5rem', padding: '1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <input type="text" placeholder="Parameter Name" required value={newParamForm.name} onChange={e => setNewParamForm({...newParamForm, name: e.target.value})} style={{ padding: '0.4rem', flex: 1, minWidth: '150px' }} />

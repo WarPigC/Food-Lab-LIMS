@@ -46,10 +46,14 @@ export default function AssistantDashboard() {
 
     socket.on('JOB_DISTRIBUTED', updateTasks);
     socket.on('TEST_REVIEWED', updateTasks);
+    socket.on('JOB_UPDATED', updateTasks);
+    socket.on('JOB_DELETED', updateTasks);
 
     return () => {
       socket.off('JOB_DISTRIBUTED', updateTasks);
       socket.off('TEST_REVIEWED', updateTasks);
+      socket.off('JOB_UPDATED', updateTasks);
+      socket.off('JOB_DELETED', updateTasks);
     };
   }, [socket]);
 

@@ -626,6 +626,7 @@ function Jobs() {
     socket.on('TEST_REVIEWED', triggerUpdate);
     socket.on('JOB_UPDATED', triggerUpdate);
     socket.on('JOB_RETURNED', triggerUpdate);
+    socket.on('JOB_DELETED', triggerUpdate);
 
     return () => {
       socket.off('JOB_CREATED', triggerUpdate);
@@ -636,6 +637,7 @@ function Jobs() {
       socket.off('TEST_REVIEWED', triggerUpdate);
       socket.off('JOB_UPDATED', triggerUpdate);
       socket.off('JOB_RETURNED', triggerUpdate);
+      socket.off('JOB_DELETED', triggerUpdate);
     };
   }, [socket]);
 
@@ -1429,6 +1431,7 @@ function Audit() {
     socket.on('TEST_REVIEWED', triggerUpdate);
     socket.on('JOB_UPDATED', triggerUpdate);
     socket.on('JOB_RETURNED', triggerUpdate);
+    socket.on('JOB_DELETED', triggerUpdate);
 
     return () => {
       socket.off('JOB_CREATED', triggerUpdate);
@@ -1439,6 +1442,7 @@ function Audit() {
       socket.off('TEST_REVIEWED', triggerUpdate);
       socket.off('JOB_UPDATED', triggerUpdate);
       socket.off('JOB_RETURNED', triggerUpdate);
+      socket.off('JOB_DELETED', triggerUpdate);
     };
   }, [socket]);
 
