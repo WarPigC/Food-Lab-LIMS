@@ -12,7 +12,8 @@ const CascadingParameterSelector = ({
   initialSelectedParams = [],
   initialGroupMetadata = null,
   initialPesticidePanel = { enabled: false, panelType: null },
-  externalSync = null // Hybrid mode sync
+  externalSync = null, // Hybrid mode sync
+  immutable = false
 }) => {
   const [selectedGroups, setSelectedGroups] = useState(initialGroupMetadata?.group ? initialGroupMetadata.group.split(', ') : []);
   const [selectedSubGroups, setSelectedSubGroups] = useState(initialGroupMetadata?.subGroup ? initialGroupMetadata.subGroup.split(', ') : []);
@@ -331,6 +332,7 @@ const CascadingParameterSelector = ({
           <select 
             onChange={handleGroupSelect} 
             value=""
+            disabled={immutable}
             style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
           >
             <option value="">-- Add Group --</option>
@@ -343,13 +345,15 @@ const CascadingParameterSelector = ({
             {selectedGroups.map(g => (
               <div key={g} className="badge badge-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem' }}>
                 {g}
-                <button 
-                  type="button" 
-                  onClick={() => handleGroupRemove(g)} 
-                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}
-                >
-                  <AlertCircle size={18} style={{ transform: 'rotate(45deg)' }} />
-                </button>
+                {!immutable && (
+                  <button 
+                    type="button" 
+                    onClick={() => handleGroupRemove(g)} 
+                    style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}
+                  >
+                    <AlertCircle size={18} style={{ transform: 'rotate(45deg)' }} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -360,7 +364,7 @@ const CascadingParameterSelector = ({
           <select 
             onChange={handleSubGroupSelect} 
             value=""
-            disabled={selectedGroups.length === 0}
+            disabled={selectedGroups.length === 0 || immutable}
             style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
           >
             <option value="">-- Add Sub-Group --</option>
@@ -375,13 +379,15 @@ const CascadingParameterSelector = ({
             {selectedSubGroups.map(sg => (
               <div key={sg} className="badge badge-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem' }}>
                 {sg}
-                <button 
-                  type="button" 
-                  onClick={() => handleSubGroupRemove(sg)} 
-                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}
-                >
-                  <AlertCircle size={18} style={{ transform: 'rotate(45deg)' }} />
-                </button>
+                {!immutable && (
+                  <button 
+                    type="button" 
+                    onClick={() => handleSubGroupRemove(sg)} 
+                    style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex' }}
+                  >
+                    <AlertCircle size={18} style={{ transform: 'rotate(45deg)' }} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -394,7 +400,7 @@ const CascadingParameterSelector = ({
           <select 
             value={selectedProductCategory} 
             onChange={e => setSelectedProductCategory(e.target.value)}
-            disabled={productCategories.length === 0}
+            disabled={productCategories.length === 0 || immutable}
             style={{ padding: '0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
           >
             <option value="">{productCategories.length === 0 ? '-- No Categories Available --' : '-- Select Category --'}</option>
@@ -438,6 +444,7 @@ const CascadingParameterSelector = ({
             
           </div>
           
+          {!immutable && (
           <div ref={searchRef} style={{ position: 'relative', marginBottom: '0.75rem' }}>
             <div style={{ 
               display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -557,6 +564,7 @@ const CascadingParameterSelector = ({
                         <select 
                           value={p.type} 
                           onChange={(e) => handleTypeChange(getParamId(p), e.target.value)}
+                          disabled={immutable}
                           style={{ fontSize: '0.75rem', padding: '0.2rem', borderRadius: '4px', border: '1px solid var(--color-border)' }}
                         >
                           <option value="Micro">Micro</option>
@@ -570,6 +578,7 @@ const CascadingParameterSelector = ({
                             value={p.unit}
                             onChange={(e) => handleUnitChange(getParamId(p), e.target.value)}
                             onBlur={() => handleSaveUnit(getParamId(p), p.unit)}
+                            disabled={immutable}
                             style={{ 
                               width: '80px', padding: '0.25rem', fontSize: '0.8rem',
                               border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'
@@ -578,26 +587,28 @@ const CascadingParameterSelector = ({
                           
                         </div>
                       </td>
-                      <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => removeParameter(getParamId(p))}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.35rem', display: 'flex' }}
-                            title="Remove from current job selection"
-                          >
-                            <X size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteParameter(getParamId(p))}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' }}
-                            title="Delete permanently from database"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+                      {!immutable && (
+                        <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => removeParameter(getParamId(p))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.35rem', display: 'flex' }}
+                              title="Remove from current job selection"
+                            >
+                              <X size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteParameter(getParamId(p))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' }}
+                              title="Delete permanently from database"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

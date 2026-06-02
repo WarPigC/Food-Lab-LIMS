@@ -746,16 +746,31 @@ function Jobs() {
       reopenReason: ''
     });
     
+    const mapParams = (params) => {
+      if (!params) return [];
+      return params.map(p => {
+        // If populated, parameterId is an object. Extract it cleanly.
+        const id = (p.parameterId && p.parameterId._id) ? p.parameterId._id : p.parameterId;
+        return {
+          _id: id,
+          parameterId: id,
+          name: p.name,
+          unit: p.unit,
+          type: p.type
+        };
+      });
+    };
+
     // Set standard parameter states
-    setSelectedParams(j.parameters || []);
+    setSelectedParams(mapParams(j.parameters));
     setGroupMetadata(j.groupMetadata || null);
     setPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
     
-    setNablParams(j.nablParameters || []);
+    setNablParams(mapParams(j.nablParameters));
     setNablGroupMetadata(j.nablGroupMetadata || null);
     setNablPesticidePanel(j.nablPesticidePanel || { enabled: false, panelType: null });
     
-    setNonNablParams(j.nonNablParameters || []);
+    setNonNablParams(mapParams(j.nonNablParameters));
     setNonNablGroupMetadata(j.nonNablGroupMetadata || null);
     setNonNablPesticidePanel(j.nonNablPesticidePanel || { enabled: false, panelType: null });
 
@@ -1162,6 +1177,7 @@ function Jobs() {
                             initialGroupMetadata={nablGroupMetadata}
                             initialPesticidePanel={nablPesticidePanel}
                             externalSync={nonNablGroupMetadata}
+                            immutable={!!editingJobId}
                             onDataChange={(data) => {
                               setNablParams(data.parameters);
                               setNablGroupMetadata(data.groupMetadata);
@@ -1176,6 +1192,7 @@ function Jobs() {
                             initialGroupMetadata={nonNablGroupMetadata}
                             initialPesticidePanel={nonNablPesticidePanel}
                             externalSync={nablGroupMetadata}
+                            immutable={!!editingJobId}
                             onDataChange={(data) => {
                               setNonNablParams(data.parameters);
                               setNonNablGroupMetadata(data.groupMetadata);
@@ -1190,6 +1207,7 @@ function Jobs() {
                           initialSelectedParams={selectedParams}
                           initialGroupMetadata={groupMetadata}
                           initialPesticidePanel={pesticidePanel}
+                          immutable={!!editingJobId}
                           onDataChange={(data) => {
                             setSelectedParams(data.parameters);
                             setGroupMetadata(data.groupMetadata);

@@ -602,9 +602,8 @@ function Dispatcher() {
   };
 
   const executeTransfer = async () => {
-    if (!transferConfirmData) return;
+    if (!transferConfirmData || transferLoading) return;
     const { type, id } = transferConfirmData;
-    setTransferConfirmData(null);
     setTransferLoading(true);
     
     try {
@@ -627,6 +626,7 @@ function Dispatcher() {
       }
       setTimeout(() => setSuccess(''), 4000);
       fetchTransfers();
+      setTransferConfirmData(null);
     } catch (err) {
       alert(err.response?.data?.message || `Error ${type === 'send' ? 'sending' : 'receiving'} transfer`);
     } finally {
