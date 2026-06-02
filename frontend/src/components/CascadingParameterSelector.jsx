@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Spinner from './Spinner';
-import { AlertCircle, Beaker, Search, X, Plus, Save } from 'lucide-react';
+import { AlertCircle, Beaker, Search, X, Plus, Save, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import API_URL from '../utils/api';
 
@@ -8,14 +8,17 @@ const CascadingParameterSelector = ({
   label = "Parameters", 
   onDataChange, 
   modeClass = "",
-  allGroupData = null // Fix 2: Accept pre-fetched data from parent
+  allGroupData = null, // Fix 2: Accept pre-fetched data from parent
+  initialSelectedParams = [],
+  initialGroupMetadata = null,
+  initialPesticidePanel = { enabled: false, panelType: null }
 }) => {
-  const [selectedGroups, setSelectedGroups] = useState([]);
-  const [selectedSubGroups, setSelectedSubGroups] = useState([]);
-  const [selectedProductCategory, setSelectedProductCategory] = useState('');
+  const [selectedGroups, setSelectedGroups] = useState(initialGroupMetadata?.group ? initialGroupMetadata.group.split(', ') : []);
+  const [selectedSubGroups, setSelectedSubGroups] = useState(initialGroupMetadata?.subGroup ? initialGroupMetadata.subGroup.split(', ') : []);
+  const [selectedProductCategory, setSelectedProductCategory] = useState(initialGroupMetadata?.productCategory || '');
   
   // Officer's curated pick list
-  const [selectedParams, setSelectedParams] = useState([]);
+  const [selectedParams, setSelectedParams] = useState(initialSelectedParams);
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -187,6 +190,54 @@ const CascadingParameterSelector = ({
     }
   };
 
+  
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newParamForm, setNewParamForm] = useState({ name: '', type: 'Micro', unit: '' });
+
+  const handleCreateParameter = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(`${API_URL}/api/parameters`, newParamForm, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setGlobalParameters(prev => [...prev, res.data].sort((a,b) => a.name.localeCompare(b.name)));
+      addParameter(res.data);
+      setIsCreatingNew(false);
+      setNewParamForm({ name: '', type: 'Micro', unit: '' });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error creating parameter');
+    }
+  };
+
+  const handleDeleteParameter = async (paramId) => {
+    if (!window.confirm("Are you sure you want to permanently delete this parameter from the library?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/parameters/${paramId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setGlobalParameters(prev => prev.filter(p => p._id !== paramId));
+      setSelectedParams(prev => prev.filter(p => p._id !== paramId));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error deleting parameter');
+    }
+  };
+
+  const handleTypeChange = async (paramId, newType) => {
+    setSelectedParams(prev => prev.map(p => p._id === paramId ? { ...p, type: newType } : p));
+    setGlobalParameters(prev => prev.map(p => p._id === paramId ? { ...p, type: newType } : p));
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${API_URL}/api/parameters/${paramId}`, { type: newType }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update type');
+    }
+  };
+
   const addParameter = (param) => {
     if (!selectedParams.some(sp => sp._id === param._id)) {
       setSelectedParams(prev => [...prev, param]);
@@ -214,7 +265,7 @@ const CascadingParameterSelector = ({
       await axios.put(`${API_URL}/api/parameters/${paramId}`, { unit }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Unit saved to database for future use.');
+      // silent success for blur save
     } catch (err) {
       console.error('Error saving unit', err);
       alert('Failed to save unit to database.');
@@ -354,21 +405,7 @@ const CascadingParameterSelector = ({
                 ({selectedParams.length} selected, {availableParameters.length} available)
               </span>
             </h4>
-            {availableParameters.length > 0 && (
-              <button
-                type="button"
-                onClick={addAllAvailable}
-                title="Add all filtered parameters currently in view"
-                style={{ 
-                  fontSize: '0.8rem', padding: '0.3rem 0.6rem', 
-                  backgroundColor: 'var(--color-primary)', color: '#fff',
-                  border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '0.3rem'
-                }}
-              >
-                <Plus size={14} /> Add All
-              </button>
-            )}
+            
           </div>
           
           <div ref={searchRef} style={{ position: 'relative', marginBottom: '0.75rem' }}>
@@ -449,6 +486,23 @@ const CascadingParameterSelector = ({
             )}
           </div>
 
+
+          <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-start' }}>
+            <button type="button" onClick={() => setIsCreatingNew(!isCreatingNew)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <Plus size={16} /> {isCreatingNew ? 'Cancel Creation' : 'Create New Parameter'}
+            </button>
+          </div>
+          {isCreatingNew && (
+            <form onSubmit={handleCreateParameter} style={{ display: 'flex', gap: '0.5rem', padding: '1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="text" placeholder="Parameter Name" required value={newParamForm.name} onChange={e => setNewParamForm({...newParamForm, name: e.target.value})} style={{ padding: '0.4rem', flex: 1, minWidth: '150px' }} />
+              <select value={newParamForm.type} onChange={e => setNewParamForm({...newParamForm, type: e.target.value})} style={{ padding: '0.4rem' }}>
+                <option value="Micro">Micro</option>
+                <option value="Chemical">Chemical</option>
+              </select>
+              <input type="text" placeholder="Unit (e.g. mg/L)" value={newParamForm.unit} onChange={e => setNewParamForm({...newParamForm, unit: e.target.value})} style={{ padding: '0.4rem', width: '100px' }} />
+              <button type="submit" className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}>Create</button>
+            </form>
+          )}
           {/* Selected parameters list */}
           {selectedParams.length > 0 && (
             <div style={{ 
@@ -470,9 +524,14 @@ const CascadingParameterSelector = ({
                     <tr key={p._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                       <td style={{ padding: '0.4rem 0.5rem' }}>{p.name}</td>
                       <td style={{ padding: '0.4rem 0.5rem' }}>
-                        <span className={`badge ${p.type === 'Micro' ? 'badge-primary' : 'badge-secondary'}`} style={{ fontSize: '0.7rem' }}>
-                          {p.type}
-                        </span>
+                        <select 
+                          value={p.type} 
+                          onChange={(e) => handleTypeChange(p._id, e.target.value)}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem', borderRadius: '4px', border: '1px solid var(--color-border)' }}
+                        >
+                          <option value="Micro">Micro</option>
+                          <option value="Chemical">Chemical</option>
+                        </select>
                       </td>
                       <td style={{ padding: '0.4rem 0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -480,36 +539,34 @@ const CascadingParameterSelector = ({
                             type="text"
                             value={p.unit}
                             onChange={(e) => handleUnitChange(p._id, e.target.value)}
+                            onBlur={() => handleSaveUnit(p._id, p.unit)}
                             style={{ 
                               width: '80px', padding: '0.25rem', fontSize: '0.8rem',
                               border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'
                             }}
                           />
-                          <button
-                            type="button"
-                            onClick={() => handleSaveUnit(p._id, p.unit)}
-                            style={{ 
-                              background: 'none', border: 'none', cursor: 'pointer', 
-                              color: 'var(--color-primary)', padding: '0.35rem', display: 'flex' 
-                            }}
-                            title="Save as default for this parameter"
-                          >
-                            <Save size={18} />
-                          </button>
+                          
                         </div>
                       </td>
                       <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => removeParameter(p._id)}
-                          style={{ 
-                            background: 'none', border: 'none', cursor: 'pointer', 
-                            color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' 
-                          }}
-                          title="Remove parameter"
-                        >
-                          <X size={20} />
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => removeParameter(p._id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.35rem', display: 'flex' }}
+                            title="Remove from current job selection"
+                          >
+                            <X size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteParameter(p._id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' }}
+                            title="Delete permanently from database"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

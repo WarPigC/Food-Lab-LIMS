@@ -466,25 +466,55 @@ function Jobs() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ ...BLANK_FORM, reopenReason: '' });
+  const [formData, setFormData] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_FORM');
+    return saved ? JSON.parse(saved) : { ...BLANK_FORM, reopenReason: '' };
+  });
   const [sections, setSections] = useState({ customer: true, sample: false, compliance: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nextSerial, setNextSerial] = useState(null); // 4-digit auto-increment serial
+  const [nextSerial, setNextSerial] = useState(null);
   const [reopenParentId, setReopenParentId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
 
   // Parameter State - Cascading Selector
-  const [selectedParams, setSelectedParams] = useState([]);
-  const [groupMetadata, setGroupMetadata] = useState(null);
-  const [pesticidePanel, setPesticidePanel] = useState({ enabled: false, panelType: null });
+  const [selectedParams, setSelectedParams] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_SELECTED_PARAMS');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [groupMetadata, setGroupMetadata] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_METADATA');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [pesticidePanel, setPesticidePanel] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_PESTICIDE');
+    return saved ? JSON.parse(saved) : { enabled: false, panelType: null };
+  });
   
-  const [nablParams, setNablParams] = useState([]);
-  const [nablGroupMetadata, setNablGroupMetadata] = useState(null);
-  const [nablPesticidePanel, setNablPesticidePanel] = useState({ enabled: false, panelType: null });
+  const [nablParams, setNablParams] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_NABL_PARAMS');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [nablGroupMetadata, setNablGroupMetadata] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_NABL_METADATA');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [nablPesticidePanel, setNablPesticidePanel] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_NABL_PESTICIDE');
+    return saved ? JSON.parse(saved) : { enabled: false, panelType: null };
+  });
   
-  const [nonNablParams, setNonNablParams] = useState([]);
-  const [nonNablGroupMetadata, setNonNablGroupMetadata] = useState(null);
-  const [nonNablPesticidePanel, setNonNablPesticidePanel] = useState({ enabled: false, panelType: null });
+  const [nonNablParams, setNonNablParams] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_NON_NABL_PARAMS');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [nonNablGroupMetadata, setNonNablGroupMetadata] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_NON_NABL_METADATA');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [nonNablPesticidePanel, setNonNablPesticidePanel] = useState(() => {
+    const saved = sessionStorage.getItem('DRAFT_JOB_NON_NABL_PESTICIDE');
+    return saved ? JSON.parse(saved) : { enabled: false, panelType: null };
+  });
   const [ulrPreview, setUlrPreview] = useState('');
 
   // Fix 2: Shared group data — fetched once, passed to all CascadingParameterSelector instances
@@ -498,6 +528,45 @@ function Jobs() {
 
   const toggleSection = (s) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
   const setField = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
+
+  useEffect(() => {
+    if (!showForm && !editingJobId) return;
+    sessionStorage.setItem('DRAFT_JOB_FORM', JSON.stringify(formData));
+    sessionStorage.setItem('DRAFT_JOB_SELECTED_PARAMS', JSON.stringify(selectedParams));
+    sessionStorage.setItem('DRAFT_JOB_METADATA', JSON.stringify(groupMetadata));
+    sessionStorage.setItem('DRAFT_JOB_PESTICIDE', JSON.stringify(pesticidePanel));
+    sessionStorage.setItem('DRAFT_JOB_NABL_PARAMS', JSON.stringify(nablParams));
+    sessionStorage.setItem('DRAFT_JOB_NABL_METADATA', JSON.stringify(nablGroupMetadata));
+    sessionStorage.setItem('DRAFT_JOB_NABL_PESTICIDE', JSON.stringify(nablPesticidePanel));
+    sessionStorage.setItem('DRAFT_JOB_NON_NABL_PARAMS', JSON.stringify(nonNablParams));
+    sessionStorage.setItem('DRAFT_JOB_NON_NABL_METADATA', JSON.stringify(nonNablGroupMetadata));
+    sessionStorage.setItem('DRAFT_JOB_NON_NABL_PESTICIDE', JSON.stringify(nonNablPesticidePanel));
+  }, [formData, selectedParams, groupMetadata, pesticidePanel, nablParams, nablGroupMetadata, nablPesticidePanel, nonNablParams, nonNablGroupMetadata, nonNablPesticidePanel, showForm, editingJobId]);
+
+  const clearDraft = () => {
+    if (window.confirm("Are you sure you want to completely clear this draft?")) {
+      sessionStorage.removeItem('DRAFT_JOB_FORM');
+      sessionStorage.removeItem('DRAFT_JOB_SELECTED_PARAMS');
+      sessionStorage.removeItem('DRAFT_JOB_METADATA');
+      sessionStorage.removeItem('DRAFT_JOB_PESTICIDE');
+      sessionStorage.removeItem('DRAFT_JOB_NABL_PARAMS');
+      sessionStorage.removeItem('DRAFT_JOB_NABL_METADATA');
+      sessionStorage.removeItem('DRAFT_JOB_NABL_PESTICIDE');
+      sessionStorage.removeItem('DRAFT_JOB_NON_NABL_PARAMS');
+      sessionStorage.removeItem('DRAFT_JOB_NON_NABL_METADATA');
+      sessionStorage.removeItem('DRAFT_JOB_NON_NABL_PESTICIDE');
+      setFormData({ ...BLANK_FORM, reopenReason: '' });
+      setSelectedParams([]);
+      setGroupMetadata(null);
+      setPesticidePanel({ enabled: false, panelType: null });
+      setNablParams([]);
+      setNablGroupMetadata(null);
+      setNablPesticidePanel({ enabled: false, panelType: null });
+      setNonNablParams([]);
+      setNonNablGroupMetadata(null);
+      setNonNablPesticidePanel({ enabled: false, panelType: null });
+    }
+  };
 
 
 
@@ -1051,6 +1120,9 @@ function Jobs() {
                             label="NABL Job Parameters"
                             modeClass="nabl-card"
                             allGroupData={allGroupData}
+                            initialSelectedParams={nablParams}
+                            initialGroupMetadata={nablGroupMetadata}
+                            initialPesticidePanel={nablPesticidePanel}
                             onDataChange={(data) => {
                               setNablParams(data.parameters);
                               setNablGroupMetadata(data.groupMetadata);
@@ -1061,6 +1133,9 @@ function Jobs() {
                             label="Non-NABL Job Parameters"
                             modeClass="non-nabl-card"
                             allGroupData={allGroupData}
+                            initialSelectedParams={nonNablParams}
+                            initialGroupMetadata={nonNablGroupMetadata}
+                            initialPesticidePanel={nonNablPesticidePanel}
                             onDataChange={(data) => {
                               setNonNablParams(data.parameters);
                               setNonNablGroupMetadata(data.groupMetadata);
@@ -1072,6 +1147,9 @@ function Jobs() {
                         <CascadingParameterSelector
                           label="Test Parameters"
                           allGroupData={allGroupData}
+                          initialSelectedParams={selectedParams}
+                          initialGroupMetadata={groupMetadata}
+                          initialPesticidePanel={pesticidePanel}
                           onDataChange={(data) => {
                             setSelectedParams(data.parameters);
                             setGroupMetadata(data.groupMetadata);
@@ -1151,9 +1229,16 @@ function Jobs() {
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary" title="Save/Dispatch Job (Ctrl + Enter)" style={{ alignSelf: 'flex-start', padding: '0.8rem 2rem' }} disabled={isSubmitting}>
-              {isSubmitting ? 'Processing...' : (editingJobId ? 'Save Changes' : (reopenParentId ? 'Save Retest Job' : 'Create Job & Dispatch'))}
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <button type="submit" className="btn btn-primary" title="Save/Dispatch Job (Ctrl + Enter)" style={{ padding: '0.8rem 2rem' }} disabled={isSubmitting}>
+                {isSubmitting ? 'Processing...' : (editingJobId ? 'Save Changes' : (reopenParentId ? 'Save Retest Job' : 'Create Job & Dispatch'))}
+              </button>
+              {!editingJobId && !reopenParentId && (
+                <button type="button" onClick={clearDraft} className="btn" style={{ padding: '0.8rem 2rem', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', backgroundColor: 'transparent' }}>
+                  Clear Draft
+                </button>
+              )}
+            </div>
           </form>
         </div>
       ); })()}
