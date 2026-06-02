@@ -364,11 +364,21 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         isResubmitted = true;
       }
 
+      // Check existing transfer
+      const existingTransfer = await SampleTransfer.findOne({ jobId: job._id });
+      const transferCompleted = existingTransfer && existingTransfer.status === 'RECEIVED';
+
       if (hasMicro && hasChemical) {
-        if (microStatus === 'PENDING' || microStatus === 'RETURNED' || microStatus === 'PENDING_HEAD_REVIEW' || microStatus === 'AWAITING_TRANSFER') {
-          chemicalStatus = 'AWAITING_TRANSFER';
-        } else if (microStatus === 'COMPLETED' && (chemicalStatus === 'AWAITING_TRANSFER' || chemicalStatus === 'PENDING')) {
-          chemicalStatus = 'PENDING';
+        if (!transferCompleted) {
+          if (microStatus === 'PENDING' || microStatus === 'RETURNED' || microStatus === 'PENDING_HEAD_REVIEW' || microStatus === 'AWAITING_TRANSFER') {
+            chemicalStatus = 'AWAITING_TRANSFER';
+          } else if (microStatus === 'COMPLETED' && (chemicalStatus === 'AWAITING_TRANSFER' || chemicalStatus === 'PENDING')) {
+            chemicalStatus = 'PENDING';
+          }
+        } else {
+          if (chemicalStatus === 'AWAITING_TRANSFER' || chemicalStatus === 'RETURNED') {
+             chemicalStatus = 'PENDING';
+          }
         }
       } else if (!hasMicro && hasChemical && chemicalStatus === 'AWAITING_TRANSFER') {
         // If micro is no longer required, chemical shouldn't wait for transfer
@@ -382,7 +392,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
       if (hasMicro && hasChemical) {
         job.sampleFlow = {
-          type: 'SEQUENTIAL',
+          type: transferCompleted ? 'PARALLEL' : 'SEQUENTIAL',
           firstDepartment: 'micro',
           transferDeadline: sampleFlow?.transferDeadline || job.sampleFlow?.transferDeadline || null
         };
@@ -390,7 +400,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         job.sampleFlow = undefined;
       }
 
-      if (isResubmitted || !hasMicro || !hasChemical) {
+      if (!hasMicro || !hasChemical || (isResubmitted && !transferCompleted)) {
         await SampleTransfer.deleteMany({ jobId: job._id });
         if (req.app.get('io')) {
           req.app.get('io').emit('TRANSFER_INITIATED');
