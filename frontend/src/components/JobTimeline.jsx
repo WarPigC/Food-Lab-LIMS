@@ -194,30 +194,45 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {/* Unified Report button — only when all required parts are done */}
-            {allDone && (
-              <button
-                onClick={() => setSelectedReport({ type: 'combined', microReport: richMicro, chemicalReport: richChemical })}
-                style={{ 
-                  padding: '0.6rem 1.25rem', 
-                  fontSize: '0.9rem', 
-                  background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)', 
-                  color: 'white', 
-                  border: 'none',
-                  borderRadius: '10px', 
-                  cursor: 'pointer', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  fontWeight: 700,
-                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <FileText size={18} /> View & Print Report
-              </button>
-            )}
+            {allDone && (() => {
+              const nablMode = cycleJob.sample?.nabl_type === 'Nabl' ? 'nabl'
+                : cycleJob.sample?.nabl_type === 'Hybrid' ? 'hybrid'
+                : 'non_nabl';
+              return (
+                <button
+                  onClick={() => setSelectedReport({
+                    type: 'combined',
+                    microReport: richMicro,
+                    chemicalReport: richChemical,
+                    nablMode,
+                    // For hybrid, pass split reports (same data for now — split by parameter type tag)
+                    nablMicroReport: nablMode === 'hybrid' ? richMicro : null,
+                    nablChemicalReport: nablMode === 'hybrid' ? richChemical : null,
+                    nonNablMicroReport: nablMode === 'hybrid' ? richMicro : null,
+                    nonNablChemicalReport: nablMode === 'hybrid' ? richChemical : null,
+                  })}
+                  style={{ 
+                    padding: '0.6rem 1.25rem', 
+                    fontSize: '0.9rem', 
+                    background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)', 
+                    color: 'white', 
+                    border: 'none',
+                    borderRadius: '10px', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.5rem', 
+                    fontWeight: 700,
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <FileText size={18} /> View & Print Report
+                </button>
+              );
+            })()}
             {/* Progress ring */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', backgroundColor: 'white', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -343,11 +358,17 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
                 isCombined
                 microReport={selectedReport.microReport}
                 chemicalReport={selectedReport.chemicalReport}
+                nablMode={selectedReport.nablMode || 'non_nabl'}
+                nablMicroReport={selectedReport.nablMicroReport}
+                nablChemicalReport={selectedReport.nablChemicalReport}
+                nonNablMicroReport={selectedReport.nonNablMicroReport}
+                nonNablChemicalReport={selectedReport.nonNablChemicalReport}
                 onBack={() => setSelectedReport(null)}
               />
             ) : (
               <ReportViewer
                 report={selectedReport.report}
+                nablMode={selectedReport.nablMode || 'non_nabl'}
                 onBack={() => setSelectedReport(null)}
               />
             )}
