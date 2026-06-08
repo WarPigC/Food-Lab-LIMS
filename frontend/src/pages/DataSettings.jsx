@@ -17,6 +17,7 @@ export default function DataSettings() {
 
   // ULR State
   const [ulrPreview, setUlrPreview] = useState('');
+  const [nextUlrPreview, setNextUlrPreview] = useState('');
   const [ulrOffset, setUlrOffset] = useState('');
   const [isUpdatingOffset, setIsUpdatingOffset] = useState(false);
   const [confirmUlrModal, setConfirmUlrModal] = useState(false);
@@ -76,7 +77,8 @@ export default function DataSettings() {
       const res = await axios.get(`${API_URL}/api/jobs/next-ulr`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUlrPreview(res.data.ulr);
+      setUlrPreview(res.data.lastUlr || res.data.ulr);
+      setNextUlrPreview(res.data.nextUlr || '');
 
       const jobsRes = await axios.get(`${API_URL}/api/jobs`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -366,7 +368,11 @@ export default function DataSettings() {
               <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 700, color: '#1d4ed8', backgroundColor: 'rgba(255,255,255,0.7)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid #93c5fd' }}>
                 {ulrPreview || 'Loading...'}
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem', maxWidth: '250px' }}>This was the ULR assigned to the most recent job. The next job will increment this number.</div>
+              <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginTop: '1rem', marginBottom: '0.5rem' }}>Next Value:</div>
+              <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 700, color: '#10b981', backgroundColor: 'rgba(255,255,255,0.7)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid #6ee7b7' }}>
+                {nextUlrPreview || 'Loading...'}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem', maxWidth: '250px' }}>This will be the ULR assigned to the next submitted job.</div>
             </div>
             <div>
               <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Update ULR:</div>

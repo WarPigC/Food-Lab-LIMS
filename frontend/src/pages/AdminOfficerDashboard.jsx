@@ -661,7 +661,7 @@ function Jobs() {
   const fetchUlrPreview = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/jobs/next-ulr`);
-      setUlrPreview(res.data.ulr);
+      setUlrPreview(res.data.nextUlr);
     } catch (err) { console.error('Could not fetch next ULR', err); }
   };
 

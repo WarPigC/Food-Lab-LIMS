@@ -72,7 +72,12 @@ router.get('/next-ulr', protect, async (req, res) => {
   try {
     const counter = await UlrCounter.findOne({}) || { prefix: 'TC-12434260', currentValue: 0, suffix: 'F' };
     const numStr = String(counter.currentValue).padStart(8, '0');
-    res.json({ ulr: `${counter.prefix}${numStr}${counter.suffix}`, currentValue: counter.currentValue });
+    const nextNumStr = String(counter.currentValue + 1).padStart(8, '0');
+    res.json({
+      lastUlr: `${counter.prefix}${numStr}${counter.suffix}`,
+      nextUlr: `${counter.prefix}${nextNumStr}${counter.suffix}`,
+      currentValue: counter.currentValue
+    });
   } catch (err) {
     res.status(500).json({ message: 'Error calculating next ULR', error: err.message });
   }
