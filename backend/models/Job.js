@@ -94,7 +94,7 @@ const jobSchema = new mongoose.Schema({
   
   // Job History Timeline
   history: [{
-    action: { type: String, enum: ['CREATED', 'DISPATCHED', 'RETURNED_TO_OFFICER', 'RESUBMITTED', 'RETEST_REQUESTED', 'COMPLETED', 'UPDATED'] },
+    action: { type: String, enum: ['CREATED', 'DISPATCHED', 'RETURNED_TO_OFFICER', 'RESUBMITTED', 'RETEST_REQUESTED', 'COMPLETED', 'UPDATED', 'REVIEW_APPROVED'] },
     by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     note: { type: String },
     timestamp: { type: Date, default: Date.now }
