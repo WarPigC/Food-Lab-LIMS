@@ -608,6 +608,14 @@ router.delete('/:id', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (req, 
     // Delete the job itself
     await Job.findByIdAndDelete(job._id);
 
+    // Clean up orphan sample transfers (if this was the last job with this serial)
+    if (job.sampleSerial) {
+      const siblingCount = await Job.countDocuments({ sampleSerial: job.sampleSerial });
+      if (siblingCount === 0) {
+        await SampleTransfer.deleteMany({ sampleSerial: job.sampleSerial });
+      }
+    }
+
     if (req.app.get('io')) {
       req.app.get('io').emit('JOB_DELETED');
     }
