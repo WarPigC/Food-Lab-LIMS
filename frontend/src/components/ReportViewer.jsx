@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import html2pdf from 'html2pdf.js';
 import { Download } from 'lucide-react';
 import logo from '../assets/Acropolis20Logo.png';
+import nablLogo from '../assets/nabl-logo.png';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -9,11 +10,16 @@ function deriveReportFields(jobCode) {
   const baseCode = jobCode ? jobCode.split('-')[0] : '';
   const last4 = baseCode ? baseCode.slice(-4) : '0000';
   const yy = baseCode ? baseCode.slice(0, 2) : '00';
-  const retestMatch = jobCode ? jobCode.match(/retest-\d+/) : null;
-  const retestSuffix = retestMatch ? `/${retestMatch[0].toUpperCase()}` : '';
-  const testReportNo = `FTL/AIPER/${yy}/${last4}${retestSuffix}`;
+  const retestMatch = jobCode ? jobCode.match(/retest-(\d+)/i) : null;
+  let retestLetter = '';
+  if (retestMatch && retestMatch[1]) {
+    const retestCount = parseInt(retestMatch[1], 10);
+    retestLetter = String.fromCharCode(64 + retestCount); // 1 -> A
+  }
+  const baseReportNo = `FTL/AIPER/${yy}/${last4}`;
+  const testReportNo = `${baseReportNo}${retestLetter ? '-' + retestLetter : ''}`;
   const registrationNo = String(Math.max(0, parseInt(last4, 10) - 1099));
-  return { testReportNo, registrationNo };
+  return { testReportNo, registrationNo, isAmended: !!retestLetter, baseReportNo };
 }
 
 const ITEMS_PER_PAGE = 12; // max result rows before splitting to a new page
@@ -33,27 +39,14 @@ const pageStyle = {
   boxSizing: 'border-box',
 };
 
-// ─── NABL Logo (embedded SVG circle with text — pure vector, no external file) ─
-function NablLogo({ size = 64 }) {
-  // Simple representation of the NABL seal in SVG
+// ─── NABL Logo Image ──────────────────────────────────────────────────────────
+// Using the imported nabl-logo.png image
+function NablLogo({ size = 55 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 120 130" style={{ display: 'block' }}>
-      <circle cx="60" cy="55" r="52" fill="none" stroke="#000" strokeWidth="3"/>
-      <circle cx="60" cy="55" r="44" fill="none" stroke="#000" strokeWidth="1.5"/>
-      {/* Star */}
-      <polygon points="60,18 65,37 84,37 69,48 74,67 60,56 46,67 51,48 36,37 55,37" fill="#000"/>
-      {/* Text top arc */}
-      <text fontSize="7.5" fontFamily="Arial" textAnchor="middle">
-        <textPath href="#topArc" startOffset="50%">NATIONAL ACCREDITATION BOARD FOR TESTING AND CALIBRATION</textPath>
-      </text>
-      <defs>
-        <path id="topArc" d="M 15,55 A 45,45 0 0,1 105,55"/>
-      </defs>
-      <text x="60" y="110" fontSize="8" fontFamily="Arial" textAnchor="middle" fontWeight="bold">INDIA</text>
-      {/* Ribbons */}
-      <rect x="45" y="105" width="12" height="18" fill="#000"/>
-      <rect x="63" y="105" width="12" height="18" fill="#000"/>
-    </svg>
+    <div style={{ textAlign: 'center' }}>
+      <img src={nablLogo} alt="NABL Logo" style={{ width: `${size}px`, objectFit: 'contain' }} />
+      <div style={{ fontSize: '7.5px', fontWeight: 'bold', marginTop: '1px' }}>TC-12434</div>
+    </div>
   );
 }
 
@@ -90,26 +83,28 @@ function PageHeader({ isNabl, docRef }) {
 }
 
 // ─── Continuation header (all pages except page 1) ───────────────────────────
-function ContinuationHeader({ isNabl, testReportNo, sampleName, pageNum, totalPages }) {
+function ContinuationHeader({ job, testReportNo, registrationNo }) {
+  const sample = job?.sample || {};
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px', border }}>
-      <tbody>
-        <tr>
-          <td style={{ ...td, width: '140px', textAlign: 'center', verticalAlign: 'middle', border }}>
-            <img src={logo} alt="Acropolis" style={{ maxWidth: '115px', maxHeight: '55px', objectFit: 'contain' }} />
-          </td>
-          <td style={{ ...td, textAlign: 'center', verticalAlign: 'middle', border }}>
-            <div style={{ fontSize: '13px', fontWeight: 700 }}>Food Testing Laboratory</div>
-            <div style={{ fontSize: '9.5px', color: '#555', marginTop: '2px' }}>TEST REPORT (Contd.) — Page {pageNum} of {totalPages}</div>
-            <div style={{ fontSize: '9px', marginTop: '2px' }}>Report No.: {testReportNo} | Sample: {sampleName} (as stated by customer)</div>
-          </td>
-          <td style={{ ...td, width: '90px', textAlign: 'right', verticalAlign: 'top', border, fontSize: '8.5px' }}>
-            <div>FTL/AIPER/F/7.8-01</div>
-            {isNabl && <div style={{ marginTop: '4px' }}><NablLogo size={55} /></div>}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <>
+      <div style={{ textAlign: 'left', fontSize: '10px', fontWeight: 'bold', fontStyle: 'italic', marginBottom: '4px' }}>Continue.......</div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px' }}>
+        <tbody>
+          <tr>
+            <td style={label}>Sample Name</td>
+            <td style={td}>{sample.sample_name || 'N/A'}</td>
+            <td style={label}>Test Report No.</td>
+            <td style={td}>{testReportNo}</td>
+          </tr>
+          <tr>
+            <td style={label}>Sample Details</td>
+            <td style={td}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.sample_quantity || 'N/A')}</td>
+            <td style={label}>Registration No.</td>
+            <td style={td}>{registrationNo}</td>
+          </tr>
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -119,153 +114,160 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
   const sample = job.sample || {};
   const compliance = job.compliance || {};
   return (
-    <>
-      {/* Customer block */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
-        <tbody>
-          <tr>
-            <td style={label}>Customer Name</td>
-            <td style={{ ...td, fontWeight: 600 }} colSpan={3}>{customer.customer_name || job.clientName || 'N/A'}</td>
-          </tr>
-          <tr>
-            <td style={label}>Address</td>
-            <td style={td} colSpan={3}>{customer.customer_address || 'N/A'}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Sample grid */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
-        <tbody>
-          <tr>
-            <td style={label}>Sample Name<br /><span style={{ fontWeight: 400, fontSize: '9px' }}>(as stated by customer)</span></td>
-            <td style={td}>{sample.sample_name || 'N/A'}</td>
-            <td style={label}>Test Report No.</td>
-            <td style={td}>{testReportNo}</td>
-          </tr>
-          <tr>
-            <td style={label}>Product Category</td>
-            <td style={td}>{sample.sample_description || 'N/A'}</td>
-            <td style={label}>Registration No.</td>
-            <td style={td}>{registrationNo}</td>
-          </tr>
-          <tr>
-            <td style={label}>Sample Details</td>
-            <td style={td}>{sample.sample_quantity || 'N/A'}</td>
-            <td style={label}>Issue Date</td>
-            <td style={td}>{issueDate}</td>
-          </tr>
-          <tr>
-            <td style={label}>Packing Details</td>
-            <td style={td}>{sample.packing_details || 'N/A'}</td>
-            <td style={label}>Date of Receipt</td>
-            <td style={td}>{receiptDate}</td>
-          </tr>
-          <tr>
-            <td style={label}>Marking Seal (if any)</td>
-            <td style={td}>{sample.marking_seal || 'N/A'}</td>
-            <td style={label}>Testing Period</td>
-            <td style={td}>{testingPeriodStr}</td>
-          </tr>
-          <tr>
-            <td style={label}>Sample Condition on Receipt</td>
-            <td style={td}>{sample.condition_on_receipt || 'N/A'}</td>
-            <td style={label}>Standard Specification</td>
-            <td style={td}>—</td>
-          </tr>
-          <tr>
-            <td style={label}>Customer Ref.</td>
-            <td style={td}>{customer.customer_reference_no || 'N/A'}</td>
-            <td style={label}>Brand Name</td>
-            <td style={td}>N/A</td>
-          </tr>
-          <tr>
-            <td style={label}>Sampling Details</td>
-            <td style={td}>{sample.sampling_details || 'Sample provided by the customer'}</td>
-            <td style={label}>Tests Requested</td>
-            <td style={td}>As Mentioned below</td>
-          </tr>
-          <tr>
-            <td style={label}>Batch No.</td>
-            <td style={td}>N/A</td>
-            <td style={label}>DOE</td>
-            <td style={td}>N/A</td>
-          </tr>
-          <tr>
-            <td style={label}>DOM</td>
-            <td style={td}>N/A</td>
-            <td style={td} colSpan={2}></td>
-          </tr>
-          {isNabl && job.sample?.ulr_no && (
-            <tr>
-              <td style={label}>ULR No.</td>
-              <td style={td} colSpan={3}>{job.sample.ulr_no}</td>
-            </tr>
-          )}
-          <tr>
-            <td style={label}>Any Handling Instructions<br /><span style={{ fontWeight: 400, fontSize: '9px' }}>provided: Yes/No (if yes; Short detail)</span></td>
-            <td style={td} colSpan={3}>{sample.special_handling_instructions || compliance.special_handling_instructions || 'No'}</td>
-          </tr>
-          <tr>
-            <td style={label}>Any data provided by customer</td>
-            <td style={td} colSpan={3}>N/A</td>
-          </tr>
-          <tr>
-            <td style={label}>Sample description</td>
-            <td style={td} colSpan={3}>{sample.sample_description || 'N/A'}</td>
-          </tr>
-        </tbody>
-      </table>
-    </>
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
+      <tbody>
+        <tr>
+          <td colSpan={4} style={{ padding: 0 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', margin: 0 }}>
+              <tbody>
+                <tr>
+                  <td style={{ ...label, border: 'none', padding: '4px 7px', width: '110px' }}>CustomerName :</td>
+                  <td style={{ ...td, border: 'none', padding: '4px 7px', fontWeight: 600 }}>{customer.customer_name || job.clientName || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...label, border: 'none', padding: '4px 7px' }}>Address :</td>
+                  <td style={{ ...td, border: 'none', padding: '4px 7px' }}>{customer.customer_address || 'N/A'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style={label}>Sample Name<br /><span style={{ fontWeight: 400, fontSize: '9px' }}>( as stated by customer )</span></td>
+          <td style={td}>{sample.sample_name || 'N/A'}</td>
+          <td style={label}>Test Report No.</td>
+          <td style={td}>{testReportNo}</td>
+        </tr>
+        <tr>
+          <td style={label}>Product Category</td>
+          <td style={td}>{job.groupMetadata?.productCategory || sample.sample_description || 'N/A'}</td>
+          <td style={label}>Registration No.</td>
+          <td style={td}>{registrationNo}</td>
+        </tr>
+        <tr>
+          <td style={label}>Sample Details</td>
+          <td style={td}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.sample_quantity || 'N/A')}</td>
+          <td style={label}>Issue Date</td>
+          <td style={td}>{issueDate}</td>
+        </tr>
+        <tr>
+          <td style={label}>Packing Details</td>
+          <td style={td}>{sample.packing_details || 'N/A'}</td>
+          <td style={label}>Date of Receipt</td>
+          <td style={td}>{receiptDate}</td>
+        </tr>
+        <tr>
+          <td style={label}>Marking Seal ( if any)</td>
+          <td style={td}>{sample.marking_seal || 'NA'}</td>
+          <td style={label}>Testing period</td>
+          <td style={td}>{testingPeriodStr}</td>
+        </tr>
+        <tr>
+          <td style={label}>Sample condition on receipt</td>
+          <td style={td}>{sample.condition_on_receipt || 'Satisfactory'}</td>
+          <td style={label}>Standard Specification</td>
+          <td style={td}>--</td>
+        </tr>
+        <tr>
+          <td style={label}>Customer ref.</td>
+          <td style={td}>{customer.customer_reference_no || 'NA'}</td>
+          <td style={label}>Brand Name</td>
+          <td style={td}>NA</td>
+        </tr>
+        <tr>
+          <td style={label}>Sampling Details</td>
+          <td style={td}>{sample.sampling_details || 'Sample provided by the customer'}</td>
+          <td style={label}>Tests requested</td>
+          <td style={td}>As Mentioned below</td>
+        </tr>
+        <tr>
+          <td style={label}>Batch No.</td>
+          <td style={td}>NA</td>
+          <td style={label}></td>
+          <td style={td}></td>
+        </tr>
+        <tr>
+          <td style={label}>DOM</td>
+          <td style={td}>NA</td>
+          <td style={label}>DOE</td>
+          <td style={td}>NA</td>
+        </tr>
+        <tr>
+          <td style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : Yes/NO ( if yes ; Short detail)</td>
+          <td style={td} colSpan={3}>{sample.special_handling_instructions || compliance.special_handling_instructions || 'No'}</td>
+        </tr>
+        <tr>
+          <td style={label}>Any data provided by customer</td>
+          <td style={td} colSpan={3}>NA</td>
+        </tr>
+        <tr>
+          <td style={label}>Sample description</td>
+          <td style={td} colSpan={3}>{sample.sample_description || 'N/A'}</td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
 
 // ─── Results Table rows renderer ─────────────────────────────────────────────
-function ResultsTable({ results, showDeptCol, startIdx = 0 }) {
+function ResultsTable({ rows, hasSpec, startIdx }) {
+  let counter = startIdx;
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px' }}>
       <thead>
         <tr>
-          <td style={{ ...hdr, width: '38px', textAlign: 'center' }}>Sr. No.</td>
+          <td style={{ ...hdr, width: '45px', textAlign: 'center' }}>Sr. No.</td>
           <td style={hdr}>Test Parameters</td>
-          {showDeptCol && <td style={{ ...hdr, width: '60px', textAlign: 'center' }}>Dept</td>}
           <td style={{ ...hdr, width: '70px', textAlign: 'center' }}>UoM</td>
           <td style={{ ...hdr, width: '95px', textAlign: 'center' }}>Result</td>
           <td style={{ ...hdr, width: '145px', textAlign: 'center' }}>Test Method</td>
-          {results.some(r => r.referenceRange) && (
+          {hasSpec && (
             <td style={{ ...hdr, width: '100px', textAlign: 'center' }}>Specification</td>
           )}
         </tr>
       </thead>
       <tbody>
-        {results.map((r, i) => {
-          let isOutlier = false;
-          if (r.referenceRange?.includes('-') && !isNaN(parseFloat(r.value))) {
-            const [mn, mx] = r.referenceRange.split('-').map(s => parseFloat(s));
-            const val = parseFloat(r.value);
-            if (!isNaN(mn) && !isNaN(mx) && (val < mn || val > mx)) isOutlier = true;
+        {rows.map((row, i) => {
+          if (row.type === 'header') {
+            return (
+              <tr key={`hdr-${i}`}>
+                <td colSpan={3} style={{ ...td, fontWeight: 700, backgroundColor: '#fafafa' }}>
+                  Discipline- {row.dept === 'CHEMICAL' ? 'Chemical' : 'Biological'}<br />
+                  {row.dept === 'CHEMICAL' ? 'Chemical Test Parameter' : 'Microbiology Test Parameters'}
+                </td>
+                <td colSpan={hasSpec ? 3 : 2} style={{ ...td, fontWeight: 700, backgroundColor: '#fafafa' }}>
+                  Group - {row.group}<br />
+                  Sub Group - {row.subGroup}
+                </td>
+              </tr>
+            );
+          } else {
+            const r = row.data;
+            counter++;
+            let isOutlier = false;
+            if (r.referenceRange?.includes('-') && !isNaN(parseFloat(r.value))) {
+              const [mn, mx] = r.referenceRange.split('-').map(s => parseFloat(s));
+              const val = parseFloat(r.value);
+              if (!isNaN(mn) && !isNaN(mx) && (val < mn || val > mx)) isOutlier = true;
+            }
+            return (
+              <tr key={`res-${i}`}>
+                <td style={{ ...td, textAlign: 'center' }}>{counter}.</td>
+                <td style={td}>{r.name}</td>
+                <td style={{ ...td, textAlign: 'center' }}>{r.unit || '—'}</td>
+                <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: isOutlier ? '#c0392b' : '#000' }}>
+                  {r.value || '—'}{isOutlier && <span style={{ fontSize: '8px' }}> (FLAG)</span>}
+                </td>
+                <td style={{ ...td, textAlign: 'center' }}>{r.testMethod || '—'}</td>
+                {hasSpec && (
+                  <td style={{ ...td, textAlign: 'center' }}>{r.referenceRange || '—'}</td>
+                )}
+              </tr>
+            );
           }
-          return (
-            <tr key={i}>
-              <td style={{ ...td, textAlign: 'center' }}>{startIdx + i + 1}.</td>
-              <td style={td}>{r.name}</td>
-              {showDeptCol && (
-                <td style={{ ...td, textAlign: 'center', fontSize: '9.5px', fontWeight: 600,
-                  color: r._dept === 'MICRO' ? '#15803d' : '#1d4ed8' }}>{r._dept}</td>
-              )}
-              <td style={{ ...td, textAlign: 'center' }}>{r.unit || '—'}</td>
-              <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: isOutlier ? '#c0392b' : '#000' }}>
-                {r.value || '—'}{isOutlier && <span style={{ fontSize: '8px' }}> (FLAG)</span>}
-              </td>
-              <td style={{ ...td, textAlign: 'center' }}>{r.testMethod || '—'}</td>
-              {results.some(x => x.referenceRange) && (
-                <td style={{ ...td, textAlign: 'center' }}>{r.referenceRange || '—'}</td>
-              )}
-            </tr>
-          );
         })}
-        {results.length === 0 && (
-          <tr><td colSpan={showDeptCol ? 6 : 5} style={{ ...td, textAlign: 'center', color: '#888' }}>No results recorded.</td></tr>
+        {rows.length === 0 && (
+          <tr><td colSpan={hasSpec ? 6 : 5} style={{ ...td, textAlign: 'center', color: '#888' }}>No results recorded.</td></tr>
         )}
       </tbody>
     </table>
@@ -273,13 +275,16 @@ function ResultsTable({ results, showDeptCol, startIdx = 0 }) {
 }
 
 // ─── Abbreviations block ──────────────────────────────────────────────────────
-function AbbrevBlock() {
+function AbbrevBlock({ isAmended, baseReportNo }) {
   return (
     <div style={{ fontSize: '9px', color: '#333', borderTop: '1px solid #aaa', paddingTop: '5px', marginBottom: '20px' }}>
-      <strong>Abbreviations used:</strong> UOM: Unit of Measurement; BLQ: Below limit of Quantification; LOQ: Limit of Quantification; DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable.<br />
+      <strong>Abbreviations used:</strong> UOM: Unit of Measurement; NMT: Not More Than; DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable, BLQ: Below Limit of Quantification, LOQ: Limit of Quantification{isAmended ? ', A: Amendment' : ''}.<br />
       <strong>NOTE:</strong> 1) Report shall not be reproduced except in full without approval of the laboratory.<br />
       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) The results relate only to the items sampled / tested as received.<br />
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Duplicate report will be issued on chargeable basis.
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Duplicate report will be issued on chargeable basis.<br />
+      {isAmended && (
+        <>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) This test report is the replacement to earlier test report no. ({baseReportNo}). Earlier test report stands obsolete.</>
+      )}
     </div>
   );
 }
@@ -291,11 +296,11 @@ function SignatureFooter({ involvedDepts }) {
     <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '8px' }}>
       <tbody>
         <tr>
-          {/* Left: Reviewer (always Divya Gupta) */}
+          {/* Left: Reviewer (Diksha Dwivedi) */}
           <td style={{ width: '30%', fontSize: '10.5px', verticalAlign: 'bottom', paddingBottom: '4px' }}>
             <div style={{ marginBottom: '24px' }}>&nbsp;</div>{/* space for signature */}
-            <div style={{ fontWeight: 700 }}>Ms. Divya Gupta</div>
-            <div>Reviewed by</div>
+            <div style={{ fontWeight: 700 }}>Ms. Diksha Dwivedi</div>
+            <div>Analyst</div>
           </td>
 
           {/* Center: End of report */}
@@ -331,10 +336,13 @@ function PageFooter({ pageNum, totalPages }) {
 }
 
 // ─── Build pages from result rows ─────────────────────────────────────────────
-function buildPages(results, perPage) {
+function buildPages(allRows, perPage) {
   const pages = [];
-  for (let i = 0; i < Math.max(results.length, 1); i += perPage) {
-    pages.push(results.slice(i, i + perPage));
+  let currentResultIndex = 0;
+  for (let i = 0; i < Math.max(allRows.length, 1); i += perPage) {
+    const pageRows = allRows.slice(i, i + perPage);
+    pages.push({ rows: pageRows, startIdx: currentResultIndex });
+    currentResultIndex += pageRows.filter(r => r.type === 'result').length;
   }
   return pages;
 }
@@ -345,7 +353,7 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
   const customer = job.customer || {};
   const sample = job.sample || {};
 
-  const { testReportNo, registrationNo } = deriveReportFields(job.jobCode);
+  const { testReportNo, registrationNo, isAmended, baseReportNo } = deriveReportFields(job.jobCode);
   const completedAt = microReport?.completedAt || chemicalReport?.completedAt;
   const issueDate = completedAt ? new Date(completedAt).toLocaleDateString('en-IN') : 'N/A';
   const receiptDate = job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-IN') : 'N/A';
@@ -356,14 +364,21 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
 
   const sampleName = sample.sample_name || 'N/A';
 
-  // Build combined result list with dept tag
-  const allResults = [
-    ...(microReport?.results || []).map(r => ({ ...r, _dept: 'MICRO' })),
-    ...(chemicalReport?.results || []).map(r => ({ ...r, _dept: 'CHEMICAL' })),
-  ];
-  const showDept = !!(microReport && chemicalReport);
+  const allRows = [];
+  const groupName = job.groupMetadata?.group || 'N/A';
+  const subGroupName = job.groupMetadata?.subGroup || 'N/A';
 
-  const pages = buildPages(allResults, ITEMS_PER_PAGE);
+  if (chemicalReport?.results?.length > 0) {
+    allRows.push({ type: 'header', dept: 'CHEMICAL', group: groupName, subGroup: subGroupName });
+    chemicalReport.results.forEach(r => allRows.push({ type: 'result', data: r }));
+  }
+  if (microReport?.results?.length > 0) {
+    allRows.push({ type: 'header', dept: 'MICRO', group: groupName, subGroup: subGroupName });
+    microReport.results.forEach(r => allRows.push({ type: 'result', data: r }));
+  }
+
+  const hasSpec = allRows.some(r => r.type === 'result' && r.data.referenceRange);
+  const pages = buildPages(allRows, ITEMS_PER_PAGE);
   const totalPages = pages.length;
 
   // Signatories
@@ -380,7 +395,7 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
 
   return (
     <div ref={forwardedRef}>
-      {pages.map((pageResults, pageIdx) => {
+      {pages.map((pageObj, pageIdx) => {
         const isFirst = pageIdx === 0;
         const isLast = pageIdx === totalPages - 1;
         return (
@@ -388,8 +403,7 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
             {/* Header */}
             {isFirst
               ? <PageHeader isNabl={isNabl} />
-              : <ContinuationHeader isNabl={isNabl} testReportNo={testReportNo}
-                  sampleName={sampleName} pageNum={pageIdx + 1} totalPages={totalPages} />
+              : <ContinuationHeader job={job} testReportNo={testReportNo} registrationNo={registrationNo} />
             }
 
             {/* Title (page 1 only) */}
@@ -425,15 +439,15 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
             )}
 
             <ResultsTable
-              results={pageResults}
-              showDeptCol={showDept}
-              startIdx={pageIdx * ITEMS_PER_PAGE}
+              rows={pageObj.rows}
+              hasSpec={hasSpec}
+              startIdx={pageObj.startIdx}
             />
 
             {/* Last page: abbreviations + signatures + page number */}
             {isLast && (
               <>
-                <AbbrevBlock />
+                <AbbrevBlock isAmended={isAmended} baseReportNo={baseReportNo} />
                 <SignatureFooter involvedDepts={involvedDepts} />
               </>
             )}

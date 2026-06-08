@@ -362,11 +362,11 @@ export default function DataSettings() {
           </h3>
           <div className="grid-2" style={{ gap: '2rem', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Current ULR:</div>
+              <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Last Used ULR:</div>
               <div style={{ fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 700, color: '#1d4ed8', backgroundColor: 'rgba(255,255,255,0.7)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', border: '1px solid #93c5fd' }}>
                 {ulrPreview || 'Loading...'}
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem' }}>This is the current value of ULR.</div>
+              <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '0.5rem', maxWidth: '250px' }}>This was the ULR assigned to the most recent job. The next job will increment this number.</div>
             </div>
             <div>
               <div style={{ fontSize: '0.9rem', color: '#1e40af', fontWeight: 600, marginBottom: '0.5rem' }}>Update ULR:</div>
