@@ -122,7 +122,7 @@ router.get('/', protect, async (req, res) => {
       .populate('distribution.micro.assignedHead', 'name email')
       .populate('distribution.chemical.assignedHead', 'name email')
       .populate('history.by', 'name')
-      .populate('siblingJobId', 'jobCode')
+      .populate('siblingJobId', 'sampleTransferState distribution headApproval jobCode sample')
       .sort({ createdAt: -1 });
 
     // Attach test instances for timeline view
@@ -169,18 +169,10 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       const hasMicro = params && params.some(p => p.type === 'Micro');
       const hasChemical = (params && params.some(p => p.type === 'Chemical')) || isPesticideEnabled;
 
-      let microStatus = 'PENDING';
-      let chemicalStatus = 'PENDING';
-
-      // Multi-department jobs start in joint review phase
-      if (hasMicro && hasChemical) {
-        microStatus = 'PENDING_REVIEW';
-        chemicalStatus = 'PENDING_REVIEW';
-      }
-
+      // ALL jobs start at PENDING_REVIEW (universal approval gate)
       return {
-        micro: { required: hasMicro, status: hasMicro ? microStatus : 'PENDING', assignedHead: assignedMicroHead || null },
-        chemical: { required: hasChemical, status: hasChemical ? chemicalStatus : 'PENDING', assignedHead: assignedChemicalHead || null }
+        micro: { required: hasMicro, status: hasMicro ? 'PENDING_REVIEW' : 'PENDING', assignedHead: assignedMicroHead || null },
+        chemical: { required: hasChemical, status: hasChemical ? 'PENDING_REVIEW' : 'PENDING', assignedHead: assignedChemicalHead || null }
       };
     };
 
@@ -239,6 +231,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         groupMetadata: nablGroupMetadata,
         pesticidePanel: nablPesticidePanel,
         distribution: nablDist,
+        sampleTransferState: (nablDist.micro.required && nablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id,
         history: [{
@@ -261,6 +254,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         groupMetadata: nonNablGroupMetadata,
         pesticidePanel: nonNablPesticidePanel,
         distribution: nonNablDist,
+        sampleTransferState: (nonNablDist.micro.required && nonNablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id,
         siblingJobId: nablJob._id,
@@ -297,6 +291,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         groupMetadata,
         pesticidePanel,
         distribution: dist,
+        sampleTransferState: (dist.micro.required && dist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         createdBy: req.user._id,
         history: [{
@@ -361,18 +356,20 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       const hasMicro = parameters.some(p => p.type === 'Micro');
       const hasChemical = parameters.some(p => p.type === 'Chemical') || pesticidePanel?.enabled;
 
-      // Retain existing valid statuses, default to PENDING if newly required
-      let microStatus = (job.distribution.micro?.status && job.distribution.micro.status !== 'RETURNED') ? job.distribution.micro.status : 'PENDING';
-      let chemicalStatus = (job.distribution.chemical?.status && job.distribution.chemical.status !== 'RETURNED') ? job.distribution.chemical.status : 'PENDING';
+      // Retain existing valid statuses, default to PENDING_REVIEW if newly required
+      let microStatus = (job.distribution.micro?.status && job.distribution.micro.status !== 'RETURNED') ? job.distribution.micro.status : 'PENDING_REVIEW';
+      let chemicalStatus = (job.distribution.chemical?.status && job.distribution.chemical.status !== 'RETURNED') ? job.distribution.chemical.status : 'PENDING_REVIEW';
 
       if (job.distribution.micro?.status === 'RETURNED' || job.distribution.chemical?.status === 'RETURNED') {
         isResubmitted = true;
       }
 
-      // Multi-department jobs start in joint review phase
-      if (hasMicro && hasChemical) {
-        if (microStatus === 'PENDING') microStatus = 'PENDING_REVIEW';
-        if (chemicalStatus === 'PENDING') chemicalStatus = 'PENDING_REVIEW';
+      // Universal approval gate: if resubmitted, statuses go back to PENDING_REVIEW
+      if (isResubmitted) {
+        if (hasMicro) microStatus = 'PENDING_REVIEW';
+        if (hasChemical) chemicalStatus = 'PENDING_REVIEW';
+        job.headApproval = { micro: false, chemical: false };
+        job.sampleTransferState = (hasMicro && hasChemical) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
       }
 
       job.distribution = {
@@ -383,7 +380,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       if (hasMicro && hasChemical) {
         job.sampleFlow = {
           type: 'PARALLEL',
-          firstDepartment: 'mico',
+          firstDepartment: 'micro',
           transferDeadline: sampleFlow?.transferDeadline || job.sampleFlow?.transferDeadline || null
         };
       } else {
@@ -425,12 +422,44 @@ router.put('/:id/approve-review', protect, authorize('HEAD'), async (req, res) =
       return res.status(400).json({ message: 'Job is not pending your review' });
     }
 
+    job.headApproval[myDept] = true;
     job.distribution[myDept].status = 'REVIEW_APPROVED';
 
-    // If both are approved, unlock them to PENDING
-    if (job.distribution[otherDept].status === 'REVIEW_APPROVED' || !job.distribution[otherDept].required) {
-      job.distribution.micro.status = 'PENDING';
-      job.distribution.chemical.status = 'PENDING';
+    // CHECK UNLOCK (universal for single and multi-dept)
+    const isMultiDept = job.distribution.micro.required && job.distribution.chemical.required;
+    const otherApproved = job.headApproval[otherDept] === true || !job.distribution[otherDept].required;
+
+    // If all required departments for THIS job have approved:
+    if (otherApproved) {
+      if (job.distribution.micro.required) job.distribution.micro.status = 'PENDING';
+      if (job.distribution.chemical.required) job.distribution.chemical.status = 'PENDING';
+      
+      if (!isMultiDept) {
+        job.sampleTransferState = 'NOT_REQUIRED';
+      } else if (!job.siblingJobId) {
+        job.sampleTransferState = 'PENDING_TRANSFER';
+      } else {
+        // Hybrid sync logic: Transfer unlock requires ALL siblings to be fully approved
+        const sibling = await Job.findById(job.siblingJobId);
+        if (sibling) {
+          const siblingFullyApproved = (!sibling.distribution.micro.required || sibling.headApproval.micro === true) &&
+                                       (!sibling.distribution.chemical.required || sibling.headApproval.chemical === true);
+          
+          if (siblingFullyApproved) {
+            job.sampleTransferState = 'PENDING_TRANSFER';
+            // Unlock sibling if it was also waiting
+            if (sibling.distribution.micro.status === 'PENDING' || sibling.distribution.chemical.status === 'PENDING') {
+              sibling.sampleTransferState = 'PENDING_TRANSFER';
+              await sibling.save();
+            }
+          } else {
+            // Sibling not ready yet, keep this one waiting
+            job.sampleTransferState = 'PENDING_APPROVAL';
+          }
+        } else {
+          job.sampleTransferState = 'PENDING_TRANSFER'; // fallback if no sibling found
+        }
+      }
     }
 
     job.history.push({
@@ -470,6 +499,10 @@ router.post('/:id/return', protect, authorize('HEAD'), async (req, res) => {
     }
 
     job.distribution[department].status = 'RETURNED';
+
+    // Reset approval tracking and transfer state
+    job.headApproval = { micro: false, chemical: false };
+    job.sampleTransferState = 'NOT_REQUIRED';
 
     // If it's a multi-department job in the joint review phase, force both to RETURNED
     if (job.distribution.micro.required && job.distribution.chemical.required) {

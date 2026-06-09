@@ -85,6 +85,17 @@ const jobSchema = new mongoose.Schema({
       }
     }
   },
+  // Head Approval Tracking (universal approval gate)
+  headApproval: {
+    micro:    { type: Boolean, default: false },
+    chemical: { type: Boolean, default: false }
+  },
+  // Sample Transfer State Machine
+  sampleTransferState: {
+    type: String,
+    enum: ['NOT_REQUIRED', 'PENDING_APPROVAL', 'PENDING_TRANSFER', 'IN_TRANSIT', 'ACCEPTED'],
+    default: 'NOT_REQUIRED'
+  },
   sampleFlow: {
     type: { type: String, enum: ['PARALLEL', 'SEQUENTIAL'], default: 'PARALLEL' },
     firstDepartment: { type: String, enum: ['micro', 'chemical'], default: 'micro' },

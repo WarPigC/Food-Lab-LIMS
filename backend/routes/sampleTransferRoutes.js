@@ -57,28 +57,36 @@ router.get('/outgoing', protect, authorize('HEAD'), async (req, res) => {
       return res.json([]);
     }
     
-    // Find multi-department jobs where micro dept is not RETURNED
+    // Phase 2H: Update Outgoing Transfers Endpoint
     const jobs = await Job.find({
       'distribution.micro.required': true,
       'distribution.chemical.required': true,
-      'distribution.micro.status': { $ne: 'RETURNED' }
+      'sampleTransferState': 'PENDING_TRANSFER'
+    }).populate('siblingJobId', 'distribution').lean();
+
+    // Filter: if job has a sibling that's also multi-dept, only include NABL
+    const filtered = jobs.filter(j => {
+      if (j.sample?.nabl_type === 'Non Nabl' && j.siblingJobId) {
+        // Check if sibling is also multi-dept — if so, skip non-NABL
+        const sib = j.siblingJobId;
+        if (sib && sib.distribution?.micro?.required && sib.distribution?.chemical?.required) {
+          return false; // only show NABL sibling for transfer
+        }
+      }
+      return true;
     });
 
-    const uniqueSerials = [...new Set(jobs.map(j => j.sampleSerial))];
-    const existingTransfers = await SampleTransfer.find({ sampleSerial: { $in: uniqueSerials } });
-    const transferredSerials = new Set(existingTransfers.map(t => t.sampleSerial));
-    
-    const pendingJobs = [];
+    // Remove duplicates based on sampleSerial just in case
+    const uniqueJobs = [];
     const seenSerials = new Set();
-    
-    for (const j of jobs) {
-      if (!transferredSerials.has(j.sampleSerial) && !seenSerials.has(j.sampleSerial)) {
-        pendingJobs.push(j);
+    for (const j of filtered) {
+      if (!seenSerials.has(j.sampleSerial)) {
+        uniqueJobs.push(j);
         seenSerials.add(j.sampleSerial);
       }
     }
     
-    res.json(pendingJobs);
+    res.json(uniqueJobs);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching outgoing transfers', error: err.message });
   }
@@ -103,6 +111,13 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
     const fromDept = 'micro';
     const toDept = 'chemical';
 
+    if (job.headApproval?.micro !== true || job.headApproval?.chemical !== true) {
+      return res.status(400).json({ message: 'Job must be approved by both heads before transfer' });
+    }
+    if (job.sampleTransferState !== 'PENDING_TRANSFER') {
+      return res.status(400).json({ message: 'Job is not pending transfer' });
+    }
+
     // Check no existing transfer
     const existing = await SampleTransfer.findOne({ sampleSerial: job.sampleSerial });
     if (existing) {
@@ -111,11 +126,25 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
 
     const transfer = await SampleTransfer.create({
       sampleSerial: job.sampleSerial,
+      jobId: job._id,
       fromDepartment: fromDept,
       toDepartment: toDept,
       sentBy: req.user._id,
       sentAt: new Date()
     });
+
+    // Update job state
+    job.sampleTransferState = 'IN_TRANSIT';
+    await job.save();
+
+    // Sibling Sync
+    if (job.siblingJobId) {
+      const sibling = await Job.findById(job.siblingJobId);
+      if (sibling && sibling.distribution?.micro?.required && sibling.distribution?.chemical?.required) {
+        sibling.sampleTransferState = 'IN_TRANSIT';
+        await sibling.save();
+      }
+    }
 
     // Notify receiving department's HEAD(s)
     const toDeptName = toDept === 'chemical' ? 'chemical' : 'micro';
@@ -179,6 +208,13 @@ router.put('/:id/receive', protect, authorize('HEAD'), async (req, res) => {
     transfer.receivedAt = new Date();
     transfer.status = 'RECEIVED';
     await transfer.save();
+
+    // Sync all jobs with this sampleSerial
+    const jobs = await Job.find({ sampleSerial: transfer.sampleSerial, sampleTransferState: 'IN_TRANSIT' });
+    for (const j of jobs) {
+      j.sampleTransferState = 'ACCEPTED';
+      await j.save();
+    }
 
     const job = await Job.findOne({ sampleSerial: transfer.sampleSerial });
 

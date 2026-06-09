@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const sampleTransferSchema = new mongoose.Schema({
   sampleSerial:   { type: Number, required: true },
+  jobId:          { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
   fromDepartment: { type: String, enum: ['micro', 'chemical'], required: true },
   toDepartment:   { type: String, enum: ['micro', 'chemical'], required: true },
   sentBy:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

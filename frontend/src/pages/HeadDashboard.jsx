@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import axios from 'axios';
-import { Trash2, Edit, Plus, Check, FileText, Activity, Users, Settings, Clock, CheckCircle, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, ArrowRightLeft, Send, PackageCheck } from 'lucide-react';
+import { Trash2, Edit, Plus, Check, FileText, Activity, Users, Settings, Clock, CheckCircle, ClipboardCheck, RotateCcw, ChevronDown, ChevronRight, ArrowRightLeft, Send, PackageCheck, Lock } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -756,6 +756,18 @@ function Dispatcher() {
             const microCount = deptParams.filter(p => p.type?.toLowerCase() === 'micro').length;
             const chemCount = deptParams.filter(p => p.type?.toLowerCase() === 'chemical').length;
 
+            const isMultiDept = job.distribution?.micro?.required && job.distribution?.chemical?.required;
+            const myDept = user?.department ? user.department.toLowerCase() : '';
+            const iAmChemical = myDept === 'chemical';
+            const transferState = job.sampleTransferState;
+
+            let canChemicalDispatch = true;
+            if (iAmChemical && isMultiDept) {
+              if (['PENDING_APPROVAL', 'PENDING_TRANSFER', 'IN_TRANSIT'].includes(transferState)) {
+                canChemicalDispatch = false;
+              }
+            }
+
             return (
               <div key={job._id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '2px solid var(--color-primary)' : '1px solid var(--color-border)', transition: 'border-color 0.2s' }}>
                 {/* Card Header — always visible */}
@@ -839,7 +851,8 @@ function Dispatcher() {
                                       value={assignments[`${job._id}-${p.parameterId._id}`] || ''}
                                       onChange={e => handleAssign(job._id, p.parameterId._id, e.target.value)}
                                       required
-                                      style={{ minWidth: '180px' }}
+                                      disabled={iAmChemical && !canChemicalDispatch}
+                                      style={{ minWidth: '180px', opacity: (iAmChemical && !canChemicalDispatch) ? 0.6 : 1 }}
                                     >
                                       <option value="" disabled>Select Analyst...</option>
                                       {assistants.map(ast => <option key={ast._id} value={ast._id}>{ast.name}</option>)}
@@ -852,8 +865,8 @@ function Dispatcher() {
                             {/* Action Blocks based on Status */}
                             {isReviewing && (
                               <div style={{ textAlign: 'center', padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
-                                <h3 style={{ color: 'var(--color-warning)', marginBottom: '0.5rem', fontSize: '1.2rem' }}>Joint Review Phase</h3>
-                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Please review the job details and parameters above. You must approve the job before analysts can be assigned.</p>
+                                <h3 style={{ color: 'var(--color-warning)', marginBottom: '0.5rem', fontSize: '1.2rem' }}>Approval Required</h3>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Please review the job details and parameters above before approving. You must approve the job before analysts can be assigned.</p>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                                   <button 
                                     onClick={async () => {
@@ -887,7 +900,7 @@ function Dispatcher() {
                             {isApproved && (
                               <div style={{ textAlign: 'center', padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
                                 <h3 style={{ color: 'var(--color-success)', marginBottom: '0.5rem', fontSize: '1.2rem' }}>Approved by {dKey === 'micro' ? 'Micro' : 'Chemical'}</h3>
-                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Waiting for the {otherKey === 'micro' ? 'Micro' : 'Chemical'} department to approve their details before analysts can be assigned.</p>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Waiting for the {otherKey === 'micro' ? 'Micro' : 'Chemical'} department to approve their details before the job unlocks.</p>
                                  <button 
                                     onClick={() => {
                                       setReturnModalData({ jobId: job._id, dept: dKey });
@@ -903,75 +916,96 @@ function Dispatcher() {
 
                             {isPending && (
                               <>
-                                {/* Bulk assign */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
-                                  <div></div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Bulk assign all to:</label>
-                                    <select
-                                      onChange={e => { handleAssignAll(job._id, e.target.value, deptParams); e.target.value = ''; }}
-                                      defaultValue=""
-                                      style={{ minWidth: '150px' }}
-                                    >
-                                      <option value="" disabled>Select analyst...</option>
-                                      {assistants.map(ast => <option key={ast._id} value={ast._id}>{ast.name}</option>)}
-                                    </select>
+                                {iAmChemical && !canChemicalDispatch ? (
+                                  <div style={{ textAlign: 'center', padding: '1.5rem', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-hover)' }}>
+                                    <h3 style={{ color: 'var(--color-warning)', marginBottom: '0.5rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                      <Lock size={18} /> Dispatch Locked
+                                    </h3>
+                                    {transferState === 'PENDING_APPROVAL' && <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 0 }}>Waiting for sibling job to be approved before transfer can begin.</p>}
+                                    {transferState === 'PENDING_TRANSFER' && (
+                                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 0 }}>
+                                        {job.sample?.nabl_type === 'Non Nabl' ? 'Please accept the sample transfer in the NABL sibling job first.' : 'Waiting for Micro department to transfer the sample.'}
+                                      </p>
+                                    )}
+                                    {transferState === 'IN_TRANSIT' && (
+                                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 0 }}>
+                                        {job.sample?.nabl_type === 'Non Nabl' ? 'Please accept the sample transfer in the NABL sibling job first.' : 'Sample is in transit. Please confirm receipt from your dashboard above.'}
+                                      </p>
+                                    )}
                                   </div>
-                                </div>
+                                ) : (
+                                  <>
+                                    {/* Bulk assign */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
+                                      <div></div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Bulk assign all to:</label>
+                                        <select
+                                          onChange={e => { handleAssignAll(job._id, e.target.value, deptParams); e.target.value = ''; }}
+                                          defaultValue=""
+                                          style={{ minWidth: '150px' }}
+                                        >
+                                          <option value="" disabled>Select analyst...</option>
+                                          {assistants.map(ast => <option key={ast._id} value={ast._id}>{ast.name}</option>)}
+                                        </select>
+                                      </div>
+                                    </div>
 
-                                {/* Deadline + Submit */}
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                                  <div style={{ flex: '1 1 180px' }}>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.4rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Deadline Date <span style={{color:'var(--color-danger)'}}>*</span></label>
-                                    <input
-                                      type="date"
-                                      value={deadlineDates[job._id] || ''}
-                                      onChange={e => {
-                                        setDeadlineDates(prev => ({ ...prev, [job._id]: e.target.value }));
-                                        setDeadlineTimes(prev => {
-                                          if (!prev[job._id] && e.target.value) {
-                                            return { ...prev, [job._id]: '17:00' };
-                                          }
-                                          return prev;
-                                        });
-                                      }}
-                                      required
-                                      style={{ width: '100%' }}
-                                    />
-                                  </div>
-                                  <div style={{ flex: '1 1 130px' }}>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.4rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Due Time <span style={{color:'var(--color-danger)'}}>*</span></label>
-                                    <input
-                                      type="time"
-                                      value={deadlineTimes[job._id] || ''}
-                                      onChange={e => setDeadlineTimes(prev => ({ ...prev, [job._id]: e.target.value }))}
-                                      required
-                                      style={{ width: '100%' }}
-                                    />
-                                  </div>
-                                  <div style={{ flex: '0 0 auto', display: 'flex', gap: '0.5rem' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setReturnModalData({ jobId: job._id, dept: dKey });
-                                        setReturnNote('');
-                                      }}
-                                      className="btn btn-secondary"
-                                      style={{ padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#B45309', border: '1px solid #F59E0B', backgroundColor: '#FFFBEB' }}
-                                    >
-                                      <RotateCcw size={16} /> Return
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSubmit(job)}
-                                      className="btn btn-primary"
-                                      disabled={submittingJobId === job._id}
-                                      style={{ padding: '0.6rem 1.5rem', justifyContent: 'center' }}
-                                    >
-                                      {submittingJobId === job._id ? <Spinner size="sm" message="Dispatching..." color="#fff" /> : 'Dispatch Job'}
-                                    </button>
-                                  </div>
-                                </div>
+                                    {/* Deadline + Submit */}
+                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                      <div style={{ flex: '1 1 180px' }}>
+                                        <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.4rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Deadline Date <span style={{color:'var(--color-danger)'}}>*</span></label>
+                                        <input
+                                          type="date"
+                                          value={deadlineDates[job._id] || ''}
+                                          onChange={e => {
+                                            setDeadlineDates(prev => ({ ...prev, [job._id]: e.target.value }));
+                                            setDeadlineTimes(prev => {
+                                              if (!prev[job._id] && e.target.value) {
+                                                return { ...prev, [job._id]: '17:00' };
+                                              }
+                                              return prev;
+                                            });
+                                          }}
+                                          required
+                                          style={{ width: '100%' }}
+                                        />
+                                      </div>
+                                      <div style={{ flex: '1 1 130px' }}>
+                                        <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.4rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Due Time <span style={{color:'var(--color-danger)'}}>*</span></label>
+                                        <input
+                                          type="time"
+                                          value={deadlineTimes[job._id] || ''}
+                                          onChange={e => setDeadlineTimes(prev => ({ ...prev, [job._id]: e.target.value }))}
+                                          required
+                                          style={{ width: '100%' }}
+                                        />
+                                      </div>
+                                      <div style={{ flex: '0 0 auto', display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setReturnModalData({ jobId: job._id, dept: dKey });
+                                            setReturnNote('');
+                                          }}
+                                          className="btn btn-secondary"
+                                          style={{ padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#B45309', border: '1px solid #F59E0B', backgroundColor: '#FFFBEB' }}
+                                        >
+                                          <RotateCcw size={16} /> Return
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSubmit(job)}
+                                          className="btn btn-primary"
+                                          disabled={submittingJobId === job._id}
+                                          style={{ padding: '0.6rem 1.5rem', justifyContent: 'center' }}
+                                        >
+                                          {submittingJobId === job._id ? <Spinner size="sm" message="Dispatching..." color="#fff" /> : 'Dispatch Job'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
                               </>
                             )}
                           </>
