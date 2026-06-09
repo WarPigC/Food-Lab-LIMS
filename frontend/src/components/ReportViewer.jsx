@@ -28,8 +28,8 @@ const ITEMS_PER_PAGE = 12; // max result rows before splitting to a new page
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const border = '1px solid #333';
 const td = { border, padding: '4px 7px', fontSize: '10.5px', verticalAlign: 'top' };
-const label = { ...td, fontWeight: 600, whiteSpace: 'nowrap', width: '155px', backgroundColor: '#f8f9fa' };
-const hdr = { ...td, fontWeight: 700, backgroundColor: '#f0f0f0', padding: '5px 7px' };
+const label = { ...td, fontWeight: 600, whiteSpace: 'nowrap', width: '155px' };
+const hdr = { ...td, fontWeight: 700, padding: '5px 7px' };
 const pageStyle = {
   fontFamily: 'Arial, sans-serif',
   backgroundColor: '#fff',
@@ -116,26 +116,22 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
   const sample = job.sample || {};
   const compliance = job.compliance || {};
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', border: '1px solid #333' }}>
       <tbody>
         <tr>
-          <td colSpan={4} style={{ padding: 0 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', margin: 0 }}>
-              <tbody>
-                <tr>
-                  <td style={{ ...label, border: 'none', padding: '4px 7px', width: '110px' }}>Customer Name:</td>
-                  <td style={{ ...td, border: 'none', padding: '4px 7px', fontWeight: 600 }}>{customer.customer_name || job.clientName || 'N/A'}</td>
-                </tr>
-                <tr>
-                  <td style={{ ...label, border: 'none', padding: '4px 7px' }}>Address:</td>
-                  <td style={{ ...td, border: 'none', padding: '4px 7px' }}>{customer.customer_address || 'N/A'}</td>
-                </tr>
-                <tr>
-                  <td style={{ ...label, border: 'none', padding: '4px 7px' }}>Contact Person:</td>
-                  <td style={{ ...td, border: 'none', padding: '4px 7px' }}>{customer.contact_person || 'N/A'}</td>
-                </tr>
-              </tbody>
-            </table>
+          <td colSpan={4} style={{ ...td, padding: '8px', borderBottom: '1px solid #333' }}>
+            <div style={{ display: 'flex', marginBottom: '4px' }}>
+              <div style={{ width: '150px', fontWeight: 600 }}>Customer Name:</div>
+              <div style={{ flex: 1, fontWeight: 700 }}>{customer.customer_name || job.clientName || 'N/A'}</div>
+            </div>
+            <div style={{ display: 'flex', marginBottom: '4px' }}>
+              <div style={{ width: '150px', fontWeight: 600 }}>Address:</div>
+              <div style={{ flex: 1 }}>{customer.customer_address || 'N/A'}</div>
+            </div>
+            <div style={{ display: 'flex' }}>
+              <div style={{ width: '150px', fontWeight: 600 }}>Contact Person:</div>
+              <div style={{ flex: 1 }}>{customer.contact_person || 'N/A'}</div>
+            </div>
           </td>
         </tr>
         <tr>
@@ -146,7 +142,22 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
         </tr>
         <tr>
           <td style={label}>Sample Details</td>
-          <td style={td}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.sample_quantity || 'N/A')}</td>
+          <td style={{ ...td, padding: 0 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', margin: 0, fontSize: '10.5px' }}>
+              <thead>
+                <tr>
+                  <td style={{ borderBottom: '1px solid #333', padding: '4px 7px', fontWeight: 600 }}>Size</td>
+                  <td style={{ borderBottom: '1px solid #333', padding: '4px 7px', fontWeight: 600 }}>Container type</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '4px 7px' }}>{sample.sample_quantity || 'N/A'}</td>
+                  <td style={{ padding: '4px 7px' }}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.packing_details || 'N/A')}</td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
           <td style={label}>Registration No.</td>
           <td style={td}>{registrationNo}</td>
         </tr>
@@ -231,11 +242,11 @@ function ResultsTable({ rows, hasSpec, startIdx }) {
           if (row.type === 'header') {
             return (
               <tr key={`hdr-${i}`}>
-                <td colSpan={3} style={{ ...td, fontWeight: 700, backgroundColor: '#fafafa' }}>
+                <td colSpan={3} style={{ ...td, fontWeight: 700 }}>
                   Discipline- {row.dept === 'CHEMICAL' ? 'Chemical' : 'Biological'}<br />
                   {row.dept === 'CHEMICAL' ? 'Chemical Test Parameter' : 'Microbiology Test Parameters'}
                 </td>
-                <td colSpan={hasSpec ? 3 : 2} style={{ ...td, fontWeight: 700, backgroundColor: '#fafafa' }}>
+                <td colSpan={hasSpec ? 3 : 2} style={{ ...td, fontWeight: 700 }}>
                   Group - {row.group}<br />
                   Sub Group - {row.subGroup}
                 </td>
