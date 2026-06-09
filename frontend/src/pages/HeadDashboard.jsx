@@ -939,8 +939,7 @@ function Dispatcher() {
                                     )}
                                   </div>
                                   );
-                                })()
-                                ) : (
+                                })() : (
                                   <>
                                     {/* Bulk assign */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>

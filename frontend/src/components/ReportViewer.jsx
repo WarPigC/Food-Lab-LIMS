@@ -3,6 +3,7 @@ import html2pdf from 'html2pdf.js';
 import { Download } from 'lucide-react';
 import logo from '../assets/Acropolis20Logo.png';
 import nablLogo from '../assets/nabl-logo.png';
+import nablQrcode from '../assets/nabl-qrcode.png';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -68,11 +69,12 @@ function PageHeader({ isNabl, docRef }) {
               Email ID: ftl@acropolis.edu.in | Website: www.acrolabs.in
             </div>
           </td>
-          <td style={{ ...td, width: '90px', textAlign: 'right', verticalAlign: 'top', border, fontSize: '8.5px', whiteSpace: 'nowrap' }}>
+          <td style={{ ...td, width: '130px', textAlign: 'right', verticalAlign: 'top', border, fontSize: '8.5px', whiteSpace: 'nowrap' }}>
             <div>FTL/AIPER/F/7.8-01</div>
             {isNabl && (
-              <div style={{ marginTop: '4px' }}>
+              <div style={{ marginTop: '4px', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
                 <NablLogo size={60} />
+                <img src={nablQrcode} alt="QR Code" style={{ width: '45px', objectFit: 'contain' }} />
               </div>
             )}
           </td>
@@ -121,12 +123,16 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
             <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', margin: 0 }}>
               <tbody>
                 <tr>
-                  <td style={{ ...label, border: 'none', padding: '4px 7px', width: '110px' }}>CustomerName :</td>
+                  <td style={{ ...label, border: 'none', padding: '4px 7px', width: '110px' }}>Customer Name:</td>
                   <td style={{ ...td, border: 'none', padding: '4px 7px', fontWeight: 600 }}>{customer.customer_name || job.clientName || 'N/A'}</td>
                 </tr>
                 <tr>
-                  <td style={{ ...label, border: 'none', padding: '4px 7px' }}>Address :</td>
+                  <td style={{ ...label, border: 'none', padding: '4px 7px' }}>Address:</td>
                   <td style={{ ...td, border: 'none', padding: '4px 7px' }}>{customer.customer_address || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...label, border: 'none', padding: '4px 7px' }}>Contact Person:</td>
+                  <td style={{ ...td, border: 'none', padding: '4px 7px' }}>{customer.contact_person || 'N/A'}</td>
                 </tr>
               </tbody>
             </table>
@@ -139,26 +145,26 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td style={td}>{testReportNo}</td>
         </tr>
         <tr>
-          <td style={label}>Product Category</td>
-          <td style={td}>{job.groupMetadata?.productCategory || sample.sample_description || 'N/A'}</td>
+          <td style={label}>Sample Details</td>
+          <td style={td}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.sample_quantity || 'N/A')}</td>
           <td style={label}>Registration No.</td>
           <td style={td}>{registrationNo}</td>
         </tr>
         <tr>
-          <td style={label}>Sample Details</td>
-          <td style={td}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.sample_quantity || 'N/A')}</td>
+          <td style={label}>Product Category</td>
+          <td style={td}>{job.groupMetadata?.productCategory || sample.sample_description || 'N/A'}</td>
           <td style={label}>Issue Date</td>
           <td style={td}>{issueDate}</td>
         </tr>
         <tr>
-          <td style={label}>Packing Details</td>
-          <td style={td}>{sample.packing_details || 'N/A'}</td>
+          <td style={label}>Marking Seal ( if any)</td>
+          <td style={td}>{sample.marking_seal || 'NA'}</td>
           <td style={label}>Date of Receipt</td>
           <td style={td}>{receiptDate}</td>
         </tr>
         <tr>
-          <td style={label}>Marking Seal ( if any)</td>
-          <td style={td}>{sample.marking_seal || 'NA'}</td>
+          <td style={label}>Brand Name</td>
+          <td style={td}>NA</td>
           <td style={label}>Testing period</td>
           <td style={td}>{testingPeriodStr}</td>
         </tr>
@@ -171,20 +177,14 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
         <tr>
           <td style={label}>Customer ref.</td>
           <td style={td}>{customer.customer_reference_no || 'NA'}</td>
-          <td style={label}>Brand Name</td>
-          <td style={td}>NA</td>
-        </tr>
-        <tr>
-          <td style={label}>Sampling Details</td>
-          <td style={td}>{sample.sampling_details || 'Sample provided by the customer'}</td>
           <td style={label}>Tests requested</td>
           <td style={td}>As Mentioned below</td>
         </tr>
         <tr>
+          <td style={label}>Sampling Details</td>
+          <td style={td}>{sample.sampling_details || 'Sample provided by the customer'}</td>
           <td style={label}>Batch No.</td>
           <td style={td}>NA</td>
-          <td style={label}></td>
-          <td style={td}></td>
         </tr>
         <tr>
           <td style={label}>DOM</td>
@@ -193,7 +193,7 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td style={td}>NA</td>
         </tr>
         <tr>
-          <td style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : Yes/NO ( if yes ; Short detail)</td>
+          <td style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : Yes/NO ( if yes ; Short details)</td>
           <td style={td} colSpan={3}>{sample.special_handling_instructions || compliance.special_handling_instructions || 'No'}</td>
         </tr>
         <tr>
@@ -201,7 +201,7 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td style={td} colSpan={3}>NA</td>
         </tr>
         <tr>
-          <td style={label}>Sample description</td>
+          <td style={label}>Sample Description</td>
           <td style={td} colSpan={3}>{sample.sample_description || 'N/A'}</td>
         </tr>
       </tbody>
@@ -278,7 +278,7 @@ function ResultsTable({ rows, hasSpec, startIdx }) {
 function AbbrevBlock({ isAmended, baseReportNo }) {
   return (
     <div style={{ fontSize: '9px', color: '#333', borderTop: '1px solid #aaa', paddingTop: '5px', marginBottom: '20px' }}>
-      <strong>Abbreviations used:</strong> UOM: Unit of Measurement; NMT: Not More Than; DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable, BLQ: Below Limit of Quantification, LOQ: Limit of Quantification{isAmended ? ', A: Amendment' : ''}.<br />
+      <strong>Abbreviations used:</strong> UOM: Unit of Measurement; ND: Not Detected; DL: Detection Limit; DOE: Date of Expiry; DOM: Date of Manufacturing ;.{isAmended ? ' A: Amendment.' : ''}<br />
       <strong>NOTE:</strong> 1) Report shall not be reproduced except in full without approval of the laboratory.<br />
       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) The results relate only to the items sampled / tested as received.<br />
       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Duplicate report will be issued on chargeable basis.<br />
@@ -314,7 +314,7 @@ function SignatureFooter({ involvedDepts }) {
               <div key={i} style={{ marginBottom: i < involvedDepts.length - 1 ? '12px' : '0' }}>
                 <div style={{ marginBottom: '18px' }}>&nbsp;</div>
                 <div style={{ fontWeight: 700 }}>{d.name}</div>
-                <div>Authorised Signatory</div>
+                <div>Authorized Signatory</div>
                 <div>{d.designation}</div>
               </div>
             ))}
