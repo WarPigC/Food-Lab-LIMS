@@ -447,8 +447,9 @@ router.put('/:id/approve-review', protect, authorize('HEAD'), async (req, res) =
           
           if (siblingFullyApproved) {
             job.sampleTransferState = 'PENDING_TRANSFER';
-            // Unlock sibling if it was also waiting
-            if (sibling.distribution.micro.status === 'PENDING' || sibling.distribution.chemical.status === 'PENDING') {
+            // Unlock sibling if it was also waiting AND is also multi-dept
+            const siblingIsMultiDept = sibling.distribution.micro.required && sibling.distribution.chemical.required;
+            if (siblingIsMultiDept && (sibling.distribution.micro.status === 'PENDING' || sibling.distribution.chemical.status === 'PENDING')) {
               sibling.sampleTransferState = 'PENDING_TRANSFER';
               await sibling.save();
             }

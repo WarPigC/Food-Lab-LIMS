@@ -916,7 +916,12 @@ function Dispatcher() {
 
                             {isPending && (
                               <>
-                                {iAmChemical && !canChemicalDispatch ? (
+                                {iAmChemical && !canChemicalDispatch ? (() => {
+                                  // Determine if this job is the non-anchor sibling (should redirect to sibling for transfer)
+                                  const siblingIsMultiDept = job.siblingJobId && job.siblingJobId.distribution?.micro?.required && job.siblingJobId.distribution?.chemical?.required;
+                                  const isNonAnchor = job.sample?.nabl_type === 'Non Nabl' && siblingIsMultiDept;
+                                  
+                                  return (
                                   <div style={{ textAlign: 'center', padding: '1.5rem', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-hover)' }}>
                                     <h3 style={{ color: 'var(--color-warning)', marginBottom: '0.5rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                       <Lock size={18} /> Dispatch Locked
@@ -924,15 +929,17 @@ function Dispatcher() {
                                     {transferState === 'PENDING_APPROVAL' && <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 0 }}>Waiting for sibling job to be approved before transfer can begin.</p>}
                                     {transferState === 'PENDING_TRANSFER' && (
                                       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 0 }}>
-                                        {job.sample?.nabl_type === 'Non Nabl' ? 'Please accept the sample transfer in the NABL sibling job first.' : 'Waiting for Micro department to transfer the sample.'}
+                                        {isNonAnchor ? `Please accept the sample transfer in the NABL sibling job (${job.siblingJobId?.jobCode || 'sibling'}) first.` : 'Waiting for Micro department to transfer the sample.'}
                                       </p>
                                     )}
                                     {transferState === 'IN_TRANSIT' && (
                                       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 0 }}>
-                                        {job.sample?.nabl_type === 'Non Nabl' ? 'Please accept the sample transfer in the NABL sibling job first.' : 'Sample is in transit. Please confirm receipt from your dashboard above.'}
+                                        {isNonAnchor ? `Please accept the sample transfer in the NABL sibling job (${job.siblingJobId?.jobCode || 'sibling'}) first.` : 'Sample is in transit. Please confirm receipt from your dashboard above.'}
                                       </p>
                                     )}
                                   </div>
+                                  );
+                                })()
                                 ) : (
                                   <>
                                     {/* Bulk assign */}
