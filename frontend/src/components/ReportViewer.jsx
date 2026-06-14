@@ -54,33 +54,41 @@ function NablLogo({ size = 55 }) {
 // ─── Page Header ──────────────────────────────────────────────────────────────
 function PageHeader({ isNabl, docRef }) {
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', border }}>
-      <tbody>
-        <tr>
-          <td style={{ ...td, width: '140px', textAlign: 'center', verticalAlign: 'middle', border }}>
-            <img src={logo} alt="Acropolis" style={{ maxWidth: '115px', maxHeight: '65px', objectFit: 'contain' }} />
-          </td>
-          <td style={{ ...td, textAlign: 'center', verticalAlign: 'middle', border }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '3px' }}>Food Testing Laboratory</div>
-            <div style={{ fontSize: '9.5px', color: '#444' }}>
-              Acropolis Institute of Pharmaceutical Education and Research<br />
-              Mangliya Square, Indore Bypass Road, Indore M.P.-453771<br />
-              Mobile: +91 9201974674 | Landline: 731-4730174, 175, 176 &amp; 184<br />
-              Email ID: ftl@acropolis.edu.in | Website: www.acrolabs.in
-            </div>
-          </td>
-          <td style={{ ...td, width: '130px', textAlign: 'right', verticalAlign: 'top', border, fontSize: '8.5px', whiteSpace: 'nowrap' }}>
-            <div>FTL/AIPER/F/7.8-01</div>
-            {isNabl && (
-              <div style={{ marginTop: '4px', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                <NablLogo size={60} />
-                <img src={nablQrcode} alt="QR Code" style={{ width: '45px', objectFit: 'contain' }} />
+    <>
+      <div style={{ textAlign: 'right', fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>FTL/AIPER/F/7.8-01</div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', border }}>
+        <tbody>
+          <tr>
+            <td style={{ ...td, width: '150px', textAlign: 'center', verticalAlign: 'middle', border }}>
+              <img src={logo} alt="Acropolis" style={{ maxWidth: '130px', maxHeight: '75px', objectFit: 'contain' }} />
+            </td>
+            <td style={{ ...td, textAlign: 'center', verticalAlign: 'middle', border }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '3px' }}>Food Testing Laboratory</div>
+              <div style={{ fontSize: '10px', color: '#000' }}>
+                Acropolis Institute of Pharmaceutical Education and Research<br />
+                Mangliya Square, Indore Bypass Road, Indore M.P.-453771;<br />
+                Mobile: +91 9201974674<br />
+                Landline: 731-4730174, 175,176 &amp; 184<br />
+                Email ID:<span style={{color: 'blue', textDecoration: 'underline'}}>ftl@acropolis.edu.in</span><br />
+                Website: <span style={{color: 'blue', textDecoration: 'underline'}}>www.acrolabs.in</span>
               </div>
-            )}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            </td>
+            <td style={{ ...td, width: '150px', textAlign: 'center', verticalAlign: 'middle', border, padding: '4px' }}>
+              {isNabl ? (
+                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                  <div style={{ borderRight: '1px solid #333', paddingRight: '8px' }}>
+                    <NablLogo size={70} />
+                  </div>
+                  <div style={{ paddingLeft: '4px' }}>
+                    <img src={nablQrcode} alt="QR Code" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
+                  </div>
+                </div>
+              ) : null}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -122,14 +130,14 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td colSpan={4} style={{ ...td, padding: '8px', borderBottom: '1px solid #333' }}>
             <div style={{ display: 'flex', marginBottom: '4px' }}>
               <div style={{ width: '150px', fontWeight: 600 }}>Customer Name:</div>
-              <div style={{ flex: 1, fontWeight: 700 }}>{customer.customer_name || job.clientName || 'N/A'}</div>
+              <div style={{ flex: 1 }}>{customer.customer_name || job.clientName || 'N/A'}</div>
             </div>
             <div style={{ display: 'flex', marginBottom: '4px' }}>
               <div style={{ width: '150px', fontWeight: 600 }}>Address:</div>
               <div style={{ flex: 1 }}>{customer.customer_address || 'N/A'}</div>
             </div>
             <div style={{ display: 'flex' }}>
-              <div style={{ width: '150px', fontWeight: 600 }}>Contact Person:</div>
+              <div style={{ width: '150px', fontWeight: 600 }}>Contact Person :</div>
               <div style={{ flex: 1 }}>{customer.contact_person || 'N/A'}</div>
             </div>
           </td>
@@ -141,61 +149,63 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td style={td}>{testReportNo}</td>
         </tr>
         <tr>
-          <td style={label}>Sample Details</td>
-          <td style={{ ...td, padding: 0 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', margin: 0, fontSize: '10.5px' }}>
-              <thead>
-                <tr>
-                  <td style={{ borderBottom: '1px solid #333', padding: '4px 7px', fontWeight: 600 }}>Size</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '4px 7px', fontWeight: 600 }}>Container type</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '4px 7px' }}>{sample.sample_quantity || 'N/A'}</td>
-                  <td style={{ padding: '4px 7px' }}>{(sample.sample_count ? String(sample.sample_count).padStart(2, '0') + ' x ' : '') + (sample.packing_details || 'N/A')}</td>
-                </tr>
-              </tbody>
-            </table>
+          <td rowSpan={4} style={{ ...label, verticalAlign: 'middle' }}>Sample Details</td>
+          <td rowSpan={4} style={{ ...td, padding: 0 }}>
+             <table style={{width: '100%', borderCollapse: 'collapse', height: '100%'}}>
+               <tbody>
+                 <tr>
+                   <td style={{borderBottom: '1px solid #333', borderRight: '1px solid #333', fontWeight: 600, padding: '4px', textAlign: 'center'}}>Size</td>
+                   <td style={{borderBottom: '1px solid #333', fontWeight: 600, padding: '4px', textAlign: 'center'}}>Container type</td>
+                 </tr>
+                 <tr>
+                   <td style={{borderRight: '1px solid #333', padding: '4px', textAlign: 'center', verticalAlign: 'top'}}>01 x {sample.sample_quantity || 'N/A'}</td>
+                   <td style={{padding: '4px', textAlign: 'center', verticalAlign: 'top'}}>{sample.packing_details || 'N/A'}</td>
+                 </tr>
+               </tbody>
+             </table>
           </td>
           <td style={label}>Registration No.</td>
           <td style={td}>{registrationNo}</td>
         </tr>
         <tr>
-          <td style={label}>Product Category</td>
-          <td style={td}>{job.groupMetadata?.productCategory || sample.sample_description || 'N/A'}</td>
           <td style={label}>Issue Date</td>
           <td style={td}>{issueDate}</td>
         </tr>
         <tr>
-          <td style={label}>Marking Seal ( if any)</td>
-          <td style={td}>{sample.marking_seal || 'NA'}</td>
           <td style={label}>Date of Receipt</td>
           <td style={td}>{receiptDate}</td>
         </tr>
         <tr>
-          <td style={label}>Brand Name</td>
-          <td style={td}>NA</td>
           <td style={label}>Testing period</td>
           <td style={td}>{testingPeriodStr}</td>
         </tr>
         <tr>
-          <td style={label}>Sample condition on receipt</td>
-          <td style={td}>{sample.condition_on_receipt || 'Satisfactory'}</td>
+          <td style={label}>Product Category</td>
+          <td style={td}>{job.groupMetadata?.productCategory || 'N/A'}</td>
           <td style={label}>Standard Specification</td>
           <td style={td}>--</td>
         </tr>
         <tr>
-          <td style={label}>Customer ref.</td>
-          <td style={td}>{customer.customer_reference_no || 'NA'}</td>
+          <td style={label}>Marking Seal ( if any)</td>
+          <td style={td}>{sample.marking_seal || 'NA'}</td>
+          <td style={label}>Brand Name</td>
+          <td style={td}>NA</td>
+        </tr>
+        <tr>
+          <td style={label}>Sample condition on receipt</td>
+          <td style={td}>{sample.condition_on_receipt || 'Satisfactory'}</td>
           <td style={label}>Tests requested</td>
           <td style={td}>As Mentioned below</td>
         </tr>
         <tr>
-          <td style={label}>Sampling Details</td>
-          <td style={td}>{sample.sampling_details || 'Sample provided by the customer'}</td>
+          <td style={label}>Customer ref.</td>
+          <td style={td}>{customer.customer_reference_no || 'NA'}</td>
           <td style={label}>Batch No.</td>
           <td style={td}>NA</td>
+        </tr>
+        <tr>
+          <td style={label}>Sampling Details</td>
+          <td style={td} colSpan={3}>{sample.sampling_details || 'Sample provided by the customer'}</td>
         </tr>
         <tr>
           <td style={label}>DOM</td>
@@ -204,7 +214,7 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td style={td}>NA</td>
         </tr>
         <tr>
-          <td style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : Yes/NO ( if yes ; Short details)</td>
+          <td style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : <span style={{textDecoration: 'line-through'}}>Yes</span>/NO ( if yes ; Short details)</td>
           <td style={td} colSpan={3}>{sample.special_handling_instructions || compliance.special_handling_instructions || 'No'}</td>
         </tr>
         <tr>
@@ -282,15 +292,25 @@ function ResultsTable({ rows, hasSpec, startIdx }) {
 // ─── Abbreviations block ──────────────────────────────────────────────────────
 function AbbrevBlock({ isAmended, baseReportNo }) {
   return (
-    <div style={{ fontSize: '9px', color: '#333', borderTop: '1px solid #aaa', paddingTop: '5px', marginBottom: '20px' }}>
-      <strong>Abbreviations used:</strong> UOM: Unit of Measurement; ND: Not Detected; DL: Detection Limit; DOE: Date of Expiry; DOM: Date of Manufacturing ;.{isAmended ? ' A: Amendment.' : ''}<br />
-      <strong>NOTE:</strong> 1) Report shall not be reproduced except in full without approval of the laboratory.<br />
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) The results relate only to the items sampled / tested as received.<br />
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Duplicate report will be issued on chargeable basis.<br />
-      {isAmended && (
-        <>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) This test report is the replacement to earlier test report no. ({baseReportNo}). Earlier test report stands obsolete.</>
-      )}
-    </div>
+    <>
+      <div style={{ fontSize: '10.5px', color: '#000', borderTop: 'none', paddingTop: '5px', marginBottom: '10px' }}>
+        <div style={{textAlign: 'center', marginBottom: '4px'}}>
+          <strong>Abbreviations used:</strong> UOM: Unit of Measurement; ND: Not Detected; DL: Detection Limit;<br/>
+          DOE: Date of Expiry; DOM: Date of Manufacturing ;.{isAmended ? ' A: Amendment.' : ''}
+        </div>
+        <div style={{textAlign: 'center'}}>
+          <strong>NOTE:</strong> 1) Report shall not be reproduced except in full without approval of the laboratory.<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2) The results relate only to the items sampled / tested as received.<br />
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3) Duplicate report will be issued on chargeable basis.
+          {isAmended && (
+            <><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4) This test report is the replacement to earlier test report no. ({baseReportNo}). Earlier test report stands obsolete.</>
+          )}
+        </div>
+      </div>
+      <div style={{ textAlign: 'center', fontSize: '11.5px', fontWeight: 'bold', margin: '15px 0' }}>
+        *End of report*
+      </div>
+    </>
   );
 }
 
@@ -302,25 +322,17 @@ function SignatureFooter({ involvedDepts }) {
       <tbody>
         <tr>
           {/* Left: Reviewer (Diksha Dwivedi) */}
-          <td style={{ width: '30%', fontSize: '10.5px', verticalAlign: 'bottom', paddingBottom: '4px' }}>
-            <div style={{ marginBottom: '24px' }}>&nbsp;</div>{/* space for signature */}
-            <div style={{ fontWeight: 700 }}>Ms. Diksha Dwivedi</div>
-            <div>Analyst</div>
-          </td>
-
-          {/* Center: End of report */}
-          <td style={{ textAlign: 'center', fontSize: '10.5px', verticalAlign: 'bottom', paddingBottom: '4px' }}>
-            <strong>*End of report*</strong>
+          <td style={{ width: '50%', fontSize: '10.5px', verticalAlign: 'bottom', paddingBottom: '4px', textAlign: 'left', paddingLeft: '30px' }}>
+            <div style={{ marginBottom: '18px' }}>Reviewed By</div>
+            <div>Ms. Diksha Dwivedi</div>
           </td>
 
           {/* Right: Department Authorised Signatories */}
-          <td style={{ width: '38%', textAlign: 'right', fontSize: '10.5px', verticalAlign: 'bottom', paddingBottom: '4px' }}>
+          <td style={{ width: '50%', textAlign: 'right', fontSize: '10.5px', verticalAlign: 'bottom', paddingBottom: '4px', paddingRight: '30px' }}>
             {involvedDepts.map((d, i) => (
               <div key={i} style={{ marginBottom: i < involvedDepts.length - 1 ? '12px' : '0' }}>
-                <div style={{ marginBottom: '18px' }}>&nbsp;</div>
-                <div style={{ fontWeight: 700 }}>{d.name}</div>
-                <div>Authorized Signatory</div>
-                <div>{d.designation}</div>
+                <div style={{ marginBottom: '18px' }}>Authorized Signatory</div>
+                <div>{d.name}</div>
               </div>
             ))}
           </td>
@@ -414,8 +426,8 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
             {/* Title (page 1 only) */}
             {isFirst && (
               <>
-                <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '13px',
-                  textDecoration: 'underline', marginBottom: '8px', letterSpacing: '1px' }}>
+                <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '15px',
+                  marginBottom: '8px', letterSpacing: '1px' }}>
                   TEST REPORT
                 </div>
                 {isNabl && job.sample?.ulr_no && (
@@ -437,8 +449,8 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
 
             {/* TEST RESULT heading for first results page */}
             {(isFirst || true) && (
-              <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '12px',
-                textDecoration: 'underline', marginBottom: '6px' }}>
+              <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '14px',
+                marginBottom: '6px' }}>
                 TEST RESULT
               </div>
             )}
