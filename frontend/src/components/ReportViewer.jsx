@@ -511,8 +511,8 @@ export default function ReportViewer({
   useLayoutEffect(() => {
     const updateScale = () => {
       if (!wrapperRef.current || !contentRef.current) return;
-      const availableWidth = wrapperRef.current.clientWidth;
-      if (availableWidth < 780) {
+      const availableWidth = wrapperRef.current.getBoundingClientRect().width;
+      if (availableWidth < 780 && availableWidth > 0) {
         const newScale = availableWidth / 780;
         setScale(newScale);
         setContentHeight(`${contentRef.current.offsetHeight * newScale}px`);
@@ -522,9 +522,14 @@ export default function ReportViewer({
       }
     };
     
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    const resizeObserver = new ResizeObserver(() => {
+      updateScale();
+    });
+
+    if (wrapperRef.current) resizeObserver.observe(wrapperRef.current);
+    if (contentRef.current) resizeObserver.observe(contentRef.current);
+
+    return () => resizeObserver.disconnect();
   }, []);
   const isNabl = nablMode === 'nabl';
   const isHybrid = nablMode === 'hybrid';
@@ -595,11 +600,13 @@ export default function ReportViewer({
         });
         img.src = base64;
         
-        // Remove style.width from images so html-to-docx relies purely on intrinsic base64 dimensions
-        // Passing NaN or percentage strings caused Mobile Word to mark the file as corrupted.
+        // Set explicit integer width/height to prevent html-to-docx from generating NaN EMUs
+        // which causes strict parsers like Mobile Word to mark the file as corrupted.
+        const rect = images[i].getBoundingClientRect();
+        if (rect.width > 0) img.setAttribute('width', Math.round(rect.width));
+        if (rect.height > 0) img.setAttribute('height', Math.round(rect.height));
+        
         img.removeAttribute('style');
-        img.removeAttribute('width');
-        img.removeAttribute('height');
       } catch (err) {
         console.warn('Failed to convert image to base64 for DOCX export', err);
       }
