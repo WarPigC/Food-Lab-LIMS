@@ -483,6 +483,7 @@ function Jobs() {
     const saved = sessionStorage.getItem('DRAFT_JOB_SELECTED_PARAMS');
     return saved ? JSON.parse(saved) : [];
   });
+  const [showSpecifications, setShowSpecifications] = useState(false);
   const [groupMetadata, setGroupMetadata] = useState(() => {
     const saved = sessionStorage.getItem('DRAFT_JOB_METADATA');
     return saved ? JSON.parse(saved) : null;
@@ -496,6 +497,7 @@ function Jobs() {
     const saved = sessionStorage.getItem('DRAFT_JOB_NABL_PARAMS');
     return saved ? JSON.parse(saved) : [];
   });
+  const [nablShowSpecifications, setNablShowSpecifications] = useState(false);
   const [nablGroupMetadata, setNablGroupMetadata] = useState(() => {
     const saved = sessionStorage.getItem('DRAFT_JOB_NABL_METADATA');
     return saved ? JSON.parse(saved) : null;
@@ -509,6 +511,7 @@ function Jobs() {
     const saved = sessionStorage.getItem('DRAFT_JOB_NON_NABL_PARAMS');
     return saved ? JSON.parse(saved) : [];
   });
+  const [nonNablShowSpecifications, setNonNablShowSpecifications] = useState(false);
   const [nonNablGroupMetadata, setNonNablGroupMetadata] = useState(() => {
     const saved = sessionStorage.getItem('DRAFT_JOB_NON_NABL_METADATA');
     return saved ? JSON.parse(saved) : null;
@@ -766,16 +769,19 @@ function Jobs() {
 
     // Set standard parameter states
     setSelectedParams(mapParams(j.parameters));
+    setShowSpecifications(!!j.showSpecifications);
     setGroupMetadata(j.groupMetadata || null);
     setPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
     
-    setNablParams(mapParams(j.nablParameters));
-    setNablGroupMetadata(j.nablGroupMetadata || null);
-    setNablPesticidePanel(j.nablPesticidePanel || { enabled: false, panelType: null });
+    setNablParams(mapParams(j.nablParameters || j.parameters)); // Fallback to parameters for hybrid editing logic
+    setNablShowSpecifications(!!j.nablShowSpecifications || !!j.showSpecifications);
+    setNablGroupMetadata(j.nablGroupMetadata || j.groupMetadata || null);
+    setNablPesticidePanel(j.nablPesticidePanel || j.pesticidePanel || { enabled: false, panelType: null });
     
-    setNonNablParams(mapParams(j.nonNablParameters));
-    setNonNablGroupMetadata(j.nonNablGroupMetadata || null);
-    setNonNablPesticidePanel(j.nonNablPesticidePanel || { enabled: false, panelType: null });
+    setNonNablParams(mapParams(j.nonNablParameters || j.parameters)); // Fallback
+    setNonNablShowSpecifications(!!j.nonNablShowSpecifications || !!j.showSpecifications);
+    setNonNablGroupMetadata(j.nonNablGroupMetadata || j.groupMetadata || null);
+    setNonNablPesticidePanel(j.nonNablPesticidePanel || j.pesticidePanel || { enabled: false, panelType: null });
 
     setShowForm(true);
     setSections({ customer: true, sample: true, compliance: true });
@@ -860,9 +866,9 @@ function Jobs() {
       const dInt = parseInt(received_date_dd, 10);
       const parsedDate = `${yInt}-${String(mInt).padStart(2, '0')}-${String(dInt).padStart(2, '0')}`;
 
-      const parameters = selectedParams.map(p => ({ parameterId: p._id, name: p.name, type: p.type, unit: p.unit }));
-      const nablParametersData = nablParams.map(p => ({ parameterId: p._id, name: p.name, type: p.type, unit: p.unit }));
-      const nonNablParametersData = nonNablParams.map(p => ({ parameterId: p._id, name: p.name, type: p.type, unit: p.unit }));
+      const parameters = selectedParams.map(p => ({ parameterId: p._id || p.parameterId, name: p.name, type: p.type, unit: p.unit, specification: p.specification || '' }));
+      const nablParametersData = nablParams.map(p => ({ parameterId: p._id || p.parameterId, name: p.name, type: p.type, unit: p.unit, specification: p.specification || '' }));
+      const nonNablParametersData = nonNablParams.map(p => ({ parameterId: p._id || p.parameterId, name: p.name, type: p.type, unit: p.unit, specification: p.specification || '' }));
 
       const payload = {
         nablMode: formData.nabl_mode,
@@ -905,6 +911,9 @@ function Jobs() {
         nonNablPesticidePanel,
         assignedMicroHead,
         assignedChemicalHead,
+        showSpecifications,
+        nablShowSpecifications,
+        nonNablShowSpecifications,
         sampleFlow: {}
       };
 
@@ -926,12 +935,15 @@ function Jobs() {
       setEditingJobId(null);
       setIsEditingReturnedJob(false);
       setSelectedParams([]);
+      setShowSpecifications(false);
       setGroupMetadata(null);
       setPesticidePanel({ enabled: false, panelType: null });
       setNablParams([]);
+      setNablShowSpecifications(false);
       setNablGroupMetadata(null);
       setNablPesticidePanel({ enabled: false, panelType: null });
       setNonNablParams([]);
+      setNonNablShowSpecifications(false);
       setNonNablGroupMetadata(null);
       setNonNablPesticidePanel({ enabled: false, panelType: null });
       setAssignedMicroHead('');
@@ -1185,12 +1197,14 @@ function Jobs() {
                             initialSelectedParams={nablParams}
                             initialGroupMetadata={nablGroupMetadata}
                             initialPesticidePanel={nablPesticidePanel}
+                            initialShowSpecifications={nablShowSpecifications}
                             externalSync={nonNablGroupMetadata}
                             immutable={!!editingJobId && !isEditingReturnedJob}
                             onDataChange={(data) => {
                               setNablParams(data.parameters);
                               setNablGroupMetadata(data.groupMetadata);
                               setNablPesticidePanel(data.pesticidePanel);
+                              if (data.showSpecifications !== undefined) setNablShowSpecifications(data.showSpecifications);
                             }}
                           />
                           <CascadingParameterSelector
@@ -1200,12 +1214,14 @@ function Jobs() {
                             initialSelectedParams={nonNablParams}
                             initialGroupMetadata={nonNablGroupMetadata}
                             initialPesticidePanel={nonNablPesticidePanel}
+                            initialShowSpecifications={nonNablShowSpecifications}
                             externalSync={nablGroupMetadata}
                             immutable={!!editingJobId && !isEditingReturnedJob}
                             onDataChange={(data) => {
                               setNonNablParams(data.parameters);
                               setNonNablGroupMetadata(data.groupMetadata);
                               setNonNablPesticidePanel(data.pesticidePanel);
+                              if (data.showSpecifications !== undefined) setNonNablShowSpecifications(data.showSpecifications);
                             }}
                           />
                         </>
@@ -1216,11 +1232,13 @@ function Jobs() {
                           initialSelectedParams={selectedParams}
                           initialGroupMetadata={groupMetadata}
                           initialPesticidePanel={pesticidePanel}
+                          initialShowSpecifications={showSpecifications}
                           immutable={!!editingJobId && !isEditingReturnedJob}
                           onDataChange={(data) => {
                             setSelectedParams(data.parameters);
                             setGroupMetadata(data.groupMetadata);
                             setPesticidePanel(data.pesticidePanel);
+                            if (data.showSpecifications !== undefined) setShowSpecifications(data.showSpecifications);
                           }}
                         />
                       )}

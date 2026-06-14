@@ -44,6 +44,8 @@ export default function DataSettings() {
   const [paramSearch, setParamSearch] = useState('');
   const [isAddingParam, setIsAddingParam] = useState(false);
   const [newParam, setNewParam] = useState({ name: '', type: 'Chemical', unit: '' });
+  const [specModalParam, setSpecModalParam] = useState(null);
+  const [specModalValue, setSpecModalValue] = useState('');
 
   const fetchData = async () => {
     // Only set page loading to true if we have NO cached groups data
@@ -666,6 +668,7 @@ export default function DataSettings() {
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Name</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Type</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '150px' }}>Unit</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '150px' }}>Specification</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '60px' }}>Actions</th>
                 </tr>
               </thead>
@@ -709,6 +712,24 @@ export default function DataSettings() {
                         <Save size={14} style={{ color: 'var(--color-text-muted)' }} />
                       </div>
                     </td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
+                        style={{
+                          background: p.specification ? 'var(--color-surface-hover)' : 'var(--color-primary)',
+                          color: p.specification ? 'var(--color-text-main)' : '#fff',
+                          border: p.specification ? '1px solid var(--color-border)' : 'none',
+                          padding: '0.3rem 0.6rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {p.specification ? '✓ Edit' : 'Set Spec'}
+                      </button>
+                    </td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                       <button onClick={() => handleRemoveGlobalParameter(p._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.25rem' }}><Trash2 size={18}/></button>
                     </td>
@@ -744,6 +765,32 @@ export default function DataSettings() {
           )}
         </div>
       </div>
+
+      {specModalParam && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', animation: 'slideUp 0.3s ease' }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>Specification for "{specModalParam.name}"</h3>
+            <input 
+              autoFocus
+              value={specModalValue} 
+              onChange={e => setSpecModalValue(e.target.value)} 
+              placeholder="Enter specification (e.g. Max 50, 6.5 - 8.5)" 
+              style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn" onClick={() => setSpecModalParam(null)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={async () => {
+                await handleUpdateGlobalParameter(specModalParam._id, 'specification', specModalValue);
+                setSpecModalParam(null);
+              }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── CUSTOM CONFIRMATION MODAL ── */}
       {confirmUlrModal && (

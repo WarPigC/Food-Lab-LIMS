@@ -12,6 +12,7 @@ const CascadingParameterSelector = ({
   initialSelectedParams = [],
   initialGroupMetadata = null,
   initialPesticidePanel = { enabled: false, panelType: null },
+  initialShowSpecifications = false,
   externalSync = null, // Hybrid mode sync
   immutable = false
 }) => {
@@ -21,6 +22,9 @@ const CascadingParameterSelector = ({
   
   // Officer's curated pick list
   const [selectedParams, setSelectedParams] = useState(initialSelectedParams);
+  const [showSpecifications, setShowSpecifications] = useState(initialShowSpecifications);
+  const [specModalParam, setSpecModalParam] = useState(null);
+  const [specModalValue, setSpecModalValue] = useState('');
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -150,11 +154,12 @@ const CascadingParameterSelector = ({
         pesticidePanel: {
           enabled: isPesticidePanel,
           panelType: pesticidePanelType
-        }
+        },
+        showSpecifications
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedParams, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType]);
+  }, [selectedParams, selectedGroups, selectedSubGroups, selectedProductCategory, isPesticidePanel, pesticidePanelType, showSpecifications]);
 
   // ═══════ HANDLERS ═══════
   // Fix 3: Inline cleanup in handlers instead of cascading useEffects
@@ -432,7 +437,7 @@ const CascadingParameterSelector = ({
         </div>
       )}
 
-      {hasNonPanelSubGroups && selectedSubGroups.length > 0 && (
+      {(hasNonPanelSubGroups || !!externalSync) && selectedSubGroups.length > 0 && (
         <div style={{ marginTop: '0.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <h4 style={{ margin: 0, fontSize: '0.95rem' }}>
@@ -554,7 +559,8 @@ const CascadingParameterSelector = ({
                   <tr>
                     <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Parameter Name</th>
                     <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '80px' }}>Type</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '140px' }}>Unit</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Unit</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '140px' }}>Specification</th>
                     <th style={{ padding: '0.5rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '40px' }}></th>
                   </tr>
                 </thead>
@@ -586,8 +592,30 @@ const CascadingParameterSelector = ({
                               border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'
                             }}
                           />
-                          
                         </div>
+                      </td>
+                      <td style={{ padding: '0.4rem 0.5rem' }}>
+                        {(p.name.includes('GCM') || p.name.includes('LCMSMS')) ? (
+                          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>N/A</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
+                            disabled={immutable}
+                            style={{
+                              background: p.specification ? 'var(--color-surface-hover)' : 'var(--color-primary)',
+                              color: p.specification ? 'var(--color-text-main)' : '#fff',
+                              border: p.specification ? '1px solid var(--color-border)' : 'none',
+                              padding: '0.3rem 0.6rem',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.75rem',
+                              cursor: immutable ? 'not-allowed' : 'pointer',
+                              display: 'inline-block'
+                            }}
+                          >
+                            {p.specification ? '✓ Edit' : 'Set Spec'}
+                          </button>
+                        )}
                       </td>
                       {!immutable && (
                         <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
@@ -617,6 +645,21 @@ const CascadingParameterSelector = ({
               </table>
             </div>
           )}
+
+          {selectedParams.length > 0 && (
+            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="checkbox" 
+                id={`show-specs-${label}`}
+                checked={showSpecifications} 
+                onChange={(e) => setShowSpecifications(e.target.checked)}
+                disabled={immutable}
+              />
+              <label htmlFor={`show-specs-${label}`} style={{ fontSize: '0.9rem', cursor: immutable ? 'default' : 'pointer' }}>
+                Include specifications in the report
+              </label>
+            </div>
+          )}
           
           {selectedParams.length === 0 && (
             <div style={{ 
@@ -640,6 +683,41 @@ const CascadingParameterSelector = ({
           Select a sub-group to start adding parameters.
         </div>
       )}
+
+      {specModalParam && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', animation: 'slideUp 0.3s ease' }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>Specification for "{specModalParam.name}"</h3>
+            <input 
+              autoFocus
+              value={specModalValue} 
+              onChange={e => setSpecModalValue(e.target.value)} 
+              placeholder="Enter specification (e.g. Max 50, 6.5 - 8.5)" 
+              style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn" onClick={() => setSpecModalParam(null)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={async () => {
+                const paramId = getParamId(specModalParam);
+                // Update locally
+                setSelectedParams(prev => prev.map(p => getParamId(p) === paramId ? { ...p, specification: specModalValue } : p));
+                setGlobalParameters(prev => prev.map(p => getParamId(p) === paramId ? { ...p, specification: specModalValue } : p));
+                // Update DB
+                try {
+                  const token = localStorage.getItem('token');
+                  await axios.put(`${API_URL}/api/parameters/${paramId}`, { specification: specModalValue }, { headers: { Authorization: `Bearer ${token}` } });
+                } catch(e) { console.error('Failed to save spec', e); }
+                setSpecModalParam(null);
+              }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

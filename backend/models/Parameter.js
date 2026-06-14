@@ -6,7 +6,8 @@ const parameterSchema = new mongoose.Schema({
   type: { type: String, enum: ['Micro', 'Chemical'], required: true },
   unit: { type: String, required: true },
   group: { type: String, default: null },
-  subGroup: { type: String, default: null }
+  subGroup: { type: String, default: null },
+  specification: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Parameter', parameterSchema);

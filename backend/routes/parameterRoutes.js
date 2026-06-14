@@ -53,7 +53,7 @@ router.get('/', protect, async (req, res) => {
 // Add a new parameter
 router.post('/', protect, async (req, res) => {
   try {
-    const { name, type, unit } = req.body;
+    const { name, type, unit, specification } = req.body;
     if (!name || !type || !unit) {
       return res.status(400).json({ message: 'name, type, and unit are all required' });
     }
@@ -68,7 +68,7 @@ router.post('/', protect, async (req, res) => {
     const last = await Parameter.findOne({}, {}, { sort: { s_no: -1 } });
     const s_no = (last && last.s_no) ? last.s_no + 1 : 1;
 
-    const parameter = await Parameter.create({ name: name.trim(), type, unit: unit.trim(), s_no });
+    const parameter = await Parameter.create({ name: name.trim(), type, unit: unit.trim(), s_no, specification: specification || '' });
     res.status(201).json(parameter);
   } catch (err) {
     res.status(500).json({ message: 'Error creating parameter', error: err.message });
@@ -78,13 +78,14 @@ router.post('/', protect, async (req, res) => {
 // Update a parameter
 router.put('/:id', protect, async (req, res) => {
   try {
-    const { name, type, unit } = req.body;
+    const { name, type, unit, specification } = req.body;
     const parameterId = req.params.id;
 
     // Build update object
     const updateData = {};
     if (unit !== undefined) updateData.unit = unit.trim();
     if (type !== undefined) updateData.type = type;
+    if (specification !== undefined) updateData.specification = specification;
     if (name !== undefined) {
       updateData.name = name.trim();
       

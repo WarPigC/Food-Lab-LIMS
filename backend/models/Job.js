@@ -24,7 +24,8 @@ const jobSchema = new mongoose.Schema({
     parameterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parameter' },
     name: { type: String },
     type: { type: String, enum: ['Micro', 'Chemical'] },
-    unit: { type: String }
+    unit: { type: String },
+    specification: { type: String, default: '' }
   }],
 
   // --- Customer Information ---
@@ -58,6 +59,12 @@ const jobSchema = new mongoose.Schema({
   // --- Compliance & Legal Information ---
   compliance: {
     statement_of_conformity:        { type: String },
+    decision_rule:                  { type: String },
+    accreditation_scope:            { type: String },
+    disclaimer_notes:               { type: String },
+    special_handling_instructions:  { type: String }
+  },
+  showSpecifications: { type: Boolean, default: false },
     decision_rule:                  { type: String },
     accreditation_scope:            { type: String },
     disclaimer_notes:               { type: String },

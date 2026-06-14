@@ -8,6 +8,7 @@ const resultParameterSchema = new mongoose.Schema({
   referenceRange: { type: String },
   isSaved: { type: Boolean, default: false },
   testMethod: { type: String, default: '' }, // test standard / method used by analyst
+  specification: { type: String, default: '' },
   isPanel: { type: Boolean, default: false },
   panelName: { type: String, default: '' },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null } // per-parameter analyst override for selective reassignment

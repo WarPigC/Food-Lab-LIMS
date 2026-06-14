@@ -151,7 +151,7 @@ router.get('/', protect, async (req, res) => {
 // Create a new job (ADMIN_OFFICER only)
 router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
-    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters, groupMetadata, pesticidePanel, nablGroupMetadata, nablPesticidePanel, nonNablGroupMetadata, nonNablPesticidePanel } = req.body;
+    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters, groupMetadata, pesticidePanel, nablGroupMetadata, nablPesticidePanel, nonNablGroupMetadata, nonNablPesticidePanel, showSpecifications, nablShowSpecifications, nonNablShowSpecifications } = req.body;
 
     const serial = await getNextSerial();
     const baseJobCode = buildJobCode(serial);
@@ -233,6 +233,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         distribution: nablDist,
         sampleTransferState: (nablDist.micro.required && nablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        showSpecifications: nablShowSpecifications !== undefined ? nablShowSpecifications : showSpecifications,
         createdBy: req.user._id,
         history: [{
           action: 'CREATED',
@@ -256,6 +257,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         distribution: nonNablDist,
         sampleTransferState: (nonNablDist.micro.required && nonNablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        showSpecifications: nonNablShowSpecifications !== undefined ? nonNablShowSpecifications : showSpecifications,
         createdBy: req.user._id,
         siblingJobId: nablJob._id,
         history: [{
@@ -293,6 +295,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         distribution: dist,
         sampleTransferState: (dist.micro.required && dist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        showSpecifications,
         createdBy: req.user._id,
         history: [{
           action: 'CREATED',
@@ -331,11 +334,12 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       return res.status(400).json({ message: 'Job is complete and immutable.' });
     }
 
-    const { customer, sample, compliance, parameters, groupMetadata, pesticidePanel, sampleFlow, assignedMicroHead, assignedChemicalHead } = req.body;
+    const { customer, sample, compliance, parameters, groupMetadata, pesticidePanel, sampleFlow, assignedMicroHead, assignedChemicalHead, showSpecifications } = req.body;
 
     if (customer) job.customer = customer;
     if (sample) job.sample = sample;
     if (compliance) job.compliance = compliance;
+    if (showSpecifications !== undefined) job.showSpecifications = showSpecifications;
 
     if (customer && customer.customer_name) {
       job.clientName = customer.customer_name;
