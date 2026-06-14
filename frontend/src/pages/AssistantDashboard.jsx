@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Play, Check, Clock, AlertTriangle, RotateCcw, Calendar } from 'lucide-react';
+import { Play, Check, Clock, AlertTriangle, RotateCcw, Calendar, X, Edit, Trash2, Plus } from 'lucide-react';
 import { fetchWithCache, invalidateCache, CACHE_KEYS } from '../utils/cache';
 import Spinner from '../components/Spinner';
 import { useSocket } from '../context/SocketContext';
@@ -19,10 +19,8 @@ export default function AssistantDashboard() {
   const [errorModalData, setErrorModalData] = useState(null); // string for error message
 
   // Test Method Library State
-  const [showMethodLibrary, setShowMethodLibrary] = useState(false);
+  const [showAddMethod, setShowAddMethod] = useState(false);
   const [newMethodText, setNewMethodText] = useState('');
-  const [editingMethodId, setEditingMethodId] = useState(null);
-  const [editMethodText, setEditMethodText] = useState('');
 
   const formatJobCode = (code) => {
     if (!code) return '';
@@ -59,7 +57,6 @@ export default function AssistantDashboard() {
     fetchTestMethods();
   }, []);
 
-  // --- Test Method Library Handlers ---
   const handleAddTestMethod = async (e) => {
     e.preventDefault();
     if (!newMethodText.trim()) return;
@@ -68,21 +65,21 @@ export default function AssistantDashboard() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setNewMethodText('');
+      setShowAddMethod(false);
       fetchTestMethods();
     } catch (err) {
       alert(err.response?.data?.message || 'Error adding test method');
     }
   };
 
-  const handleUpdateTestMethod = async (id) => {
-    if (!editMethodText.trim()) return;
+  const handleUpdateTestMethod = async (id, newText) => {
+    if (!newText.trim()) return;
     try {
-      await axios.put(`${API_URL}/api/test-methods/${id}`, { text: editMethodText }, {
+      await axios.put(`${API_URL}/api/test-methods/${id}`, { text: newText }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      setEditingMethodId(null);
-      setEditMethodText('');
       fetchTestMethods();
+      setEditingMethodId(null);
     } catch (err) {
       alert(err.response?.data?.message || 'Error updating test method');
     }
@@ -119,7 +116,6 @@ export default function AssistantDashboard() {
     };
   }, [socket]);
 
-  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -451,12 +447,6 @@ export default function AssistantDashboard() {
           })()}
 
           <form onSubmit={handlePreSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <datalist id="test-methods-list">
-              {testMethods.map(tm => (
-                <option key={tm._id} value={tm.text} />
-              ))}
-            </datalist>
-
             <div style={{ padding: '1.25rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <Calendar size={16} style={{ color: 'var(--color-primary)' }} />
@@ -482,6 +472,24 @@ export default function AssistantDashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div style={{ marginBottom: '0.5rem' }}>
+              <button type="button" onClick={() => setShowAddMethod(!showAddMethod)} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                <Plus size={14} /> Add New Method
+              </button>
+              {showAddMethod && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Enter new test method..."
+                    value={newMethodText}
+                    onChange={e => setNewMethodText(e.target.value)}
+                    style={{ ...inputStyle, maxWidth: '300px' }}
+                  />
+                  <button type="button" onClick={handleAddTestMethod} className="btn btn-primary" disabled={!newMethodText.trim()}>Save</button>
+                </div>
+              )}
             </div>
 
             <div>
@@ -529,9 +537,6 @@ export default function AssistantDashboard() {
                               <button type="button" onClick={() => handleIndividualSave(i)} disabled={isSubmitting} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', backgroundColor: resItem.isSaved ? 'var(--color-success)' : 'var(--color-primary)', color: 'white', height: 'fit-content' }}>
                                 {resItem.isSaved ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Check size={14}/> Saved</span> : (isSubmitting ? 'Saving...' : 'Save Parameter')}
                               </button>
-                              {!resItem.isSaved && (
-                                <span style={{ fontSize: '0.7rem', color: 'var(--color-warning)', fontWeight: 500 }}>Unsaved changes</span>
-                              )}
                             </>
                           )}
                         </div>
@@ -557,17 +562,14 @@ export default function AssistantDashboard() {
                             </div>
                           </div>
                           <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Test Method</label>
-                              <button type="button" onClick={() => setShowMethodLibrary(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>Manage Library</button>
-                            </div>
-                            <input 
-                              type="text" 
-                              list="test-methods-list"
-                              value={resItem.testMethod} 
-                              onChange={e => handleResultChange(i, 'testMethod', e.target.value)} 
-                              placeholder="Select or type method..." 
-                              style={inputStyle} 
+                            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>Test Method</label>
+                            <TestMethodDropdown 
+                              value={resItem.testMethod}
+                              onChange={val => handleResultChange(i, 'testMethod', val)}
+                              testMethods={testMethods}
+                              onUpdate={handleUpdateTestMethod}
+                              onDelete={handleDeleteTestMethod}
+                              inputStyle={inputStyle}
                             />
                           </div>
                         </div>
@@ -614,74 +616,7 @@ export default function AssistantDashboard() {
         </div>
       )}
 
-      {/* --- Test Method Library Modal --- */}
-      {showMethodLibrary && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, backdropFilter: 'blur(4px)'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '1.5rem', animation: 'slideUp 0.3s ease', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Test Method Library</h2>
-              <button type="button" onClick={() => setShowMethodLibrary(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={24} />
-              </button>
-            </div>
 
-            <form onSubmit={handleAddTestMethod} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-              <input
-                type="text"
-                placeholder="Add new test method..."
-                value={newMethodText}
-                onChange={e => setNewMethodText(e.target.value)}
-                style={{ flex: 1, padding: '0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
-              />
-              <button type="submit" className="btn btn-primary" disabled={!newMethodText.trim()}>Add</button>
-            </form>
-
-            <div style={{ overflowY: 'auto', flex: 1, borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
-              {testMethods.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '2rem 0' }}>
-                  No test methods in library yet. Add one above!
-                </div>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {testMethods.map(m => (
-                    <li key={m._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                      {editingMethodId === m._id ? (
-                        <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
-                          <input
-                            type="text"
-                            value={editMethodText}
-                            onChange={e => setEditMethodText(e.target.value)}
-                            style={{ flex: 1, padding: '0.3rem', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)' }}
-                            autoFocus
-                          />
-                          <button type="button" onClick={() => handleUpdateTestMethod(m._id)} style={{ background: 'none', border: 'none', color: 'var(--color-success)', cursor: 'pointer' }}><Check size={18} /></button>
-                          <button type="button" onClick={() => setEditingMethodId(null)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}><X size={18} /></button>
-                        </div>
-                      ) : (
-                        <>
-                          <span style={{ fontSize: '0.9rem', color: 'var(--color-text-main)', wordBreak: 'break-word', flex: 1 }}>{m.text}</span>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button type="button" onClick={() => { setEditingMethodId(m._id); setEditMethodText(m.text); }} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }} title="Edit"><Edit size={16} /></button>
-                            <button type="button" onClick={() => handleDeleteTestMethod(m._id)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }} title="Delete"><Trash2 size={16} /></button>
-                          </div>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            
-            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn" onClick={() => setShowMethodLibrary(false)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── CUSTOM CONFIRMATION MODAL ── */}
       {showConfirmModal && (
@@ -758,3 +693,129 @@ export default function AssistantDashboard() {
     </div>
   );
 }
+
+// Custom TestMethodDropdown Component
+const TestMethodDropdown = ({ value, onChange, testMethods, onUpdate, onDelete, inputStyle }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [filter, setFilter] = useState(value || '');
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Keep filter synced with value if changed from outside
+  useEffect(() => {
+    setFilter(value || '');
+  }, [value]);
+
+  const filteredMethods = testMethods.filter(m => m.text.toLowerCase().includes(filter.toLowerCase()));
+
+  // Reset active index when filter changes
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filter]);
+
+  const handleKeyDown = (e) => {
+    if (!isOpen || filteredMethods.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < filteredMethods.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (editingId) return; // let the edit input handle enter if it wants to
+      e.preventDefault();
+      const methodToAdd = filteredMethods[activeIndex];
+      if (methodToAdd) {
+        onChange(methodToAdd.text);
+        setFilter(methodToAdd.text);
+        setIsOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        type="text"
+        value={filter}
+        onChange={e => {
+          setFilter(e.target.value);
+          onChange(e.target.value); // update the actual form state
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder="Select or type method..."
+        style={inputStyle}
+      />
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+          borderTop: 'none', borderRadius: '0 0 var(--radius-sm) var(--radius-sm)',
+          maxHeight: '200px', overflowY: 'auto',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}>
+          {filteredMethods.map((m, index) => (
+            <div 
+              key={m._id} 
+              onMouseEnter={() => setActiveIndex(index)}
+              style={{
+                padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                borderBottom: '1px solid var(--color-border)',
+                backgroundColor: activeIndex === index ? 'var(--color-surface-hover)' : 'transparent',
+                borderLeft: activeIndex === index ? '3px solid var(--color-primary)' : '3px solid transparent',
+                transition: 'background-color 0.1s'
+              }}
+            >
+              {editingId === m._id ? (
+                <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
+                  <input
+                    type="text" value={editText} onChange={e => setEditText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        onUpdate(m._id, editText);
+                        setEditingId(null);
+                      }
+                    }}
+                    style={{ flex: 1, padding: '0.2rem', fontSize: '0.8rem', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)' }}
+                    autoFocus
+                  />
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); onUpdate(m._id, editText); setEditingId(null); }} style={{ background: 'none', border: 'none', color: 'var(--color-success)', cursor: 'pointer' }}><Check size={14} /></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); setEditingId(null); }} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}><X size={14} /></button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ flex: 1, wordBreak: 'break-word' }} onMouseDown={(e) => { e.preventDefault(); onChange(m.text); setFilter(m.text); setIsOpen(false); }}>
+                    {m.text}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', paddingLeft: '0.5rem' }}>
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); setEditingId(m._id); setEditText(m.text); }} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}><Edit size={14} /></button>
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); onDelete(m._id); }} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+          {filter && filteredMethods.length === 0 && (
+            <div style={{
+              padding: '0.75rem', textAlign: 'center',
+              color: 'var(--color-text-muted)', fontSize: '0.85rem', fontStyle: 'italic'
+            }}>
+              No matching methods found
+            </div>
+          )}
+        </div>
+      )}
+      {isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }} onClick={() => setIsOpen(false)} />
+      )}
+    </div>
+  );
+};
