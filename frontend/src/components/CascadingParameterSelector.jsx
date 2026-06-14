@@ -647,15 +647,14 @@ const CascadingParameterSelector = ({
           )}
 
           {selectedParams.length > 0 && (
-            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.5rem' }}>
               <input 
                 type="checkbox" 
                 id={`show-specs-${label}`}
                 checked={showSpecifications} 
                 onChange={(e) => setShowSpecifications(e.target.checked)}
-                disabled={immutable}
               />
-              <label htmlFor={`show-specs-${label}`} style={{ fontSize: '0.9rem', cursor: immutable ? 'default' : 'pointer' }}>
+              <label htmlFor={`show-specs-${label}`} style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
                 Include specifications in the report
               </label>
             </div>

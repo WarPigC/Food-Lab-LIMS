@@ -18,6 +18,12 @@ export default function AssistantDashboard() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorModalData, setErrorModalData] = useState(null); // string for error message
 
+  // Test Method Library State
+  const [showMethodLibrary, setShowMethodLibrary] = useState(false);
+  const [newMethodText, setNewMethodText] = useState('');
+  const [editingMethodId, setEditingMethodId] = useState(null);
+  const [editMethodText, setEditMethodText] = useState('');
+
   const formatJobCode = (code) => {
     if (!code) return '';
     return code.replace(/-N[12]([a-z]?)(?:-v\d+)?$/g, '-N$1').replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
@@ -53,6 +59,47 @@ export default function AssistantDashboard() {
     fetchTestMethods();
   }, []);
 
+  // --- Test Method Library Handlers ---
+  const handleAddTestMethod = async (e) => {
+    e.preventDefault();
+    if (!newMethodText.trim()) return;
+    try {
+      await axios.post(`${API_URL}/api/test-methods`, { text: newMethodText }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setNewMethodText('');
+      fetchTestMethods();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error adding test method');
+    }
+  };
+
+  const handleUpdateTestMethod = async (id) => {
+    if (!editMethodText.trim()) return;
+    try {
+      await axios.put(`${API_URL}/api/test-methods/${id}`, { text: editMethodText }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setEditingMethodId(null);
+      setEditMethodText('');
+      fetchTestMethods();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error updating test method');
+    }
+  };
+
+  const handleDeleteTestMethod = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this test method?')) return;
+    try {
+      await axios.delete(`${API_URL}/api/test-methods/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      fetchTestMethods();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error deleting test method');
+    }
+  };
+
   const socket = useSocket();
 
   useEffect(() => {
@@ -78,6 +125,7 @@ export default function AssistantDashboard() {
       if (e.key === 'Escape') {
         setShowConfirmModal(false);
         setErrorModalData(null);
+        setShowMethodLibrary(false);
       }
       
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -96,7 +144,7 @@ export default function AssistantDashboard() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showConfirmModal, errorModalData]);
+  }, [showConfirmModal, errorModalData, showMethodLibrary]);
 
   const formatDateTimeLocal = (dateString) => {
     if (!dateString) return '';
@@ -136,14 +184,12 @@ export default function AssistantDashboard() {
 
   const openTask = (task) => {
     setActiveTask(task);
-    // Initialize with existing saved values, or empty strings if not yet started
     setResultsData(task.results.map(r => ({ 
       ...r, 
       value: r.value || '',
       isSaved: r.isSaved || false,
       testMethod: r.testMethod || ''
     })));
-    // Restore testingPeriod if already set, else empty strings
     setTestingPeriod({
       startDate: task.testingPeriod?.startDate ? formatDateTimeLocal(task.testingPeriod.startDate) : '',
       endDate: task.testingPeriod?.endDate ? formatDateTimeLocal(task.testingPeriod.endDate) : ''
@@ -159,7 +205,6 @@ export default function AssistantDashboard() {
   const handleResultChange = (index, field, val) => {
     const updated = [...resultsData];
     updated[index][field] = val;
-    // If they change the value, we mark it as unsaved
     if (field === 'value') {
       updated[index].isSaved = false;
     }
@@ -168,15 +213,12 @@ export default function AssistantDashboard() {
 
   const handleIndividualSave = async (index) => {
     if (isSubmitting) return;
-    
-    // Skip save for approved parameters
     const hasRetestOnly = activeTask?.retestOnly && activeTask.retestOnly.length > 0;
     if (hasRetestOnly && !activeTask.retestOnly.includes(resultsData[index].parameterId)) return;
 
     const val = resultsData[index].value;
     const testMethod = resultsData[index].testMethod;
 
-    // Validate that BOTH value and test method are filled
     if (!val || val.trim() === '' || !testMethod || testMethod.trim() === '') {
       setErrorModalData(`Please enter both a value and a test method for "${resultsData[index].name}"`);
       return;
@@ -213,16 +255,14 @@ export default function AssistantDashboard() {
 
   const handleSaveProgress = async () => {
     const hasRetestOnly = activeTask?.retestOnly && activeTask.retestOnly.length > 0;
-    // Only validate retestable params
     const editableParams = hasRetestOnly 
       ? resultsData.filter(r => activeTask.retestOnly.includes(r.parameterId))
       : resultsData;
 
-    // Find partially filled params (one field filled but not the other) or negative values
     const partiallyFilled = editableParams.filter(r => {
       const hasVal = r.value && r.value.trim() !== '';
       const hasMethod = r.testMethod && r.testMethod.trim() !== '';
-      return hasVal !== hasMethod; // one filled, the other empty
+      return hasVal !== hasMethod; 
     });
 
     const negativeParams = editableParams.filter(r => {
@@ -244,7 +284,6 @@ export default function AssistantDashboard() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     
-    // Mark only fully valid fields (both value + method filled, non-negative) as saved
     const updatedResults = resultsData.map(r => {
       const hasVal = r.value && r.value.trim() !== '';
       const hasMethod = r.testMethod && r.testMethod.trim() !== '';
@@ -279,20 +318,17 @@ export default function AssistantDashboard() {
 
   const handlePreSubmit = (e) => {
     e.preventDefault();
-    
     const hasRetestOnly = activeTask?.retestOnly && activeTask.retestOnly.length > 0;
     const editableParams = hasRetestOnly 
       ? resultsData.filter(r => activeTask.retestOnly.includes(r.parameterId))
       : resultsData;
 
-    // 1. Check if all editable fields are saved
     const unsavedParams = editableParams.filter(r => !r.isSaved);
     if (unsavedParams.length > 0) {
       setErrorModalData(`Please save all parameters before submitting. \n\nUnsaved fields: ${unsavedParams.map(p => p.name).join(', ')}`);
       return;
     }
 
-    // 2. Double check values
     const invalidParams = editableParams.filter(r => {
       const val = r.value;
       const testMethod = r.testMethod;
@@ -327,10 +363,7 @@ export default function AssistantDashboard() {
           endDate: testingPeriod.endDate || null
         }
       });
-      
-      // Immediately remove from UI for snappy experience
       setTasks(prev => prev.filter(t => t._id !== activeTask._id));
-      
       setSuccess(`Task ${formatJobCode(activeTask.testCode)} submitted for review!`);
       invalidateCache(CACHE_KEYS.MY_TASKS);
       closeTask();
@@ -420,7 +453,7 @@ export default function AssistantDashboard() {
           <form onSubmit={handlePreSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <datalist id="test-methods-list">
               {testMethods.map(tm => (
-                <option key={tm._id} value={tm.methodName} />
+                <option key={tm._id} value={tm.text} />
               ))}
             </datalist>
 
@@ -475,8 +508,6 @@ export default function AssistantDashboard() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: isApprovedParam ? '0' : '0.75rem' }}>
                         <div>
                           <div style={{ fontWeight: 600, color: 'var(--color-text-main)', fontSize: '0.95rem' }}>{i + 1}. {resItem.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-                          </div>
                           {prevResult?.value && (
                             <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)', marginTop: '0.25rem', fontStyle: 'italic' }}>
                               ⚠ Previous (rejected): {prevResult.value} {prevResult.unit}
@@ -506,50 +537,40 @@ export default function AssistantDashboard() {
                         </div>
                       </div>
                       {!isApprovedParam && (
-                        <>
-                          {isApprovedParam ? (
-                            <div className="grid-2" style={{ marginTop: '0.5rem' }}>
-                              <div><span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Value:</span> <span style={{ fontWeight: 600 }}>{resItem.value || '—'}</span> {resItem.unit}</div>
-                              <div><span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Method:</span> {resItem.testMethod || '—'}</div>
+                        <div className="grid-2">
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>
+                              Observed Result <span style={{ color: 'var(--color-danger)' }}>*</span>
+                            </label>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <input 
+                                type="text" 
+                                value={resItem.value} 
+                                onChange={e => handleResultChange(i, 'value', e.target.value)} 
+                                placeholder="Enter value…" 
+                                style={{
+                                  ...inputStyle,
+                                  borderColor: (resItem.value && !isNaN(parseFloat(resItem.value)) && parseFloat(resItem.value) < 0) ? 'var(--color-danger)' : 'var(--color-border)'
+                                }} 
+                              />
+                              <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', minWidth: '36px' }}>{resItem.unit}</span>
                             </div>
-                          ) : (
-                            <div className="grid-2">
-                              <div>
-                                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>
-                                  Observed Result <span style={{ color: 'var(--color-danger)' }}>*</span>
-                                </label>
-                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                  <input 
-                                    type="text" 
-                                    value={resItem.value} 
-                                    onChange={e => handleResultChange(i, 'value', e.target.value)} 
-                                    placeholder="Enter value…" 
-                                    style={{
-                                      ...inputStyle,
-                                      borderColor: (resItem.value && !isNaN(parseFloat(resItem.value)) && parseFloat(resItem.value) < 0) ? 'var(--color-danger)' : 'var(--color-border)',
-                                      outlineColor: (resItem.value && !isNaN(parseFloat(resItem.value)) && parseFloat(resItem.value) < 0) ? 'var(--color-danger)' : 'var(--color-primary)'
-                                    }} 
-                                  />
-                                  <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', minWidth: '36px' }}>{resItem.unit}</span>
-                                </div>
-                                {resItem.value && !isNaN(parseFloat(resItem.value)) && parseFloat(resItem.value) < 0 && (
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--color-danger)', marginTop: '0.2rem' }}>Value cannot be negative</div>
-                                )}
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>Test Method</label>
-                                <input 
-                                  type="text" 
-                                  list="test-methods-list"
-                                  value={resItem.testMethod} 
-                                  onChange={e => handleResultChange(i, 'testMethod', e.target.value)} 
-                                  placeholder="Select or type method..." 
-                                  style={inputStyle} 
-                                />
-                              </div>
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Test Method</label>
+                              <button type="button" onClick={() => setShowMethodLibrary(true)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>Manage Library</button>
                             </div>
-                          )}
-                        </>
+                            <input 
+                              type="text" 
+                              list="test-methods-list"
+                              value={resItem.testMethod} 
+                              onChange={e => handleResultChange(i, 'testMethod', e.target.value)} 
+                              placeholder="Select or type method..." 
+                              style={inputStyle} 
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
@@ -558,7 +579,7 @@ export default function AssistantDashboard() {
             </div>
 
             <div className="flex-row-responsive" style={{ marginTop: '0.5rem' }}>
-              <button type="submit" className="btn btn-success" title="Submit for Review (Ctrl + Enter)" disabled={isSubmitting} style={{ flex: 2, justifyContent: 'center' }}>
+              <button type="submit" className="btn btn-success" disabled={isSubmitting} style={{ flex: 2, justifyContent: 'center' }}>
                 <Check size={18} style={{ marginRight: '0.5rem' }} /> {isSubmitting ? 'Submitting...' : 'Submit for Review'}
               </button>
               <button type="button" className="btn btn-primary" onClick={handleSaveProgress} disabled={isSubmitting} style={{ flex: 1, justifyContent: 'center' }}>{isSubmitting ? 'Saving...' : 'Save Draft'}</button>
@@ -581,9 +602,6 @@ export default function AssistantDashboard() {
                 </div>
                 <div>
                   <h3 style={{ margin: '0 0 0.3rem 0', color: 'var(--color-primary-dark)' }}>Job {formatJobCode(task.testCode)}</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'flex-end' }}>
-                    <span>Params: {task.results.length}</span>
-                  </div>
                 </div>
                 <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
                   <button onClick={() => openTask(task)} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
@@ -593,6 +611,75 @@ export default function AssistantDashboard() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* --- Test Method Library Modal --- */}
+      {showMethodLibrary && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '1.5rem', animation: 'slideUp 0.3s ease', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Test Method Library</h2>
+              <button type="button" onClick={() => setShowMethodLibrary(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTestMethod} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <input
+                type="text"
+                placeholder="Add new test method..."
+                value={newMethodText}
+                onChange={e => setNewMethodText(e.target.value)}
+                style={{ flex: 1, padding: '0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
+              />
+              <button type="submit" className="btn btn-primary" disabled={!newMethodText.trim()}>Add</button>
+            </form>
+
+            <div style={{ overflowY: 'auto', flex: 1, borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
+              {testMethods.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '2rem 0' }}>
+                  No test methods in library yet. Add one above!
+                </div>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {testMethods.map(m => (
+                    <li key={m._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                      {editingMethodId === m._id ? (
+                        <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
+                          <input
+                            type="text"
+                            value={editMethodText}
+                            onChange={e => setEditMethodText(e.target.value)}
+                            style={{ flex: 1, padding: '0.3rem', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)' }}
+                            autoFocus
+                          />
+                          <button type="button" onClick={() => handleUpdateTestMethod(m._id)} style={{ background: 'none', border: 'none', color: 'var(--color-success)', cursor: 'pointer' }}><Check size={18} /></button>
+                          <button type="button" onClick={() => setEditingMethodId(null)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}><X size={18} /></button>
+                        </div>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: '0.9rem', color: 'var(--color-text-main)', wordBreak: 'break-word', flex: 1 }}>{m.text}</span>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button type="button" onClick={() => { setEditingMethodId(m._id); setEditMethodText(m.text); }} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }} title="Edit"><Edit size={16} /></button>
+                            <button type="button" onClick={() => handleDeleteTestMethod(m._id)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }} title="Delete"><Trash2 size={16} /></button>
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn" onClick={() => setShowMethodLibrary(false)}>Close</button>
+            </div>
+          </div>
         </div>
       )}
 

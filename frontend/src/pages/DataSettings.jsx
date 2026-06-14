@@ -737,7 +737,7 @@ export default function DataSettings() {
                 ))}
                 {globalParameters.length === 0 && (
                   <tr>
-                    <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No parameters found.</td>
+                    <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No parameters found.</td>
                   </tr>
                 )}
               </tbody>
@@ -778,7 +778,7 @@ export default function DataSettings() {
               autoFocus
               value={specModalValue} 
               onChange={e => setSpecModalValue(e.target.value)} 
-              placeholder="Enter specification (e.g. Max 50, 6.5 - 8.5)" 
+              placeholder="Enter specification" 
               style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }}
             />
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

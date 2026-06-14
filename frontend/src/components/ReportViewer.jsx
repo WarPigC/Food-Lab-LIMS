@@ -520,6 +520,31 @@ export default function ReportViewer({
     }).save();
   };
 
+  const downloadDOCX = (ref, filename) => {
+    const el = ref.current;
+    if (!el) return;
+    
+    // Create HTML structure that MS Word can parse
+    const html = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Test Report</title></head>
+      <body>${el.outerHTML}</body>
+      </html>
+    `;
+    
+    const blob = new Blob(['\ufeff', html], {
+      type: 'application/msword'
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div style={{ maxWidth: '870px', margin: '0 auto', paddingBottom: '3rem' }}>
       {/* Toolbar */}
@@ -534,18 +559,32 @@ export default function ReportViewer({
             <>
               <button onClick={() => downloadPDF(nablReportRef, `NABL_Report_${jobCode}.pdf`)}
                 className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Download size={16} /> Download NABL Report
+                <Download size={16} /> Download NABL PDF
+              </button>
+              <button onClick={() => downloadDOCX(nablReportRef, `NABL_Report_${jobCode}.doc`)}
+                className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
+                <Download size={16} /> Download NABL DOCX
               </button>
               <button onClick={() => downloadPDF(nonNablReportRef, `NonNABL_Report_${jobCode}.pdf`)}
                 className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Download size={16} /> Download Non-NABL Report
+                <Download size={16} /> Download Non-NABL PDF
+              </button>
+              <button onClick={() => downloadDOCX(nonNablReportRef, `NonNABL_Report_${jobCode}.doc`)}
+                className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
+                <Download size={16} /> Download Non-NABL DOCX
               </button>
             </>
           ) : (
-            <button onClick={() => downloadPDF(reportRef, `Report_${jobCode}.pdf`)}
-              className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Download size={16} /> Download Official PDF
-            </button>
+            <>
+              <button onClick={() => downloadPDF(reportRef, `Report_${jobCode}.pdf`)}
+                className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Download size={16} /> Download PDF
+              </button>
+              <button onClick={() => downloadDOCX(reportRef, `Report_${jobCode}.doc`)}
+                className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
+                <Download size={16} /> Download DOCX
+              </button>
+            </>
           )}
         </div>
       </div>
