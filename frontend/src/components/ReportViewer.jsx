@@ -558,8 +558,23 @@ export default function ReportViewer({
     const clone = el.cloneNode(true);
     
     // Force Times New Roman on everything, and strip out Dark Reader injected styles
-    const allElements = clone.querySelectorAll('*');
-    allElements.forEach(node => {
+    const originalElements = Array.from(el.querySelectorAll('*'));
+    const allElements = Array.from(clone.querySelectorAll('*'));
+    
+    allElements.forEach((node, index) => {
+      const origNode = originalElements[index];
+      
+      // Handle Image explicit dimensions to prevent NaN XML corruption
+      if (node.tagName.toLowerCase() === 'img') {
+        const rect = origNode.getBoundingClientRect();
+        if (rect.width > 0) {
+          node.setAttribute('width', Math.round(rect.width));
+          node.setAttribute('height', Math.round(rect.height));
+          node.style.width = Math.round(rect.width) + 'px';
+          node.style.height = Math.round(rect.height) + 'px';
+        }
+      }
+
       // Remove injected attributes from browser extensions
       Array.from(node.attributes || []).forEach(attr => {
         if (attr.name.startsWith('data-darkreader')) {
@@ -578,10 +593,15 @@ export default function ReportViewer({
           }
         }
         
-        // Strip out width from td/th to prevent xmlbuilder crashing on percentages
+        // Convert all td/th widths to strict pixel values based on actual browser render.
         const tag = node.tagName.toLowerCase();
         if (tag === 'td' || tag === 'th') {
-          node.style.width = '';
+          const rect = origNode.getBoundingClientRect();
+          if (rect.width > 0) {
+            node.style.width = Math.round(rect.width) + 'px';
+          } else {
+            node.style.width = '';
+          }
         }
         
         // Strip fixed dimensions and padding from containers to prevent page overflow in DOCX
@@ -591,7 +611,7 @@ export default function ReportViewer({
         if (node.style.margin === '0 auto' || node.style.margin === '0px auto') node.style.margin = '0px';
         
         // If width is fixed in pixels and it's large (like 780px), strip it so it flows into the page margins
-        if (node.style.width && node.style.width.includes('px')) {
+        if (node.style.width && node.style.width.includes('px') && tag !== 'td' && tag !== 'th' && tag !== 'img') {
           const pxVal = parseInt(node.style.width);
           if (pxVal > 500) {
             node.style.width = '100%';
@@ -599,11 +619,12 @@ export default function ReportViewer({
         }
       }
     });
-    
     // Convert all images to base64 so they render in the DOCX file offline
+    const originalImages = el.querySelectorAll('img');
     const images = clone.querySelectorAll('img');
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
+      const origImg = originalImages[i];
       try {
         const response = await fetch(img.src);
         const blob = await response.blob();
@@ -616,7 +637,7 @@ export default function ReportViewer({
         
         // Set explicit integer width/height to prevent html-to-docx from generating NaN EMUs
         // which causes strict parsers like Mobile Word to mark the file as corrupted.
-        const rect = images[i].getBoundingClientRect();
+        const rect = origImg.getBoundingClientRect();
         if (rect.width > 0) img.setAttribute('width', Math.round(rect.width));
         if (rect.height > 0) img.setAttribute('height', Math.round(rect.height));
         
