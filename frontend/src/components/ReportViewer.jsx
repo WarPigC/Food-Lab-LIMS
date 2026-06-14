@@ -38,6 +38,7 @@ const pageStyle = {
   color: '#000',
   padding: '18px 24px',
   maxWidth: '780px',
+  minWidth: '780px',
   margin: '0 auto',
   boxSizing: 'border-box',
 };
@@ -641,7 +642,7 @@ export default function ReportViewer({
         </div>
       </div>
 
-      <div style={{ border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden' }}>
+      <div style={{ border: '1px solid #ccc', borderRadius: '4px', overflowX: 'auto' }}>
         {isHybrid ? (
           <>
             {/* NABL section */}
