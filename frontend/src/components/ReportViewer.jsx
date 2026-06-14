@@ -214,12 +214,12 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           <td style={td}>NA</td>
         </tr>
         <tr>
-          <td style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : <span style={{textDecoration: 'line-through'}}>Yes</span>/NO ( if yes ; Short details)</td>
-          <td style={td} colSpan={3}>{sample.special_handling_instructions || compliance.special_handling_instructions || 'No'}</td>
+          <td colSpan={2} style={{ ...label, whiteSpace: 'normal' }}>Any Handling Instructions provided : <span style={{textDecoration: 'line-through'}}>Yes</span>/NO ( if yes ; Short details)</td>
+          <td colSpan={2} style={td}>{sample.special_handling_instructions || compliance.special_handling_instructions || 'No'}</td>
         </tr>
         <tr>
-          <td style={label}>Any data provided by customer</td>
-          <td style={td} colSpan={3}>NA</td>
+          <td colSpan={2} style={label}>Any data provided by customer</td>
+          <td colSpan={2} style={td}>NA</td>
         </tr>
         <tr>
           <td style={label}>Sample Description</td>
