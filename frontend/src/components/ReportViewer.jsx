@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import html2pdf from 'html2pdf.js';
+import { asBlob } from 'html-docx-js-typescript';
 import { Download } from 'lucide-react';
 import logo from '../assets/Acropolis20Logo.png';
 import nablLogo from '../assets/nabl-logo.png';
@@ -520,29 +521,70 @@ export default function ReportViewer({
     }).save();
   };
 
-  const downloadDOCX = (ref, filename) => {
+  const downloadDOCX = async (ref, filename) => {
     const el = ref.current;
     if (!el) return;
     
-    // Create HTML structure that MS Word can parse
+    // Clone the DOM so we can manipulate styles and images just for the Word export
+    const clone = el.cloneNode(true);
+    
+    // Force Times New Roman on everything, because MS Word ignores parent font-family for tables
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach(node => {
+      if (node.style) {
+        node.style.fontFamily = '"Times New Roman", Times, serif';
+      }
+    });
+    
+    // Convert all images to base64 so they render in the DOCX file offline
+    const images = clone.querySelectorAll('img');
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      try {
+        const response = await fetch(img.src);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        img.src = base64;
+        // Fix image width for Word
+        if (img.style.width) img.width = parseInt(img.style.width);
+        if (img.style.height) img.height = parseInt(img.style.height);
+      } catch (err) {
+        console.warn('Failed to convert image to base64 for DOCX export', err);
+      }
+    }
+
+    // Wrap in standard HTML structure
     const html = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset='utf-8'><title>Test Report</title></head>
-      <body>${el.outerHTML}</body>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Test Report</title>
+        <style>
+          body, table, td, th, div, span, p { font-family: "Times New Roman", Times, serif !important; }
+        </style>
+      </head>
+      <body>
+        ${clone.outerHTML}
+      </body>
       </html>
     `;
     
-    const blob = new Blob(['\ufeff', html], {
-      type: 'application/msword'
-    });
+    // Use html-docx-js to generate a real DOCX Blob
+    const docxBlob = await asBlob(html, { orientation: 'portrait', margins: { top: 720, right: 720, bottom: 720, left: 720 } });
     
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(docxBlob);
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -561,7 +603,7 @@ export default function ReportViewer({
                 className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Download size={16} /> Download NABL PDF
               </button>
-              <button onClick={() => downloadDOCX(nablReportRef, `NABL_Report_${jobCode}.doc`)}
+              <button onClick={() => downloadDOCX(nablReportRef, `NABL_Report_${jobCode}.docx`)}
                 className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
                 <Download size={16} /> Download NABL DOCX
               </button>
@@ -569,7 +611,7 @@ export default function ReportViewer({
                 className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Download size={16} /> Download Non-NABL PDF
               </button>
-              <button onClick={() => downloadDOCX(nonNablReportRef, `NonNABL_Report_${jobCode}.doc`)}
+              <button onClick={() => downloadDOCX(nonNablReportRef, `NonNABL_Report_${jobCode}.docx`)}
                 className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
                 <Download size={16} /> Download Non-NABL DOCX
               </button>
@@ -580,7 +622,7 @@ export default function ReportViewer({
                 className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Download size={16} /> Download PDF
               </button>
-              <button onClick={() => downloadDOCX(reportRef, `Report_${jobCode}.doc`)}
+              <button onClick={() => downloadDOCX(reportRef, `Report_${jobCode}.docx`)}
                 className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
                 <Download size={16} /> Download DOCX
               </button>
