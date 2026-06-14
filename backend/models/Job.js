@@ -65,11 +65,6 @@ const jobSchema = new mongoose.Schema({
     special_handling_instructions:  { type: String }
   },
   showSpecifications: { type: Boolean, default: false },
-    decision_rule:                  { type: String },
-    accreditation_scope:            { type: String },
-    disclaimer_notes:               { type: String },
-    special_handling_instructions:  { type: String }
-  },
   distribution: {
     micro: {
       required: { type: Boolean, default: false },
