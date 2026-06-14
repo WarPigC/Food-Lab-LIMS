@@ -11,6 +11,7 @@ export default function AssistantDashboard() {
   const [activeTask, setActiveTask] = useState(null);
   const [resultsData, setResultsData] = useState([]);
   const [testingPeriod, setTestingPeriod] = useState({ startDate: '', endDate: '' });
+  const [testMethods, setTestMethods] = useState([]);
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(() => !sessionStorage.getItem(CACHE_KEYS.MY_TASKS));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,7 +37,21 @@ export default function AssistantDashboard() {
     }
   };
 
-  useEffect(() => { fetchTasks(); }, []);
+  const fetchTestMethods = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/test-methods`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setTestMethods(res.data);
+    } catch (err) {
+      console.error('Failed to fetch test methods', err);
+    }
+  };
+
+  useEffect(() => { 
+    fetchTasks(); 
+    fetchTestMethods();
+  }, []);
 
   const socket = useSocket();
 
@@ -403,6 +418,12 @@ export default function AssistantDashboard() {
           })()}
 
           <form onSubmit={handlePreSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <datalist id="test-methods-list">
+              {testMethods.map(tm => (
+                <option key={tm._id} value={tm.methodName} />
+              ))}
+            </datalist>
+
             <div style={{ padding: '1.25rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <Calendar size={16} style={{ color: 'var(--color-primary)' }} />
@@ -517,7 +538,14 @@ export default function AssistantDashboard() {
                               </div>
                               <div>
                                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.3rem', color: 'var(--color-text-muted)' }}>Test Method</label>
-                                <input type="text" value={resItem.testMethod} onChange={e => handleResultChange(i, 'testMethod', e.target.value)} placeholder="Method used" style={inputStyle} />
+                                <input 
+                                  type="text" 
+                                  list="test-methods-list"
+                                  value={resItem.testMethod} 
+                                  onChange={e => handleResultChange(i, 'testMethod', e.target.value)} 
+                                  placeholder="Select or type method..." 
+                                  style={inputStyle} 
+                                />
                               </div>
                             </div>
                           )}

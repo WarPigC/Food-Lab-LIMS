@@ -255,23 +255,17 @@ function ResultsTable({ rows, hasSpec, startIdx }) {
           } else {
             const r = row.data;
             counter++;
-            let isOutlier = false;
-            if (r.referenceRange?.includes('-') && !isNaN(parseFloat(r.value))) {
-              const [mn, mx] = r.referenceRange.split('-').map(s => parseFloat(s));
-              const val = parseFloat(r.value);
-              if (!isNaN(mn) && !isNaN(mx) && (val < mn || val > mx)) isOutlier = true;
-            }
             return (
               <tr key={`res-${i}`}>
                 <td style={{ ...td, textAlign: 'center' }}>{counter}.</td>
                 <td style={td}>{r.name}</td>
                 <td style={{ ...td, textAlign: 'center' }}>{r.unit || '—'}</td>
-                <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: isOutlier ? '#c0392b' : '#000' }}>
-                  {r.value || '—'}{isOutlier && <span style={{ fontSize: '8px' }}> (FLAG)</span>}
+                <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: '#000' }}>
+                  {r.value || '—'}
                 </td>
                 <td style={{ ...td, textAlign: 'center' }}>{r.testMethod || '—'}</td>
                 {hasSpec && (
-                  <td style={{ ...td, textAlign: 'center' }}>{r.referenceRange || '—'}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{r.specification || '—'}</td>
                 )}
               </tr>
             );
@@ -388,7 +382,7 @@ function SingleReport({ microReport, chemicalReport, isNabl, forwardedRef }) {
     microReport.results.forEach(r => allRows.push({ type: 'result', data: r }));
   }
 
-  const hasSpec = allRows.some(r => r.type === 'result' && r.data.referenceRange);
+  const hasSpec = job.showSpecifications && allRows.some(r => r.type === 'result' && r.data.specification);
   const pages = buildPages(allRows, ITEMS_PER_PAGE);
   const totalPages = pages.length;
 

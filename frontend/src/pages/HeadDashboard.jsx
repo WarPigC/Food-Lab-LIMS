@@ -1352,7 +1352,6 @@ function ReviewQueue() {
                         <th>Value</th>
                         <th>Unit</th>
                         <th>Test Method</th>
-                        <th>Reference Range</th>
                         {isReassignMode && <th>Assign To</th>}
                       </tr>
                     </thead>
@@ -1369,7 +1368,6 @@ function ReviewQueue() {
                                 value: 'Multiple',
                                 unit: 'mg/kg',
                                 testMethod: '—',
-                                referenceRange: '—',
                                 isPanelGroup: true
                               };
                               displayResults.push(panelGroups[r.panelName]);
@@ -1410,7 +1408,6 @@ function ReviewQueue() {
                             <td style={{ fontFamily: 'monospace', fontWeight: 600, color: isSelected ? 'var(--color-danger)' : 'var(--color-primary)' }}>{r.value || '—'}</td>
                             <td>{r.unit}</td>
                             <td style={{ fontSize: '0.85rem' }}>{r.testMethod || '—'}</td>
-                            <td style={{ color: 'var(--color-text-muted)' }}>{r.referenceRange}</td>
                             {isReassignMode && (
                               <td onClick={e => e.stopPropagation()}>
                                 {isSelected ? (

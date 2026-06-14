@@ -89,7 +89,6 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
                     name: param.name,
                     value: '',
                     unit: 'mg/kg',
-                    referenceRange: '',
                     specification: param.specification || '',
                     isPanel: true,
                     panelName: assignment.panelName
@@ -104,7 +103,6 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
             name: assignment.name,
             value: '',
             unit: assignment.unit,
-            referenceRange: '',
             specification: assignment.specification || ''
           });
         }

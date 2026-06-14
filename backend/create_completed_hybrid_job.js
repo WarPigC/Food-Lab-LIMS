@@ -153,7 +153,6 @@ mongoose.connect('mongodb://127.0.0.1:27017/aiper')
           name: p.name,
           value: p.name.includes('Salmonella') || p.name.includes('E. coli') || p.name.includes('Vibrio') || p.name.includes('Shigella') ? 'Absent' : '0',
           unit: p.unit,
-          referenceRange: p.name.includes('Salmonella') || p.name.includes('E. coli') || p.name.includes('Vibrio') || p.name.includes('Shigella') ? 'Absent per 25 g' : '< 10 CFU/g',
           isSaved: true,
           testMethod: 'IS 1622:1981',
           assignedTo: microAnalyst._id
@@ -186,7 +185,6 @@ mongoose.connect('mongodb://127.0.0.1:27017/aiper')
           name: p.name,
           value: p.name === 'pH' ? '7.25' : p.name.includes('Lead') || p.name.includes('Cadmium') || p.name.includes('Arsenic') || p.name.includes('Mercury') ? 'BLQ (LOQ 0.01)' : '0.05',
           unit: p.unit,
-          referenceRange: p.name === 'pH' ? '6.5 - 8.5' : '< 0.1 mg/kg',
           isSaved: true,
           testMethod: 'IS 3025:1984',
           assignedTo: chemicalAnalyst._id
@@ -198,7 +196,6 @@ mongoose.connect('mongodb://127.0.0.1:27017/aiper')
         name: 'Malathion (Pesticide residue)',
         value: 'BLQ (LOQ 0.001)',
         unit: 'mg/kg',
-        referenceRange: '< 0.01 mg/kg',
         isSaved: true,
         testMethod: 'IS 15187:2002',
         isPanel: true,
@@ -210,7 +207,6 @@ mongoose.connect('mongodb://127.0.0.1:27017/aiper')
         name: 'Chlorpyrifos (Pesticide residue)',
         value: 'BLQ (LOQ 0.001)',
         unit: 'mg/kg',
-        referenceRange: '< 0.01 mg/kg',
         isSaved: true,
         testMethod: 'IS 15187:2002',
         isPanel: true,
