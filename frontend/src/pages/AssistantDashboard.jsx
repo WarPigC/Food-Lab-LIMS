@@ -725,21 +725,22 @@ const TestMethodDropdown = ({ value, onChange, testMethods, onUpdate, onDelete, 
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <input
-        type="text"
-        value={filter}
-        onChange={e => {
-          setFilter(e.target.value);
-          onChange(e.target.value); // update the actual form state
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        onKeyDown={handleKeyDown}
-        placeholder="Select or type method..."
-        style={inputStyle}
-      />
-      {isOpen && (
+    <div>
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={filter}
+          onChange={e => {
+            setFilter(e.target.value);
+            onChange(e.target.value); // update the actual form state
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder="Select or type method..."
+          style={inputStyle}
+        />
+        {isOpen && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
           background: 'var(--color-surface)', border: '1px solid var(--color-border)',
@@ -803,6 +804,7 @@ const TestMethodDropdown = ({ value, onChange, testMethods, onUpdate, onDelete, 
       {isOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }} onClick={() => setIsOpen(false)} />
       )}
+      </div>
       
       {!isCreatingNew && (
         <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-start' }}>
