@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const HTMLtoDOCX = require('html-to-docx');
-const { protect } = require('../middleware/authMiddleware');
+const { protect } = require('../middlewares/authMiddleware');
 
 router.post('/docx', protect, async (req, res) => {
   try {
