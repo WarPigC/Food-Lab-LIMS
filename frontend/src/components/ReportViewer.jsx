@@ -31,7 +31,7 @@ const td = { border, padding: '4px 7px', fontSize: '10.5px', verticalAlign: 'top
 const label = { ...td, fontWeight: 600, whiteSpace: 'nowrap', width: '155px' };
 const hdr = { ...td, fontWeight: 700, padding: '5px 7px' };
 const pageStyle = {
-  fontFamily: 'Arial, sans-serif',
+  fontFamily: '"Times New Roman", Times, serif',
   backgroundColor: '#fff',
   color: '#000',
   padding: '18px 24px',
@@ -143,10 +143,10 @@ function SampleInfoTable({ job, testReportNo, registrationNo, issueDate, receipt
           </td>
         </tr>
         <tr>
-          <td style={label}>Sample Name<br /><span style={{ fontWeight: 400, fontSize: '9px' }}>( as stated by customer )</span></td>
-          <td style={td}>{sample.sample_name || 'N/A'}</td>
-          <td style={label}>Test Report No.</td>
-          <td style={td}>{testReportNo}</td>
+          <td style={{...label, width: '25%'}}>Sample Name<br /><span style={{ fontWeight: 400, fontSize: '9px' }}>( as stated by customer )</span></td>
+          <td style={{...td, width: '35%'}}>{sample.sample_name || 'N/A'}</td>
+          <td style={{...label, width: '20%'}}>Test Report No.</td>
+          <td style={{...td, width: '20%'}}>{testReportNo}</td>
         </tr>
         <tr>
           <td rowSpan={4} style={{ ...label, verticalAlign: 'middle' }}>Sample Details</td>
