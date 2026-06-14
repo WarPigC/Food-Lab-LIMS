@@ -505,32 +505,6 @@ export default function ReportViewer({
   const nonNablReportRef = useRef();
   const wrapperRef = useRef(null);
   const contentRef = useRef(null);
-  const [scale, setScale] = useState(1);
-  const [contentHeight, setContentHeight] = useState('auto');
-
-  useLayoutEffect(() => {
-    const updateScale = () => {
-      if (!wrapperRef.current || !contentRef.current) return;
-      const availableWidth = wrapperRef.current.getBoundingClientRect().width;
-      if (availableWidth < 780 && availableWidth > 0) {
-        const newScale = availableWidth / 780;
-        setScale(newScale);
-        setContentHeight(`${contentRef.current.offsetHeight * newScale}px`);
-      } else {
-        setScale(1);
-        setContentHeight('auto');
-      }
-    };
-    
-    const resizeObserver = new ResizeObserver(() => {
-      updateScale();
-    });
-
-    if (wrapperRef.current) resizeObserver.observe(wrapperRef.current);
-    if (contentRef.current) resizeObserver.observe(contentRef.current);
-
-    return () => resizeObserver.disconnect();
-  }, []);
   const isNabl = nablMode === 'nabl';
   const isHybrid = nablMode === 'hybrid';
 
@@ -730,14 +704,13 @@ export default function ReportViewer({
         </div>
       </div>
 
-      <div ref={wrapperRef} style={{ border: '1px solid #ccc', borderRadius: '4px', width: '100%', overflow: 'hidden', background: '#f1f5f9' }}>
-        <div style={{ width: '100%', height: contentHeight, overflow: 'hidden' }}>
+      <div ref={wrapperRef} style={{ border: '1px solid #ccc', borderRadius: '4px', width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#f1f5f9' }}>
+        <div style={{ width: 'max-content', minWidth: '100%' }}>
           <div 
             ref={contentRef}
             style={{ 
-              transform: `scale(${scale})`, 
-              transformOrigin: 'top left', 
               width: '780px',
+              margin: '0 auto'
             }}
           >
             {isHybrid ? (
