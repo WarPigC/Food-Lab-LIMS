@@ -530,11 +530,32 @@ export default function ReportViewer({
     // Clone the DOM so we can manipulate styles and images just for the Word export
     const clone = el.cloneNode(true);
     
-    // Force Times New Roman on everything, because MS Word ignores parent font-family for tables
+    // Force Times New Roman on everything, and strip out Dark Reader injected styles
     const allElements = clone.querySelectorAll('*');
     allElements.forEach(node => {
+      // Remove injected attributes from browser extensions
+      Array.from(node.attributes || []).forEach(attr => {
+        if (attr.name.startsWith('data-darkreader')) {
+          node.removeAttribute(attr.name);
+        }
+      });
+
       if (node.style) {
         node.style.fontFamily = '"Times New Roman", Times, serif';
+        
+        // Strip out CSS custom properties (like --darkreader-*) that crash html-to-docx xmlbuilder
+        for (let i = node.style.length - 1; i >= 0; i--) {
+          const propName = node.style[i];
+          if (propName && propName.startsWith('--')) {
+            node.style.removeProperty(propName);
+          }
+        }
+        
+        // Strip out width from td/th to prevent xmlbuilder crashing on percentages
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'td' || tag === 'th') {
+          node.style.width = '';
+        }
       }
     });
     
@@ -599,7 +620,7 @@ export default function ReportViewer({
   };
 
   return (
-    <div style={{ maxWidth: '870px', margin: '0 auto', paddingBottom: '3rem' }}>
+    <div style={{ width: '100%', maxWidth: '870px', margin: '0 auto', paddingBottom: '3rem', overflowX: 'hidden' }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem',
         alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -642,7 +663,7 @@ export default function ReportViewer({
         </div>
       </div>
 
-      <div style={{ border: '1px solid #ccc', borderRadius: '4px', overflowX: 'auto' }}>
+      <div style={{ border: '1px solid #ccc', borderRadius: '4px', overflowX: 'auto', width: '100%' }}>
         {isHybrid ? (
           <>
             {/* NABL section */}
