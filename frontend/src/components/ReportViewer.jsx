@@ -735,13 +735,14 @@ export default function ReportViewer({
       </div>
 
       <div ref={wrapperRef} style={{ border: '1px solid #ccc', borderRadius: '4px', width: '100%', overflow: 'auto', background: '#f1f5f9' }}>
-        <div style={{ width: contentWidth, height: contentHeight, margin: '0 auto' }}>
+        <div style={{ width: contentWidth, height: contentHeight, margin: '0 auto', overflow: 'hidden' }}>
           <div 
             ref={contentRef}
             style={{ 
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
               width: '780px',
+              margin: '0 auto'
             }}
           >
             {isHybrid ? (
