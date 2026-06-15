@@ -22,7 +22,7 @@ export default function ReportPreview({ blob }) {
       trimXmlDeclaration: true,
       debug: false
     }).then(() => {
-      // Fix mobile width issues dynamically after render
+      // Post-render: apply scale-to-fit for the container
       const wrapper = containerRef.current.querySelector('.docx-wrapper');
       if (wrapper) {
         wrapper.style.backgroundColor = 'transparent';
@@ -31,36 +31,62 @@ export default function ReportPreview({ blob }) {
       
       const sections = containerRef.current.querySelectorAll('section.docx');
       sections.forEach(sec => {
-        sec.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        sec.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
         sec.style.marginBottom = '2rem';
-        
-        // Add responsive CSS class mapping
-        sec.classList.add('responsive-docx-section');
+        sec.style.borderRadius = '4px';
       });
+
+      // Scale-to-fit: measure the rendered page width and scale it to fit the container
+      applyScaleToFit();
     }).catch(err => console.error("Error rendering docx preview:", err));
   }, [blob]);
+
+  const applyScaleToFit = () => {
+    if (!containerRef.current) return;
+    const section = containerRef.current.querySelector('section.docx');
+    if (!section) return;
+
+    const containerWidth = containerRef.current.clientWidth;
+    const sectionWidth = section.scrollWidth || section.offsetWidth;
+
+    if (sectionWidth > containerWidth) {
+      const scale = containerWidth / sectionWidth;
+      const wrapper = containerRef.current.querySelector('.docx-wrapper');
+      if (wrapper) {
+        wrapper.style.transformOrigin = 'top left';
+        wrapper.style.transform = `scale(${scale})`;
+        // Adjust container height so it doesn't leave empty space
+        wrapper.style.width = `${100 / scale}%`;
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Re-apply scale on window resize
+    const handleResize = () => applyScaleToFit();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <>
       <style>{`
-        .responsive-docx-section {
-          max-width: 100% !important;
+        .report-preview-container .docx-wrapper {
+          transition: transform 0.2s ease;
         }
-        @media (max-width: 820px) {
-          .responsive-docx-section {
-            padding: 1rem !important;
-            width: 100% !important;
-            min-height: auto !important;
-          }
-          .responsive-docx-section table {
-            width: 100% !important;
-          }
-          .responsive-docx-section td, .responsive-docx-section th {
-             word-break: break-word;
-          }
+        .report-preview-container section.docx {
+          max-width: none !important;
         }
       `}</style>
-      <div ref={containerRef} style={{ width: '100%', minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div 
+        ref={containerRef} 
+        className="report-preview-container"
+        style={{ 
+          width: '100%', 
+          minHeight: '50vh', 
+          overflow: 'hidden'
+        }}
+      >
       </div>
     </>
   );

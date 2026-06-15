@@ -23,8 +23,11 @@ const BORDERS_ALL = {
   right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
 };
 
+// A4 portrait usable width = 12240 (page) - 720*2 (margins) = 10800 DXA (twips)
+const PAGE_WIDTH_DXA = 10800;
+
 const createCell = (text, options = {}) => {
-  const { bold = false, alignment = AlignmentType.LEFT, colSpan = 1, rowSpan = 1, borders = BORDERS_ALL, shading = null, size = 20, verticalAlign = VerticalAlign.CENTER, width } = options;
+  const { bold = false, alignment = AlignmentType.LEFT, colSpan = 1, rowSpan = 1, borders = BORDERS_ALL, shading = null, size = 20, verticalAlign = VerticalAlign.CENTER, widthPct } = options;
   const cellOptions = {
     children: [
       new Paragraph({
@@ -38,8 +41,8 @@ const createCell = (text, options = {}) => {
     borders,
     verticalAlign
   };
-  if (width) {
-    cellOptions.width = { size: width, type: WidthType.PCT };
+  if (widthPct) {
+    cellOptions.width = { size: Math.round(PAGE_WIDTH_DXA * widthPct / 100), type: WidthType.DXA };
   }
   if (shading) {
     cellOptions.shading = { fill: shading };
@@ -47,9 +50,9 @@ const createCell = (text, options = {}) => {
   return new TableCell(cellOptions);
 };
 
-const createImageCell = (imageBuffer, width, height, borders = BORDERS_ALL, alignment = AlignmentType.CENTER) => {
-  if (!imageBuffer) return new TableCell({ children: [], borders });
-  return new TableCell({
+const createImageCell = (imageBuffer, width, height, borders = BORDERS_ALL, alignment = AlignmentType.CENTER, widthPct = null) => {
+  if (!imageBuffer) return new TableCell({ children: [new Paragraph({ children: [] })], borders });
+  const cellOpts = {
     children: [
       new Paragraph({
         children: [
@@ -63,7 +66,11 @@ const createImageCell = (imageBuffer, width, height, borders = BORDERS_ALL, alig
     ],
     borders,
     verticalAlign: VerticalAlign.CENTER
-  });
+  };
+  if (widthPct) {
+    cellOpts.width = { size: Math.round(PAGE_WIDTH_DXA * widthPct / 100), type: WidthType.DXA };
+  }
+  return new TableCell(cellOpts);
 };
 
 const deriveReportFields = (jobCode) => {
@@ -89,7 +96,7 @@ const buildHeaderTable = (isNabl) => {
   const nablQrcodeBuf = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
 
   const cells = [
-    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER),
+    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 20),
     new TableCell({
       children: [
         new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: { before: 20, after: 20 } }),
@@ -100,7 +107,7 @@ const buildHeaderTable = (isNabl) => {
       ],
       verticalAlign: VerticalAlign.CENTER,
       borders: BORDERS_ALL,
-      width: { size: 60, type: WidthType.PCT }
+      width: { size: Math.round(PAGE_WIDTH_DXA * 60 / 100), type: WidthType.DXA }
     })
   ];
 
@@ -123,16 +130,16 @@ const buildHeaderTable = (isNabl) => {
         ],
         verticalAlign: VerticalAlign.CENTER,
         borders: BORDERS_ALL,
-        width: { size: 20, type: WidthType.PCT }
+        width: { size: Math.round(PAGE_WIDTH_DXA * 20 / 100), type: WidthType.DXA }
       })
     );
   } else {
-    cells.push(new TableCell({ children: [], borders: BORDERS_ALL, width: { size: 20, type: WidthType.PCT } }));
+    cells.push(new TableCell({ children: [new Paragraph({ children: [] })], borders: BORDERS_ALL, width: { size: Math.round(PAGE_WIDTH_DXA * 20 / 100), type: WidthType.DXA } }));
   }
 
   return new Table({
     rows: [new TableRow({ children: cells })],
-    width: { size: 100, type: WidthType.PCT }
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
   });
 };
 
@@ -171,10 +178,10 @@ const buildSampleInfoTable = (job, isNabl) => {
   // Row 2: Sample Name & Report No
   rows.push(new TableRow({
     children: [
-      createCell("Sample Name\n(as stated by customer)", { bold: true, colSpan: 2, width: 33 }),
-      createCell(sample.sample_name || 'N/A', { colSpan: 2, width: 33 }),
-      createCell("Test Report No.", { bold: true, width: 17 }),
-      createCell(testReportNo, { width: 17 })
+      createCell("Sample Name\n(as stated by customer)", { bold: true, colSpan: 2, widthPct: 33 }),
+      createCell(sample.sample_name || 'N/A', { colSpan: 2, widthPct: 33 }),
+      createCell("Test Report No.", { bold: true, widthPct: 17 }),
+      createCell(testReportNo, { widthPct: 17 })
     ]
   }));
 
@@ -286,7 +293,7 @@ const buildSampleInfoTable = (job, isNabl) => {
     ]
   }));
 
-  return new Table({ rows, width: { size: 100, type: WidthType.PCT } });
+  return new Table({ rows, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
 };
 
 const buildResultsTable = (rowsData, hasSpec, startIdx) => {
@@ -295,14 +302,14 @@ const buildResultsTable = (rowsData, hasSpec, startIdx) => {
 
   // Header Row
   const headerCells = [
-    createCell("Sr. No.", { bold: true, alignment: AlignmentType.CENTER, width: 8 }),
-    createCell("Test Parameters", { bold: true, width: 35 }),
-    createCell("UoM", { bold: true, alignment: AlignmentType.CENTER, width: 12 }),
-    createCell("Result", { bold: true, alignment: AlignmentType.CENTER, width: 15 }),
-    createCell("Test Method", { bold: true, alignment: AlignmentType.CENTER, width: hasSpec ? 15 : 30 })
+    createCell("Sr. No.", { bold: true, alignment: AlignmentType.CENTER, widthPct: 8 }),
+    createCell("Test Parameters", { bold: true, widthPct: 35 }),
+    createCell("UoM", { bold: true, alignment: AlignmentType.CENTER, widthPct: 12 }),
+    createCell("Result", { bold: true, alignment: AlignmentType.CENTER, widthPct: 15 }),
+    createCell("Test Method", { bold: true, alignment: AlignmentType.CENTER, widthPct: hasSpec ? 15 : 30 })
   ];
   if (hasSpec) {
-    headerCells.push(createCell("Specification", { bold: true, alignment: AlignmentType.CENTER, width: 15 }));
+    headerCells.push(createCell("Specification", { bold: true, alignment: AlignmentType.CENTER, widthPct: 15 }));
   }
   tableRows.push(new TableRow({ children: headerCells }));
 
@@ -337,7 +344,7 @@ const buildResultsTable = (rowsData, hasSpec, startIdx) => {
     }));
   }
 
-  return new Table({ rows: tableRows, width: { size: 100, type: WidthType.PCT } });
+  return new Table({ rows: tableRows, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
 };
 
 /**
@@ -356,8 +363,9 @@ const generateReport = async (job, reportType) => {
   
   const parameters = job.parameters || [];
   
-  const chemicalResults = (parameters || []).filter(p => p.type === 'CHEMICAL');
-  const microResults = (parameters || []).filter(p => p.type === 'MICRO');
+  // Case-insensitive type matching (schema stores 'Chemical'/'Micro', not uppercase)
+  const chemicalResults = parameters.filter(p => (p.type || '').toUpperCase() === 'CHEMICAL');
+  const microResults = parameters.filter(p => (p.type || '').toUpperCase() === 'MICRO');
   
   if (chemicalResults.length > 0) {
     allRows.push({ type: 'header', dept: 'CHEMICAL', group: groupName, subGroup: subGroupName });
@@ -419,10 +427,10 @@ const generateReport = async (job, reportType) => {
       // Continuation Header Table
       children.push(new Table({
         rows: [
-          new TableRow({ children: [createCell("Sample Name", { bold: true }), createCell(job.sample?.sample_name || 'N/A'), createCell("Test Report No.", { bold: true }), createCell(testReportNo)] }),
-          new TableRow({ children: [createCell("Sample Details", { bold: true }), createCell(`01 x ${job.sample?.sample_quantity || 'N/A'}`), createCell("Registration No.", { bold: true }), createCell(registrationNo)] })
+          new TableRow({ children: [createCell("Sample Name", { bold: true, widthPct: 25 }), createCell(job.sample?.sample_name || 'N/A', { widthPct: 25 }), createCell("Test Report No.", { bold: true, widthPct: 25 }), createCell(testReportNo, { widthPct: 25 })] }),
+          new TableRow({ children: [createCell("Sample Details", { bold: true, widthPct: 25 }), createCell(`01 x ${job.sample?.sample_quantity || 'N/A'}`, { widthPct: 25 }), createCell("Registration No.", { bold: true, widthPct: 25 }), createCell(registrationNo, { widthPct: 25 })] })
         ],
-        width: { size: 100, type: WidthType.PCT }
+        width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
       }));
     }
 
@@ -473,19 +481,19 @@ const generateReport = async (job, reportType) => {
                   new Paragraph({ children: [new TextRun({ text: "Reviewed By", font: "Times New Roman", size: 20 })], spacing: { after: 600 } }),
                   new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })] })
                 ],
-                borders: BORDERS_NONE, width: { size: 50, type: WidthType.PCT }
+                borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }
               }),
               new TableCell({
                 children: [
                   new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", font: "Times New Roman", size: 20 })], alignment: AlignmentType.RIGHT, spacing: { after: 600 } }),
                   new Paragraph({ children: [new TextRun({ text: job.distribution?.chemical?.assignedHead?.name || job.distribution?.micro?.assignedHead?.name || 'Technical Manager', font: "Times New Roman", size: 20 })], alignment: AlignmentType.RIGHT })
                 ],
-                borders: BORDERS_NONE, width: { size: 50, type: WidthType.PCT }
+                borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }
               })
             ]
           })
         ],
-        width: { size: 100, type: WidthType.PCT }
+        width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
       }));
     }
 
@@ -496,7 +504,8 @@ const generateReport = async (job, reportType) => {
     sections.push({
       properties: {
         page: {
-          margin: { top: 720, right: 720, bottom: 720, left: 720 }
+          margin: { top: 720, right: 720, bottom: 720, left: 720 },
+          size: { width: 12240, height: 15840 } // A4 portrait in twips
         }
       },
       headers: {
