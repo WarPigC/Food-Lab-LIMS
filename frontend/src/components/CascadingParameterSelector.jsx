@@ -549,112 +549,176 @@ const CascadingParameterSelector = ({
           )}
           {/* Selected parameters list */}
           {selectedParams.length > 0 && (
-            <div style={{ 
-              maxHeight: '250px', overflowY: 'auto', overflowX: 'auto',
-              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', 
-              backgroundColor: 'var(--color-surface)' 
-            }}>
-              <table style={{ width: '100%', minWidth: '400px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead style={{ backgroundColor: 'var(--color-surface-hover)', position: 'sticky', top: 0 }}>
-                  <tr>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Parameter Name</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '80px' }}>Type</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Unit</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '140px' }}>Specification</th>
-                    <th style={{ padding: '0.5rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '40px' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedParams.map((p) => (
-                    <tr key={getParamId(p)} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '0.4rem 0.5rem' }}>{p.name}</td>
-                      <td style={{ padding: '0.4rem 0.5rem' }}>
-                        <select 
-                          value={p.type} 
-                          onChange={(e) => handleTypeChange(getParamId(p), e.target.value)}
-                          disabled={immutable}
-                          style={{ fontSize: '0.75rem', padding: '0.2rem', borderRadius: '4px', border: '1px solid var(--color-border)' }}
-                        >
-                          <option value="Micro">Micro</option>
-                          <option value="Chemical">Chemical</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '0.4rem 0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <input
-                            type="text"
-                            value={p.unit}
-                            onChange={(e) => handleUnitChange(getParamId(p), e.target.value)}
-                            onBlur={() => handleSaveUnit(getParamId(p), p.unit)}
+            <>
+              <div className="hide-on-mobile" style={{ 
+                maxHeight: '250px', overflowY: 'auto', overflowX: 'auto',
+                border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', 
+                backgroundColor: 'var(--color-surface)' 
+              }}>
+                <table style={{ width: '100%', minWidth: '400px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead style={{ backgroundColor: 'var(--color-surface-hover)', position: 'sticky', top: 0 }}>
+                    <tr>
+                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>Parameter Name</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '80px' }}>Type</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '120px' }}>Unit</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', width: '140px' }}>Specification</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'center', borderBottom: '1px solid var(--color-border)', width: '40px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedParams.map((p) => (
+                      <tr key={getParamId(p)} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>{p.name}</td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>
+                          <select 
+                            value={p.type} 
+                            onChange={(e) => handleTypeChange(getParamId(p), e.target.value)}
                             disabled={immutable}
-                            style={{ 
-                              width: '80px', padding: '0.25rem', fontSize: '0.8rem',
-                              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td style={{ padding: '0.4rem 0.5rem' }}>
-                        {(p.name.includes('GCM') || p.name.includes('LCMSMS')) ? (
-                          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>N/A</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
-                            disabled={immutable}
-                            style={{
-                              background: p.specification ? 'var(--color-surface-hover)' : 'var(--color-primary)',
-                              color: p.specification ? 'var(--color-text-main)' : '#fff',
-                              border: p.specification ? '1px solid var(--color-border)' : 'none',
-                              padding: '0.3rem 0.6rem',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: '0.75rem',
-                              cursor: immutable ? 'not-allowed' : 'pointer',
-                              display: 'inline-block'
-                            }}
+                            style={{ fontSize: '0.75rem', padding: '0.2rem', borderRadius: '4px', border: '1px solid var(--color-border)' }}
                           >
-                            {p.specification ? '✓ Edit' : 'Set Spec'}
-                          </button>
-                        )}
-                      </td>
-                      {!immutable && (
-                        <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => removeParameter(getParamId(p))}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.35rem', display: 'flex' }}
-                              title="Remove from current job selection"
-                            >
-                              <X size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteParameter(getParamId(p))}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' }}
-                              title="Delete permanently from database"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <option value="Micro">Micro</option>
+                            <option value="Chemical">Chemical</option>
+                          </select>
+                        </td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <input
+                              type="text"
+                              value={p.unit}
+                              onChange={(e) => handleUnitChange(getParamId(p), e.target.value)}
+                              onBlur={() => handleSaveUnit(getParamId(p), p.unit)}
+                              disabled={immutable}
+                              style={{ 
+                                width: '80px', padding: '0.25rem', fontSize: '0.8rem',
+                                border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'
+                              }}
+                            />
                           </div>
                         </td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>
+                          {(p.name.includes('GCM') || p.name.includes('LCMSMS')) ? (
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>N/A</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
+                              disabled={immutable}
+                              style={{
+                                background: p.specification ? 'var(--color-surface-hover)' : 'var(--color-primary)',
+                                color: p.specification ? 'var(--color-text-main)' : '#fff',
+                                border: p.specification ? '1px solid var(--color-border)' : 'none',
+                                padding: '0.3rem 0.6rem',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.75rem',
+                                cursor: immutable ? 'not-allowed' : 'pointer',
+                                display: 'inline-block'
+                              }}
+                            >
+                              {p.specification ? '✓ Edit' : 'Set Spec'}
+                            </button>
+                          )}
+                        </td>
+                        {!immutable && (
+                          <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => removeParameter(getParamId(p))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.35rem', display: 'flex' }}
+                                title="Remove from current job selection"
+                              >
+                                <X size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteParameter(getParamId(p))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', padding: '0.35rem', display: 'flex' }}
+                                title="Delete permanently from database"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="show-on-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {selectedParams.map((p) => (
+                  <div key={`mobile-param-${getParamId(p)}`} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', backgroundColor: 'var(--color-surface)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-primary)', wordBreak: 'break-word', paddingRight: '0.5rem' }}>{p.name}</div>
+                      {!immutable && (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button type="button" onClick={() => removeParameter(getParamId(p))} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', padding: '0.25rem' }}><X size={16}/></button>
+                          <button type="button" onClick={() => handleDeleteParameter(getParamId(p))} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', padding: '0.25rem' }}><Trash2 size={16}/></button>
+                        </div>
                       )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                      <select 
+                        value={p.type} 
+                        onChange={(e) => handleTypeChange(getParamId(p), e.target.value)}
+                        disabled={immutable}
+                        style={{ fontSize: '0.8rem', padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--color-border)', flex: 1 }}
+                      >
+                        <option value="Micro">Micro</option>
+                        <option value="Chemical">Chemical</option>
+                      </select>
+                      
+                      <input
+                        type="text"
+                        value={p.unit}
+                        placeholder="Unit"
+                        onChange={(e) => handleUnitChange(getParamId(p), e.target.value)}
+                        onBlur={() => handleSaveUnit(getParamId(p), p.unit)}
+                        disabled={immutable}
+                        style={{ width: '80px', padding: '0.4rem', fontSize: '0.8rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
+                      />
+                    </div>
+
+                    {(p.name.includes('GCM') || p.name.includes('LCMSMS')) ? (
+                      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>Specification: N/A</div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
+                        disabled={immutable}
+                        style={{
+                          width: '100%',
+                          background: p.specification ? 'var(--color-surface-hover)' : 'var(--color-primary)',
+                          color: p.specification ? 'var(--color-text-main)' : '#fff',
+                          border: p.specification ? '1px solid var(--color-border)' : 'none',
+                          padding: '0.5rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          cursor: immutable ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {p.specification ? `Spec: ${p.specification} (Edit)` : 'Set Specification'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {selectedParams.length > 0 && (
-            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.5rem' }}>
+            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)' }}>
               <input 
                 type="checkbox" 
                 id={`show-specs-${label}`}
                 checked={showSpecifications} 
                 onChange={(e) => setShowSpecifications(e.target.checked)}
+                style={{ marginTop: '0.2rem', transform: 'scale(1.2)' }}
               />
-              <label htmlFor={`show-specs-${label}`} style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
+              <label htmlFor={`show-specs-${label}`} style={{ fontSize: '0.9rem', cursor: 'pointer', lineHeight: '1.4' }}>
                 Include specifications in the report
               </label>
             </div>
