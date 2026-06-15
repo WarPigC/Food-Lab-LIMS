@@ -1,6 +1,5 @@
 import React, { useState, useContext } from 'react';
 import { User, Calendar, CheckCircle, Clock, AlertTriangle, RotateCcw, FileText, Download, X, Archive, ArrowRightLeft } from 'lucide-react';
-import ReportViewer from './ReportViewer';
 import { AuthContext } from '../context/AuthContext';
 
 export default function JobTimeline({ job, allJobs = [], onReopen }) {
@@ -352,32 +351,17 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
               .report-modal-overlay { padding: 0.25rem; }
             }
           `}</style>
-          <div style={{ maxWidth: '880px', margin: '0 auto', position: 'relative' }}>
+          <div style={{ maxWidth: '880px', margin: '0 auto', position: 'relative', background: 'white', padding: '2rem', borderRadius: '8px' }}>
             <button
               onClick={() => setSelectedReport(null)}
               style={{ position: 'absolute', top: '-0.5rem', right: '-0.5rem', zIndex: 1001, background: 'white', border: '1px solid var(--color-border)', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
             >
               <X size={16} />
             </button>
-            {selectedReport.type === 'combined' ? (
-              <ReportViewer
-                isCombined
-                microReport={selectedReport.microReport}
-                chemicalReport={selectedReport.chemicalReport}
-                nablMode={selectedReport.nablMode || 'non_nabl'}
-                nablMicroReport={selectedReport.nablMicroReport}
-                nablChemicalReport={selectedReport.nablChemicalReport}
-                nonNablMicroReport={selectedReport.nonNablMicroReport}
-                nonNablChemicalReport={selectedReport.nonNablChemicalReport}
-                onBack={() => setSelectedReport(null)}
-              />
-            ) : (
-              <ReportViewer
-                report={selectedReport.report}
-                nablMode={selectedReport.nablMode || 'non_nabl'}
-                onBack={() => setSelectedReport(null)}
-              />
-            )}
+            <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+              <h3>Report Viewer is being rebuilt</h3>
+              <p style={{ color: 'var(--color-text-muted)' }}>The new advanced DOCX/PDF rendering and editing system is currently under construction.</p>
+            </div>
           </div>
         </div>
       )}
