@@ -814,7 +814,7 @@ tr:hover {
 }
 .calendar-hint-pulse {
   animation: calendarHint 1.5s ease-in-out 3;
-  background-color: var(--color-primary-light, #dbeafe) !important;
+  background-color: rgba(44, 62, 80, 0.1) !important;
   border-color: var(--color-primary) !important;
 }
 .calendar-hint-pulse:hover {
@@ -828,7 +828,7 @@ tr:hover {
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  background-color: var(--color-primary-light, #dbeafe);
+  background-color: rgba(44, 62, 80, 0.1);
   padding: 4px;
   border-radius: 4px;
   animation: calendarHint 1.5s ease-in-out 3;
