@@ -121,13 +121,13 @@ const buildHeaderTable = (isNabl) => {
   if (isNabl) {
     const nablRuns = [];
     if (nablLogoBuf) {
-      nablRuns.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 75, height: 75 } }));
+      nablRuns.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 65, height: 65 } }));
     }
     if (nablLogoBuf && nablQrcodeBuf) {
-      nablRuns.push(new TextRun({ text: "\u00A0\u00A0\u00A0\u00A0\u00A0" })); // 5 Non-breaking spaces for reliable HTML/Word spacing
+      nablRuns.push(new TextRun({ text: "\u00A0\u00A0" })); // 2 Non-breaking spaces
     }
     if (nablQrcodeBuf) {
-      nablRuns.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 75, height: 75 } }));
+      nablRuns.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 65, height: 65 } }));
     }
 
     cells.push(
@@ -415,20 +415,24 @@ const generateReport = async (job, reportType) => {
       spacing: { after: 100 }
     }));
 
-    if (isFirst) {
-      children.push(buildHeaderTable(isNabl));
+    // Sticky Header components (Repeated on every page)
+    children.push(buildHeaderTable(isNabl));
+    
+    children.push(new Paragraph({
+      children: [new TextRun({ text: "TEST REPORT", bold: true, font: "Times New Roman", size: 28 })],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 200, after: 100 }
+    }));
+
+    if (isNabl && job.sample?.ulr_no) {
       children.push(new Paragraph({
-        children: [new TextRun({ text: "TEST REPORT", bold: true, font: "Times New Roman", size: 28 })],
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 200, after: 100 }
+        children: [new TextRun({ text: `ULR No. ${job.sample.ulr_no}`, bold: true, font: "Times New Roman", size: 20 })],
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 100 }
       }));
-      if (isNabl && job.sample?.ulr_no) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: `ULR No. ${job.sample.ulr_no}`, bold: true, font: "Times New Roman", size: 20 })],
-          alignment: AlignmentType.LEFT,
-          spacing: { after: 100 }
-        }));
-      }
+    }
+
+    if (isFirst) {
       children.push(buildSampleInfoTable(job, isNabl));
     } else {
       children.push(new Paragraph({
