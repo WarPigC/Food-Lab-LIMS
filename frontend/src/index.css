@@ -386,8 +386,9 @@ tr:hover {
 }
 
 /* ── Hide/Show helpers ── */
-.hide-on-mobile { display: initial; }
+.hide-on-mobile {}
 .show-on-mobile { display: none !important; }
+.show-on-mobile-flex { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════ */
 /* MOBILE BREAKPOINT: ≤ 768px                                */
@@ -730,7 +731,8 @@ tr:hover {
 
   /* ── Hide/Show helpers ── */
   .hide-on-mobile { display: none !important; }
-  .show-on-mobile { display: initial !important; }
+  .show-on-mobile { display: block !important; }
+  .show-on-mobile-flex { display: flex !important; }
 
   /* ── Headings: scale down but not too small ── */
   h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }

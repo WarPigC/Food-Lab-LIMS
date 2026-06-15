@@ -186,12 +186,12 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
       </div>
 
       {/* MOBILE CARD VIEW */}
-      <div className="show-on-mobile" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: 'var(--color-surface-hover)' }}>
+      <div className="show-on-mobile-flex" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: 'var(--color-surface-hover)' }}>
         {filteredJobs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>No jobs match your filters.</div>
         ) : (
           filteredJobs.map(job => (
-            <div key={`mobile-job-${job._id}`} style={{ marginBottom: '1.5rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', border: expandedJobId === job._id ? '2px solid var(--color-primary)' : '1px solid var(--color-border)' }}>
+            <div key={`mobile-job-${job._id}`} style={{ backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', border: expandedJobId === job._id ? '2px solid var(--color-primary)' : '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                 <div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1.05rem', color: 'var(--color-primary)' }}>
