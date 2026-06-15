@@ -1,11 +1,9 @@
-import React, { useState, useContext } from 'react';
-import { User, Calendar, CheckCircle, Clock, AlertTriangle, RotateCcw, FileText, Download, X, Archive, ArrowRightLeft } from 'lucide-react';
+import React, { useContext } from 'react';
+import { User, Calendar, CheckCircle, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function JobTimeline({ job, allJobs = [], onReopen }) {
   const { user } = useContext(AuthContext);
-  // selectedReport = { type: 'single'|'combined', report, microReport, chemicalReport }
-  const [selectedReport, setSelectedReport] = useState(null);
 
   const childJobs = allJobs?.filter(j => j.parentJobId === job._id).sort((a, b) => a.retestNumber - b.retestNumber) || [];
   const timelineSequence = [job, ...childJobs];
@@ -192,46 +190,6 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {/* Unified Report button — only when all required parts are done */}
-            {allDone && (() => {
-              const nablMode = cycleJob.sample?.nabl_type === 'Nabl' ? 'nabl'
-                : cycleJob.sample?.nabl_type === 'Hybrid' ? 'hybrid'
-                : 'non_nabl';
-              return (
-                <button
-                  onClick={() => setSelectedReport({
-                    type: 'combined',
-                    microReport: richMicro,
-                    chemicalReport: richChemical,
-                    nablMode,
-                    // For hybrid, pass split reports (same data for now — split by parameter type tag)
-                    nablMicroReport: nablMode === 'hybrid' ? richMicro : null,
-                    nablChemicalReport: nablMode === 'hybrid' ? richChemical : null,
-                    nonNablMicroReport: nablMode === 'hybrid' ? richMicro : null,
-                    nonNablChemicalReport: nablMode === 'hybrid' ? richChemical : null,
-                  })}
-                  style={{ 
-                    padding: '0.6rem 1.25rem', 
-                    fontSize: '0.9rem', 
-                    background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)', 
-                    color: 'white', 
-                    border: 'none',
-                    borderRadius: '10px', 
-                    cursor: 'pointer', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.5rem', 
-                    fontWeight: 700,
-                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)',
-                    transition: 'transform 0.2s'
-                  }}
-                  onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  <FileText size={18} /> View & Print Report
-                </button>
-              );
-            })()}
             {/* Progress ring */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', backgroundColor: 'white', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -330,7 +288,7 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
               <CheckCircle size={20} color="#10B981" />
               <div>
                 <div style={{ fontWeight: 600, color: '#065F46', fontSize: '0.9rem' }}>All analyses complete for {formatJobCode(cycleJob.jobCode)}</div>
-                <div style={{ fontSize: '0.78rem', color: '#6EE7B7' }}>Download individual or combined reports above</div>
+                <div style={{ fontSize: '0.78rem', color: '#6EE7B7' }}>Report available in actions menu</div>
               </div>
             </div>
           </div>
@@ -341,30 +299,6 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
 
   return (
     <div style={{ padding: '1.5rem', backgroundColor: '#F9FAFB', borderRadius: '16px', border: '1px solid var(--color-border)' }}>
-
-      {/* Report Viewer Modal */}
-      {selectedReport && (
-        <div className="report-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1000, overflowY: 'auto' }}>
-          <style>{`
-            .report-modal-overlay { padding: 2rem; }
-            @media (max-width: 820px) {
-              .report-modal-overlay { padding: 0.25rem; }
-            }
-          `}</style>
-          <div style={{ maxWidth: '880px', margin: '0 auto', position: 'relative', background: 'white', padding: '2rem', borderRadius: '8px' }}>
-            <button
-              onClick={() => setSelectedReport(null)}
-              style={{ position: 'absolute', top: '-0.5rem', right: '-0.5rem', zIndex: 1001, background: 'white', border: '1px solid var(--color-border)', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
-            >
-              <X size={16} />
-            </button>
-            <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-              <h3>Report Viewer is being rebuilt</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>The new advanced DOCX/PDF rendering and editing system is currently under construction.</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Timeline sequence */}
       {timelineSequence.map((cycleJob, idx) => (

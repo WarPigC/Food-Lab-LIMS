@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Filter, Clock, Trash2, Edit } from 'lucide-react';
 import JobTimeline from './JobTimeline';
 import GlobalJobHistory from './GlobalJobHistory';
+import ReportModal from './ReportModal';
 
 export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDeleteJob, onEditJob, defaultExpandedId }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,6 +49,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
   };
 
   const [historyJob, setHistoryJob] = useState(null);
+  const [selectedReportJob, setSelectedReportJob] = useState(null);
 
   const StatusBadge = ({ status }) => {
     switch (status) {
@@ -64,7 +66,7 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
     return code.replace(/-N[12]([a-z]?)(?:-v\d+)?$/g, '-N$1').replace(/-[12][a-z]?(?:-v\d+)?$/g, '');
   };
 
-  const showActions = !!onDeleteJob || !!onEditJob || jobs.some(j => j.history && j.history.length > 0);
+  const showActions = !!onDeleteJob || !!onEditJob || jobs.some(j => j.history && j.history.length > 0) || jobs.some(j => getJobStatus(j) === 'COMPLETED');
 
   return (
     <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
@@ -125,6 +127,17 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
                   <td><StatusBadge status={getJobStatus(job)} /></td>
                   {showActions && (
                     <td style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      {getJobStatus(job) === 'COMPLETED' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedReportJob(job); }}
+                          style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600, boxShadow: '0 2px 6px rgba(124, 58, 237, 0.2)', transition: 'transform 0.1s' }}
+                          title="View & Download Report"
+                          onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                          onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          <FileText size={14} /> Report
+                        </button>
+                      )}
                       {job.history?.length > 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setHistoryJob(job); }}
@@ -171,6 +184,9 @@ export default function JobLogTable({ jobs, title = "Job Logs", onReopen, onDele
       </table>
       {historyJob && (
         <GlobalJobHistory history={historyJob.history} onClose={() => setHistoryJob(null)} />
+      )}
+      {selectedReportJob && (
+        <ReportModal job={selectedReportJob} onClose={() => setSelectedReportJob(null)} />
       )}
     </div>
   );
