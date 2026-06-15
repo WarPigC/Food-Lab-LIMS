@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronDown, ChevronRight, Filter, Clock, Trash2, Edit } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Filter, Clock, Trash2, Edit, FileText } from 'lucide-react';
 import JobTimeline from './JobTimeline';
 import GlobalJobHistory from './GlobalJobHistory';
 import ReportModal from './ReportModal';
