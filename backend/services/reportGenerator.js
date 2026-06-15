@@ -463,24 +463,26 @@ const generateReport = async (job, reportType) => {
       // Abbreviations
       children.push(new Paragraph({
         children: [
-          new TextRun({ text: "Abbreviations used: UOM: Unit of Measurement; ND: Not Detected; DL: Detection Limit; DOE: Date of Expiry; DOM: Date of Manufacturing ;", font: "Times New Roman", size: 18 })
+          new TextRun({ text: "Abbreviations used: ", bold: true, font: "Times New Roman", size: 18 }),
+          new TextRun({ text: "UOM: Unit of Measurement BLQ-Below limit of quantification LOQ -Limit of Quantification DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable.", font: "Times New Roman", size: 18 })
         ],
-        spacing: { before: 200 }, alignment: AlignmentType.CENTER
+        spacing: { before: 200, after: 100 },
+        alignment: AlignmentType.LEFT
       }));
       
-      const notes = [
-        "1) Report shall not be reproduced except in full without approval of the laboratory.",
-        "2) The results relate only to the items sampled / tested as received.",
-        "3) Duplicate report will be issued on chargeable basis."
+      const noteRuns = [
+        new TextRun({ text: "NOTE: ", bold: true, font: "Times New Roman", size: 18 }),
+        new TextRun({ text: "1) Report shall not be reproduced except in full without approval of the laboratory.", font: "Times New Roman", size: 18 }),
+        new TextRun({ text: "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A02) The results relate only to the items sampled / tested as received.", break: 1, font: "Times New Roman", size: 18 }),
+        new TextRun({ text: "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A03) Duplicate report will be issued on chargeable basis.", break: 1, font: "Times New Roman", size: 18 })
       ];
-      if (isAmended) notes.push(`4) This test report is the replacement to earlier test report no. (${baseReportNo}). Earlier test report stands obsolete.`);
+      if (isAmended) {
+        noteRuns.push(new TextRun({ text: `\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A04) This test report is the replacement to earlier test report no. (${baseReportNo}). Earlier test report stands obsolete.`, break: 1, font: "Times New Roman", size: 18 }));
+      }
       
       children.push(new Paragraph({
-        children: [
-          new TextRun({ text: "NOTE: ", bold: true, font: "Times New Roman", size: 18 }),
-          new TextRun({ text: notes.join("    "), font: "Times New Roman", size: 18 })
-        ],
-        alignment: AlignmentType.CENTER
+        children: noteRuns,
+        alignment: AlignmentType.LEFT
       }));
 
       children.push(new Paragraph({
