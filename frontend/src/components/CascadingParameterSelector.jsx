@@ -646,9 +646,9 @@ const CascadingParameterSelector = ({
                 </table>
               </div>
               
-              <div className="show-on-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="show-on-mobile">
                 {selectedParams.map((p) => (
-                  <div key={`mobile-param-${getParamId(p)}`} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', backgroundColor: 'var(--color-surface)' }}>
+                  <div key={`mobile-param-${getParamId(p)}`} style={{ marginBottom: '1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '1rem', backgroundColor: 'var(--color-surface)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-primary)', wordBreak: 'break-word', paddingRight: '0.5rem' }}>{p.name}</div>
                       {!immutable && (
