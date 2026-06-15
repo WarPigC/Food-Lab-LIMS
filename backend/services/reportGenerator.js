@@ -119,28 +119,25 @@ const buildHeaderTable = (isNabl) => {
   ];
 
   if (isNabl) {
-    const nablLogoCells = [];
+    const nablRuns = [];
     if (nablLogoBuf) {
-      nablLogoCells.push(createImageCell(nablLogoBuf, 75, 75, BORDERS_NONE, AlignmentType.CENTER, 12.5));
+      nablRuns.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 75, height: 75 } }));
+    }
+    if (nablLogoBuf && nablQrcodeBuf) {
+      nablRuns.push(new TextRun({ text: "    " })); // Add spacing between logos
     }
     if (nablQrcodeBuf) {
-      nablLogoCells.push(createImageCell(nablQrcodeBuf, 75, 75, BORDERS_NONE, AlignmentType.CENTER, 12.5));
+      nablRuns.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 75, height: 75 } }));
     }
-
-    // Force side-by-side using nested table
-    const nestedLogosTable = new Table({
-      rows: [new TableRow({ children: nablLogoCells })],
-      width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
-    });
 
     cells.push(
       new TableCell({
         children: [
-          nestedLogosTable,
+          new Paragraph({ children: nablRuns, alignment: AlignmentType.CENTER }),
           new Paragraph({
             children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
             alignment: AlignmentType.CENTER,
-            spacing: { before: 40 }
+            spacing: { before: 20 }
           })
         ],
         verticalAlign: VerticalAlign.CENTER,
