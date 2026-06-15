@@ -1073,7 +1073,7 @@ function Jobs() {
 
               </div>
               {sections.customer && (
-                <div className="grid-2" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
+                <div className="grid-2 mobile-form-grid" style={{ borderTop: '1px solid var(--color-border)' }}>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Customer Name <span style={{ color: 'var(--color-danger)' }}>*</span></label><input value={formData.customer_name} onChange={e => setField('customer_name', e.target.value)} required /></div>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Mobile Number <span style={{ color: 'var(--color-danger)' }}>*</span></label><input type="tel" inputMode="numeric" maxLength={10} pattern="[0-9]{10}" title="Enter exactly 10 digits" value={formData.mobile_number} onChange={e => setField('mobile_number', e.target.value.replace(/[^0-9]/g, '').slice(0, 10))} required /></div>
                   <div style={{ gridColumn: '1 / -1' }}><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Customer Address <span style={{ color: 'var(--color-danger)' }}>*</span></label><input type="text" value={formData.customer_address} onChange={e => setField('customer_address', e.target.value)} required style={{ width: '100%' }} /></div>
@@ -1094,7 +1094,7 @@ function Jobs() {
 
               </div>
               {sections.sample && (
-                <div className="grid-2" style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
+                <div className="grid-2 mobile-form-grid" style={{ borderTop: '1px solid var(--color-border)' }}>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Sample Name <span style={{ color: 'var(--color-danger)' }}>*</span></label><input value={formData.sample_name} onChange={e => setField('sample_name', e.target.value)} required /></div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Sample ID <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(auto-assigned)</span></label>
@@ -1116,7 +1116,7 @@ function Jobs() {
                     <input type="number" min="1" step="1" value={formData.sample_count} onChange={e => { const v = e.target.value; if (v === '' || parseInt(v) >= 1) setField('sample_count', v); }} required style={{ width: '100%' }} placeholder="No. of samples received" />
                   </div>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Received Date <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                       <input type="text" placeholder="DD" maxLength="2" pattern="(0?[1-9]|[12][0-9]|3[01])" value={formData.received_date_dd} onChange={e => setField('received_date_dd', e.target.value.replace(/\D/g, ''))} required style={{ width: '3.5rem', textAlign: 'center' }} />
                       <span style={{ fontWeight: 500, color: 'var(--color-text-muted)' }}>/</span>
                       <input type="text" placeholder="MM" maxLength="2" pattern="(0?[1-9]|1[012])" value={formData.received_date_mm} onChange={e => setField('received_date_mm', e.target.value.replace(/\D/g, ''))} required style={{ width: '3.5rem', textAlign: 'center' }} />
@@ -1257,7 +1257,7 @@ function Jobs() {
 
               </div>
               {sections.compliance && (
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="mobile-form-grid" style={{ borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Statement of Conformity</label><textarea rows={2} value={formData.statement_of_conformity} onChange={e => setField('statement_of_conformity', e.target.value)} style={{ width: '100%', resize: 'vertical' }} /></div>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Accreditation Scope</label><input value={formData.accreditation_scope} onChange={e => setField('accreditation_scope', e.target.value)} /></div>
                   <div><label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Disclaimer Notes</label><textarea rows={2} value={formData.disclaimer_notes} onChange={e => setField('disclaimer_notes', e.target.value)} style={{ width: '100%', resize: 'vertical' }} /></div>
@@ -1273,7 +1273,7 @@ function Jobs() {
                  <div style={{ padding: '1rem 1.5rem', backgroundColor: 'var(--color-surface-hover)', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid var(--color-border)' }}>
                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>Department Head Assignment</div>
                  </div>
-                 <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                 <div className="mobile-form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <div className="grid-2">
                       {needsMicro && (
                         <div>

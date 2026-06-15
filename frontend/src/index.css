@@ -134,6 +134,10 @@ input:focus, select:focus {
   justify-content: center;
 }
 
+.mobile-form-grid {
+  padding: 1.5rem;
+}
+
 .glass-panel {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
@@ -482,6 +486,10 @@ tr:hover {
   .flex-row-responsive {
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .mobile-form-grid {
+    padding: 0.85rem !important;
   }
 
   /* ── Tables: ALLOW WRAPPING instead of clipping ── */
