@@ -3,11 +3,21 @@ const { GridFSBucket } = require('mongodb');
 
 let gfsBucket;
 
-mongoose.connection.once('open', () => {
-  gfsBucket = new GridFSBucket(mongoose.connection.db, {
-    bucketName: 'custom_reports'
-  });
-});
+const initGridFS = () => {
+  if (mongoose.connection.readyState === 1) { // 1 = connected
+    gfsBucket = new GridFSBucket(mongoose.connection.db, {
+      bucketName: 'custom_reports'
+    });
+  } else {
+    mongoose.connection.once('open', () => {
+      gfsBucket = new GridFSBucket(mongoose.connection.db, {
+        bucketName: 'custom_reports'
+      });
+    });
+  }
+};
+
+initGridFS();
 
 /**
  * Uploads a file buffer to GridFS

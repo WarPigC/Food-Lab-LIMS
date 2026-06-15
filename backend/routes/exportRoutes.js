@@ -18,10 +18,8 @@ const upload = multer({
 const getPopulatedJob = async (jobId) => {
   return await Job.findById(jobId)
     .populate('createdBy', 'name email role')
-    .populate('sampleFlow.receivedBy', 'name role')
     .populate('distribution.micro.assignedHead', 'name')
     .populate('distribution.chemical.assignedHead', 'name')
-    .populate('sampleTransfers.receivedBy', 'name role')
     .populate('parameters.parameterId', 'name type unit')
     .populate('nablParameters.parameterId', 'name type unit')
     .populate('nonNablParameters.parameterId', 'name type unit');
