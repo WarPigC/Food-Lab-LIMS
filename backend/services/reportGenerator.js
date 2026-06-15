@@ -103,7 +103,7 @@ const buildHeaderTable = (isNabl) => {
   const nablQrcodeBuf = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
 
   const cells = [
-    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 20),
+    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 25),
     new TableCell({
       children: [
         new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: { before: 20, after: 20 } }),
@@ -114,23 +114,23 @@ const buildHeaderTable = (isNabl) => {
       ],
       verticalAlign: VerticalAlign.CENTER,
       borders: BORDERS_ALL,
-      width: { size: Math.round(PAGE_WIDTH_DXA * 60 / 100), type: WidthType.DXA }
+      width: { size: Math.round(PAGE_WIDTH_DXA * 50 / 100), type: WidthType.DXA }
     })
   ];
 
   if (isNabl) {
     const nablLogoCells = [];
     if (nablLogoBuf) {
-      nablLogoCells.push(createImageCell(nablLogoBuf, 45, 45, BORDERS_NONE, AlignmentType.CENTER));
+      nablLogoCells.push(createImageCell(nablLogoBuf, 75, 75, BORDERS_NONE, AlignmentType.CENTER, 12.5));
     }
     if (nablQrcodeBuf) {
-      nablLogoCells.push(createImageCell(nablQrcodeBuf, 45, 45, BORDERS_NONE, AlignmentType.CENTER));
+      nablLogoCells.push(createImageCell(nablQrcodeBuf, 75, 75, BORDERS_NONE, AlignmentType.CENTER, 12.5));
     }
 
     // Force side-by-side using nested table
     const nestedLogosTable = new Table({
       rows: [new TableRow({ children: nablLogoCells })],
-      width: { size: 100, type: WidthType.PCT }
+      width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
     });
 
     cells.push(
@@ -145,11 +145,11 @@ const buildHeaderTable = (isNabl) => {
         ],
         verticalAlign: VerticalAlign.CENTER,
         borders: BORDERS_ALL,
-        width: { size: Math.round(PAGE_WIDTH_DXA * 20 / 100), type: WidthType.DXA }
+        width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
       })
     );
   } else {
-    cells.push(new TableCell({ children: [new Paragraph({ children: [] })], borders: BORDERS_ALL, width: { size: Math.round(PAGE_WIDTH_DXA * 20 / 100), type: WidthType.DXA } }));
+    cells.push(new TableCell({ children: [new Paragraph({ children: [] })], borders: BORDERS_ALL, width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA } }));
   }
 
   return new Table({
