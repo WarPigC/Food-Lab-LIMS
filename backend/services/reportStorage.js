@@ -38,8 +38,8 @@ const uploadCustomReport = (buffer, filename, metadata) => {
 
     uploadStream.end(buffer);
 
-    uploadStream.on('finish', (file) => {
-      resolve(file._id.toString());
+    uploadStream.on('finish', () => {
+      resolve(uploadStream.id.toString());
     });
 
     uploadStream.on('error', (err) => {

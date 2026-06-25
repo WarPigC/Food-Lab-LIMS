@@ -222,7 +222,7 @@ const buildSampleInfoTable = (job) => {
   r.push(new TableRow({ children: [createCell("Customer ref.", { bold: true, colSpan: 2, widthPct: 40 }), createCell(customer.customer_reference_no || 'NA', { widthPct: 20 }), createCell("Brand Name", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
   r.push(new TableRow({ children: [createCell("Batch No.", { bold: true, colSpan: 2, widthPct: 40 }), createCell("NA", { widthPct: 20 }), createCell("Any Other Information", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
   r.push(new TableRow({ children: [createCell("DOM", { bold: true, colSpan: 2, widthPct: 40 }), createCell("NA", { widthPct: 20 }), createCell("Batch Size", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
-  r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 3 }), createCell("DOE", { bold: true }), createCell("NA")] }));
+  r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 3, widthPct: 60 }), createCell("DOE", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
   r.push(new TableRow({ children: [createCell("Sample Description", { bold: true }), createCell(sample.sample_description || 'N/A', { colSpan: 4 })] }));
 
   return new Table({ rows: r, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
