@@ -6,7 +6,76 @@ const logoPath = path.join(__dirname, '../assets/acropolis-logo.png');
 const nablLogoPath = path.join(__dirname, '../assets/nabl-logo.png');
 const nablQrcodePath = path.join(__dirname, '../assets/nabl-qrcode.png');
 
-const ITEMS_PER_PAGE = 12;
+// --- Height estimation for dynamic pagination (all values in twips) ---
+const PAGE_HEIGHT_DXA = 15840;
+const MARGIN_TOP = 720;
+const MARGIN_BOTTOM = 720;
+const FOOTER_RESERVE = 400; // space for page number footer
+const USABLE_HEIGHT = PAGE_HEIGHT_DXA - MARGIN_TOP - MARGIN_BOTTOM - FOOTER_RESERVE;
+
+// Approximate character width in twips for Times New Roman at size 20 (10pt)
+const AVG_CHAR_WIDTH = 100;
+const LINE_HEIGHT = 260;     // single line height in twips
+const ROW_PADDING = 50;      // top+bottom cell margins per row
+
+// Estimate how many lines a text will need in a column of given width
+const estimateLines = (text, colWidthDxa) => {
+  if (!text) return 1;
+  const charsPerLine = Math.max(1, Math.floor(colWidthDxa / AVG_CHAR_WIDTH));
+  let total = 0;
+  for (const line of String(text).split('\n')) {
+    total += Math.max(1, Math.ceil(line.length / charsPerLine));
+  }
+  return total;
+};
+
+// Estimate height of a result row based on its longest cell
+const estimateResultRowHeight = (row, hasSpec) => {
+  if (row.type === 'header') {
+    // Discipline header: 2 lines of text typically
+    return 2 * LINE_HEIGHT + ROW_PADDING;
+  }
+  // Data row — the "Test Parameters" column (35% width) is usually the tallest
+  const paramColWidth = Math.round(PAGE_WIDTH_DXA * 35 / 100);
+  const nameLines = estimateLines(row.data.name, paramColWidth);
+  return nameLines * LINE_HEIGHT + ROW_PADDING;
+};
+
+// Fixed height estimates for non-result content
+const HEADER_HEIGHT = 1600;       // header table (logo + address block)
+const FTL_REF_HEIGHT = 340;       // FTL/AIPER/F/7.8-01 line
+const TEST_REPORT_TITLE = 360;    // "TEST REPORT" title
+const REPORT_ULR_LINE = 280;      // Report No / ULR line
+const TEST_RESULT_TITLE = 400;    // "TEST RESULT" title
+const RESULTS_HEADER_ROW = 320;   // Column headers of results table
+
+// Footer block (abbreviations + notes + signatures + end of report)
+const FOOTER_BLOCK_HEIGHT = 1800;
+
+// Estimate sample info table height based on content
+const estimateSampleInfoHeight = (job) => {
+  const sample = job.sample || {};
+  const customer = job.customer || {};
+  // Customer info row (3 lines: name, address, contact)
+  let height = 3 * LINE_HEIGHT + ROW_PADDING;
+  // 11 fixed rows + Sample Description row
+  height += 11 * (LINE_HEIGHT + ROW_PADDING);
+  // Sample Description might be multi-line
+  const descLines = estimateLines(sample.sample_description, Math.round(PAGE_WIDTH_DXA * 80 / 100));
+  height += descLines * LINE_HEIGHT + ROW_PADDING;
+  // Sampling details might wrap
+  const samplingLines = estimateLines(sample.sampling_details, Math.round(PAGE_WIDTH_DXA * 20 / 100));
+  if (samplingLines > 1) height += (samplingLines - 1) * LINE_HEIGHT;
+  return height;
+};
+
+// First page overhead (everything before results)
+const calcFirstPageOverhead = (job) => {
+  return FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + estimateSampleInfoHeight(job) + TEST_RESULT_TITLE + RESULTS_HEADER_ROW;
+};
+
+// Continuation page overhead
+const CONTINUATION_OVERHEAD = FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + (LINE_HEIGHT + ROW_PADDING) + TEST_RESULT_TITLE + RESULTS_HEADER_ROW;
 
 const BORDERS_NONE = {
   top: { style: BorderStyle.NONE, size: 0, color: "auto" },
@@ -225,12 +294,39 @@ const generateReport = async (job, reportType) => {
 
   const hasSpec = !!job.showSpecifications;
 
+  // --- Dynamic pagination via height estimation ---
   const pages = [];
+  let idx = 0;
   let currentResultIndex = 0;
-  for (let i = 0; i < Math.max(allRows.length, 1); i += ITEMS_PER_PAGE) {
-    const pageRows = allRows.slice(i, i + ITEMS_PER_PAGE);
+
+  while (idx < allRows.length || pages.length === 0) {
+    const isFirstPage = pages.length === 0;
+    const overhead = isFirstPage ? calcFirstPageOverhead(job) : CONTINUATION_OVERHEAD;
+    let usedHeight = overhead;
+    const pageRows = [];
+
+    while (idx < allRows.length) {
+      const row = allRows[idx];
+      const rowHeight = estimateResultRowHeight(row, hasSpec);
+
+      // Check if adding this row (+ footer if it would be last page) fits
+      const remainingRows = allRows.length - idx - 1;
+      const needsFooter = remainingRows === 0; // this would be the last row
+      const footerHeight = needsFooter ? FOOTER_BLOCK_HEIGHT : 0;
+
+      if (usedHeight + rowHeight + footerHeight > USABLE_HEIGHT && pageRows.length > 0) {
+        break; // doesn't fit, start new page
+      }
+
+      pageRows.push(row);
+      usedHeight += rowHeight;
+      idx++;
+    }
+
     pages.push({ rows: pageRows, startIdx: currentResultIndex });
     currentResultIndex += pageRows.filter(r => r.type === 'result').length;
+
+    if (pageRows.length === 0 && idx >= allRows.length) break; // safety
   }
 
   const sections = [];
@@ -253,7 +349,7 @@ const generateReport = async (job, reportType) => {
     // TEST REPORT title
     children.push(new Paragraph({
       children: [new TextRun({ text: "TEST REPORT", bold: true, font: "Times New Roman", size: 28 })],
-      alignment: AlignmentType.CENTER, spacing: { before: 100, after: 60 }
+      alignment: AlignmentType.CENTER, spacing: { before: 80, after: 40 }
     }));
 
     // Report No + ULR No on same line (borderless table)
@@ -299,7 +395,7 @@ const generateReport = async (job, reportType) => {
     // TEST RESULT title
     children.push(new Paragraph({
       children: [new TextRun({ text: "TEST RESULT", bold: true, font: "Times New Roman", size: 24 })],
-      alignment: AlignmentType.CENTER, spacing: { before: 200, after: 100 }
+      alignment: AlignmentType.CENTER, spacing: { before: 100, after: 60 }
     }));
 
     children.push(buildResultsTable(pageObj.rows, hasSpec, pageObj.startIdx));
@@ -311,7 +407,7 @@ const generateReport = async (job, reportType) => {
           new TextRun({ text: "Abbreviations used: ", bold: true, font: "Times New Roman", size: 18 }),
           new TextRun({ text: "UOM: Unit of Measurement; BLQ-Below limit of Quantification, LOQ:-Limit of Quantification", font: "Times New Roman", size: 18 })
         ],
-        spacing: { before: 100 }, alignment: AlignmentType.LEFT
+        spacing: { before: 60 }, alignment: AlignmentType.LEFT
       }));
       children.push(new Paragraph({
         children: [new TextRun({ text: "DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable.NMT: Not More Than , NLT: Not Less Than", font: "Times New Roman", size: 18 })],
@@ -336,14 +432,14 @@ const generateReport = async (job, reportType) => {
 
       // Diksha always appears
       sigCells.push(new TableCell({ children: [
-        new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+        new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 40 } }),
         new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
         new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
       ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
 
       if (hasChem) {
         sigCells.push(new TableCell({ children: [
-          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 40 } }),
           new Paragraph({ children: [new TextRun({ text: job.distribution?.chemical?.assignedHead?.name || 'Ms. Monika Pali', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
           new Paragraph({ children: [new TextRun({ text: "Technical Manager", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
         ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
@@ -351,7 +447,7 @@ const generateReport = async (job, reportType) => {
 
       if (hasMicro) {
         sigCells.push(new TableCell({ children: [
-          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 40 } }),
           new Paragraph({ children: [new TextRun({ text: job.distribution?.micro?.assignedHead?.name || 'Ms. Jyoti Pathak', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
           new Paragraph({ children: [new TextRun({ text: "Microbiology Head", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
         ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
@@ -361,7 +457,7 @@ const generateReport = async (job, reportType) => {
 
       children.push(new Paragraph({
         children: [new TextRun({ text: "*End of report*", bold: true, font: "Times New Roman", size: 22 })],
-        alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }
+        alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }
       }));
     }
 
