@@ -15,6 +15,16 @@ const BORDERS_NONE = {
   right: { style: BorderStyle.NONE, size: 0, color: "auto" },
 };
 
+// Table-level borders (includes inside borders)
+const TABLE_BORDERS_NONE = {
+  top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+  insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+};
+
 const BORDERS_ALL = {
   top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
   bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
@@ -134,16 +144,16 @@ const buildSampleInfoTable = (job) => {
   })] }));
 
   r.push(new TableRow({ children: [createCell("Sample Name\n( as stated by customer )", { bold: true, colSpan: 2, widthPct: 40 }), createCell(sample.sample_name || 'N/A', { widthPct: 20 }), createCell("Registration No.", { bold: true, widthPct: 20 }), createCell(registrationNo, { widthPct: 20 })] }));
-  r.push(new TableRow({ children: [createCell("Product Category", { bold: true, colSpan: 2 }), createCell(job.groupMetadata?.productCategory || 'N/A'), createCell("Issue Date", { bold: true }), createCell(issueDate)] }));
-  r.push(new TableRow({ children: [createCell("Sample Quantity", { bold: true, colSpan: 2 }), createCell(`01x${sample.sample_quantity || 'N/A'}`), createCell("Date of Receipt", { bold: true }), createCell(receiptDate)] }));
-  r.push(new TableRow({ children: [createCell("Packing Details", { bold: true, colSpan: 2 }), createCell(sample.packing_details || 'N/A'), createCell("Testing period", { bold: true }), createCell(testingPeriodStr)] }));
-  r.push(new TableRow({ children: [createCell("Marking Seal ( if any)", { bold: true, colSpan: 2 }), createCell(sample.marking_seal || 'NA'), createCell("Standard Specification", { bold: true }), createCell(compliance.standard_specification || 'NA')] }));
-  r.push(new TableRow({ children: [createCell("Sampling Details", { bold: true, colSpan: 2 }), createCell(sample.sampling_details || 'Sample provided by the customer'), createCell("Sample condition on receipt", { bold: true }), createCell(sample.condition_on_receipt || 'Satisfactory')] }));
+  r.push(new TableRow({ children: [createCell("Product Category", { bold: true, colSpan: 2, widthPct: 40 }), createCell(job.groupMetadata?.productCategory || 'N/A', { widthPct: 20 }), createCell("Issue Date", { bold: true, widthPct: 20 }), createCell(issueDate, { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("Sample Quantity", { bold: true, colSpan: 2, widthPct: 40 }), createCell(`01x${sample.sample_quantity || 'N/A'}`, { widthPct: 20 }), createCell("Date of Receipt", { bold: true, widthPct: 20 }), createCell(receiptDate, { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("Packing Details", { bold: true, colSpan: 2, widthPct: 40 }), createCell(sample.packing_details || 'N/A', { widthPct: 20 }), createCell("Testing period", { bold: true, widthPct: 20 }), createCell(testingPeriodStr, { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("Marking Seal ( if any)", { bold: true, colSpan: 2, widthPct: 40 }), createCell(sample.marking_seal || 'NA', { widthPct: 20 }), createCell("Standard Specification", { bold: true, widthPct: 20 }), createCell(compliance.standard_specification || 'NA', { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("Sampling Details", { bold: true, colSpan: 2, widthPct: 40 }), createCell(sample.sampling_details || 'Sample provided by the customer', { widthPct: 20 }), createCell("Sample condition on receipt", { bold: true, widthPct: 20 }), createCell(sample.condition_on_receipt || 'Satisfactory', { widthPct: 20 })] }));
   r.push(new TableRow({ children: [createCell("Any data provided by customer;", { bold: true, colSpan: 5 })] }));
-  r.push(new TableRow({ children: [createCell("Customer ref.", { bold: true, colSpan: 2 }), createCell(customer.customer_reference_no || 'NA'), createCell("Brand Name", { bold: true }), createCell("NA")] }));
-  r.push(new TableRow({ children: [createCell("Batch No.", { bold: true, colSpan: 2 }), createCell("NA"), createCell("Any Other Information", { bold: true }), createCell("NA")] }));
-  r.push(new TableRow({ children: [createCell("DOM", { bold: true, colSpan: 2 }), createCell("NA"), createCell("Batch Size", { bold: true }), createCell("NA")] }));
-  r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 2 }), createCell(sample.special_handling_instructions || compliance.special_handling_instructions || 'NA'), createCell("DOE", { bold: true }), createCell("NA")] }));
+  r.push(new TableRow({ children: [createCell("Customer ref.", { bold: true, colSpan: 2, widthPct: 40 }), createCell(customer.customer_reference_no || 'NA', { widthPct: 20 }), createCell("Brand Name", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("Batch No.", { bold: true, colSpan: 2, widthPct: 40 }), createCell("NA", { widthPct: 20 }), createCell("Any Other Information", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("DOM", { bold: true, colSpan: 2, widthPct: 40 }), createCell("NA", { widthPct: 20 }), createCell("Batch Size", { bold: true, widthPct: 20 }), createCell("NA", { widthPct: 20 })] }));
+  r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 3 }), createCell("DOE", { bold: true }), createCell("NA")] }));
   r.push(new TableRow({ children: [createCell("Sample Description", { bold: true }), createCell(sample.sample_description || 'N/A', { colSpan: 4 })] }));
 
   return new Table({ rows: r, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
@@ -326,14 +336,14 @@ const generateReport = async (job, reportType) => {
 
       // Diksha always appears
       sigCells.push(new TableCell({ children: [
-        new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+        new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
         new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
         new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
       ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
 
       if (hasChem) {
         sigCells.push(new TableCell({ children: [
-          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
           new Paragraph({ children: [new TextRun({ text: job.distribution?.chemical?.assignedHead?.name || 'Ms. Monika Pali', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
           new Paragraph({ children: [new TextRun({ text: "Technical Manager", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
         ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
