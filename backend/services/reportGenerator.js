@@ -32,12 +32,12 @@ const createCell = (text, options = {}) => {
     new Paragraph({
       children: [new TextRun({ text: line, bold, font: "Times New Roman", size })],
       alignment,
-      spacing: { line: 240, before: 20, after: 20 }
+      spacing: { line: 240, before: 0, after: 0 }
     })
   );
   const cellOptions = {
     children, columnSpan: colSpan, rowSpan, borders, verticalAlign,
-    margins: { top: 40, bottom: 40, left: 60, right: 60 }
+    margins: { top: 20, bottom: 20, left: 40, right: 40 }
   };
   if (widthPct) cellOptions.width = { size: Math.round(PAGE_WIDTH_DXA * widthPct / 100), type: WidthType.DXA };
   if (shading) cellOptions.shading = { fill: shading };
@@ -93,9 +93,9 @@ const buildHeaderTable = (isNabl) => {
 
   if (isNabl) {
     const nablChildren = [];
-    if (nablLogoBuf) nablChildren.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 60, height: 60 }, type: "png" }));
-    if (nablLogoBuf && nablQrcodeBuf) nablChildren.push(new TextRun({ text: "\u00A0\u00A0" }));
-    if (nablQrcodeBuf) nablChildren.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 60, height: 60 }, type: "png" }));
+    if (nablLogoBuf) nablChildren.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 80, height: 80 }, type: "png" }));
+    if (nablLogoBuf && nablQrcodeBuf) nablChildren.push(new TextRun({ text: "\u00A0" }));
+    if (nablQrcodeBuf) nablChildren.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 80, height: 80 }, type: "png" }));
     cells.push(new TableCell({
       children: [
         new Paragraph({ children: nablChildren, alignment: AlignmentType.CENTER }),
@@ -127,10 +127,10 @@ const buildSampleInfoTable = (job) => {
   // Customer info row
   r.push(new TableRow({ children: [new TableCell({
     children: [
-      new Paragraph({ children: [new TextRun({ text: "Customer Name : ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_name || job.clientName || 'N/A', font: "Times New Roman", size: 20 })] }),
-      new Paragraph({ children: [new TextRun({ text: "Address :        ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_address || 'N/A', font: "Times New Roman", size: 20 })] }),
-      new Paragraph({ children: [new TextRun({ text: "Contact details:", bold: true, font: "Times New Roman", size: 20 })] })
-    ], columnSpan: 5, borders: BORDERS_ALL
+      new Paragraph({ children: [new TextRun({ text: "Customer Name :  ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_name || job.clientName || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }),
+      new Paragraph({ children: [new TextRun({ text: "Address :               ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_address || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }),
+      new Paragraph({ children: [new TextRun({ text: "Contact details:", bold: true, font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } })
+    ], columnSpan: 5, borders: BORDERS_ALL, margins: { top: 20, bottom: 20, left: 40, right: 40 }
   })] }));
 
   r.push(new TableRow({ children: [createCell("Sample Name\n( as stated by customer )", { bold: true, colSpan: 2, widthPct: 40 }), createCell(sample.sample_name || 'N/A', { widthPct: 20 }), createCell("Registration No.", { bold: true, widthPct: 20 }), createCell(registrationNo, { widthPct: 20 })] }));
@@ -143,7 +143,7 @@ const buildSampleInfoTable = (job) => {
   r.push(new TableRow({ children: [createCell("Customer ref.", { bold: true, colSpan: 2 }), createCell(customer.customer_reference_no || 'NA'), createCell("Brand Name", { bold: true }), createCell("NA")] }));
   r.push(new TableRow({ children: [createCell("Batch No.", { bold: true, colSpan: 2 }), createCell("NA"), createCell("Any Other Information", { bold: true }), createCell("NA")] }));
   r.push(new TableRow({ children: [createCell("DOM", { bold: true, colSpan: 2 }), createCell("NA"), createCell("Batch Size", { bold: true }), createCell("NA")] }));
-  r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 3 }), createCell("DOE", { bold: true }), createCell("NA")] }));
+  r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 2 }), createCell(sample.special_handling_instructions || compliance.special_handling_instructions || 'NA'), createCell("DOE", { bold: true }), createCell("NA")] }));
   r.push(new TableRow({ children: [createCell("Sample Description", { bold: true }), createCell(sample.sample_description || 'N/A', { colSpan: 4 })] }));
 
   return new Table({ rows: r, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
@@ -243,17 +243,18 @@ const generateReport = async (job, reportType) => {
     // TEST REPORT title
     children.push(new Paragraph({
       children: [new TextRun({ text: "TEST REPORT", bold: true, font: "Times New Roman", size: 28 })],
-      alignment: AlignmentType.CENTER, spacing: { before: 200, after: 100 }
+      alignment: AlignmentType.CENTER, spacing: { before: 100, after: 60 }
     }));
 
-    // Report No + ULR No on same line (borderless 2-col table)
+    // Report No + ULR No on same line (borderless table)
     const reportUlrCells = [
       new TableCell({
         children: [new Paragraph({ children: [
           new TextRun({ text: "Report  No. ", bold: true, font: "Times New Roman", size: 20 }),
           new TextRun({ text: testReportNo, font: "Times New Roman", size: 20 })
-        ] })],
-        borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }
+        ], spacing: { before: 0, after: 0 } })],
+        borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA },
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
       })
     ];
     if (isNabl && job.sample?.ulr_no) {
@@ -261,11 +262,12 @@ const generateReport = async (job, reportType) => {
         children: [new Paragraph({ children: [
           new TextRun({ text: "ULR No. ", bold: true, font: "Times New Roman", size: 20 }),
           new TextRun({ text: job.sample.ulr_no, font: "Times New Roman", size: 20 })
-        ], alignment: AlignmentType.RIGHT })],
-        borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }
+        ], alignment: AlignmentType.RIGHT, spacing: { before: 0, after: 0 } })],
+        borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA },
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
       }));
     } else {
-      reportUlrCells.push(new TableCell({ children: [new Paragraph({ children: [] })], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA } }));
+      reportUlrCells.push(new TableCell({ children: [new Paragraph({ children: [] })], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }, margins: { top: 0, bottom: 0, left: 0, right: 0 } }));
     }
     children.push(new Table({ rows: [new TableRow({ children: reportUlrCells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } }));
 
@@ -299,7 +301,7 @@ const generateReport = async (job, reportType) => {
           new TextRun({ text: "Abbreviations used: ", bold: true, font: "Times New Roman", size: 18 }),
           new TextRun({ text: "UOM: Unit of Measurement; BLQ-Below limit of Quantification, LOQ:-Limit of Quantification", font: "Times New Roman", size: 18 })
         ],
-        spacing: { before: 200 }, alignment: AlignmentType.LEFT
+        spacing: { before: 100 }, alignment: AlignmentType.LEFT
       }));
       children.push(new Paragraph({
         children: [new TextRun({ text: "DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable.NMT: Not More Than , NLT: Not Less Than", font: "Times New Roman", size: 18 })],
@@ -317,34 +319,39 @@ const generateReport = async (job, reportType) => {
       }
       children.push(new Paragraph({ children: noteRuns, alignment: AlignmentType.LEFT }));
 
-      // 3-column signatures
-      children.push(new Paragraph({ children: [], spacing: { before: 400 } }));
-      children.push(new Table({
-        rows: [
-          new TableRow({ children: [
-            new TableCell({ children: [
-              new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 600 } }),
-              new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
-              new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
-            ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 3), type: WidthType.DXA } }),
-            new TableCell({ children: [
-              new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 600 } }),
-              new Paragraph({ children: [new TextRun({ text: "Ms. Monika Pali", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
-              new Paragraph({ children: [new TextRun({ text: "Technical Manager", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
-            ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 3), type: WidthType.DXA } }),
-            new TableCell({ children: [
-              new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 600 } }),
-              new Paragraph({ children: [new TextRun({ text: job.distribution?.micro?.assignedHead?.name || 'Ms. Jyoti Pathak', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
-              new Paragraph({ children: [new TextRun({ text: "Microbiology Head", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
-            ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / 3), type: WidthType.DXA } })
-          ] })
-        ],
-        width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
-      }));
+      // Dynamic signatures based on involved departments
+      const hasChem = chemicalResults.length > 0;
+      const hasMicro = microResults.length > 0;
+      const sigCells = [];
+
+      // Diksha always appears
+      sigCells.push(new TableCell({ children: [
+        new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+        new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
+      ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
+
+      if (hasChem) {
+        sigCells.push(new TableCell({ children: [
+          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+          new Paragraph({ children: [new TextRun({ text: job.distribution?.chemical?.assignedHead?.name || 'Ms. Monika Pali', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: "Technical Manager", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
+        ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
+      }
+
+      if (hasMicro) {
+        sigCells.push(new TableCell({ children: [
+          new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+          new Paragraph({ children: [new TextRun({ text: job.distribution?.micro?.assignedHead?.name || 'Ms. Jyoti Pathak', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: "Microbiology Head", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
+        ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA } }));
+      }
+
+      children.push(new Table({ rows: [new TableRow({ children: sigCells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } }));
 
       children.push(new Paragraph({
         children: [new TextRun({ text: "*End of report*", bold: true, font: "Times New Roman", size: 22 })],
-        alignment: AlignmentType.CENTER, spacing: { before: 300, after: 400 }
+        alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }
       }));
     }
 
