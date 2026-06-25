@@ -135,6 +135,18 @@ router.post('/report/:jobId/upload', protect, upload.single('reportDoc'), async 
 
     const fileId = await uploadCustomReport(req.file.buffer, filename, metadata);
 
+    // Log to job history
+    await Job.findByIdAndUpdate(jobId, {
+      $push: {
+        history: {
+          action: 'REPORT_UPLOADED',
+          by: req.user._id,
+          note: `Custom ${type} report uploaded`,
+          timestamp: new Date()
+        }
+      }
+    });
+
     res.json({ message: 'Custom report uploaded successfully', fileId });
   } catch (error) {
     console.error('Error uploading custom report:', error);
@@ -153,6 +165,18 @@ router.post('/report/:jobId/revert', protect, async (req, res) => {
     const { type = 'non_nabl' } = req.query;
 
     await deleteCustomReport(jobId, type);
+
+    // Log to job history
+    await Job.findByIdAndUpdate(jobId, {
+      $push: {
+        history: {
+          action: 'REPORT_REVERTED',
+          by: req.user._id,
+          note: `Reverted ${type} report to auto-generated`,
+          timestamp: new Date()
+        }
+      }
+    });
 
     res.json({ message: 'Reverted to auto-generated report successfully' });
   } catch (error) {

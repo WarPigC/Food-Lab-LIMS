@@ -154,8 +154,9 @@ const buildHeaderTable = (isNabl) => {
   const nablLogoBuf = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
   const nablQrcodeBuf = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
 
+  const logoWidthPct = isNabl ? 25 : 20;
   const cells = [
-    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 25),
+    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, logoWidthPct),
     new TableCell({
       children: [
         new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: { before: 20, after: 20 } }),
@@ -166,7 +167,7 @@ const buildHeaderTable = (isNabl) => {
         new Paragraph({ children: [new TextRun({ text: "Website: www.acrolabs.in", font: "Times New Roman", size: 18, color: "0000FF" })], alignment: AlignmentType.CENTER })
       ],
       verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
-      width: { size: Math.round(PAGE_WIDTH_DXA * (isNabl ? 50 : 75) / 100), type: WidthType.DXA }
+      width: { size: Math.round(PAGE_WIDTH_DXA * (isNabl ? 50 : 80) / 100), type: WidthType.DXA }
     })
   ];
 
