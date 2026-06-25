@@ -56,8 +56,9 @@ async function getNextUlr() {
     { $inc: { currentValue: 1 } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
-  const numStr = String(counter.currentValue).padStart(8, '0');
-  return `${counter.prefix}${numStr}${counter.suffix}`;
+  const yy = String(new Date().getFullYear()).slice(2);
+  const numStr = String(counter.currentValue).padStart(9, '0');
+  return `${counter.prefix}${yy}${numStr}`;
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -89,12 +90,13 @@ router.get('/next-sample-id', protect, async (req, res) => {
  */
 router.get('/next-ulr', protect, async (req, res) => {
   try {
-    const counter = await UlrCounter.findOne({}) || { prefix: 'TC-12434260', currentValue: 0, suffix: 'F' };
-    const numStr = String(counter.currentValue).padStart(8, '0');
-    const nextNumStr = String(counter.currentValue + 1).padStart(8, '0');
+    const counter = await UlrCounter.findOne({}) || { prefix: 'TC-12434', currentValue: 0 };
+    const yy = String(new Date().getFullYear()).slice(2);
+    const numStr = String(counter.currentValue).padStart(9, '0');
+    const nextNumStr = String(counter.currentValue + 1).padStart(9, '0');
     res.json({
-      lastUlr: `${counter.prefix}${numStr}${counter.suffix}`,
-      nextUlr: `${counter.prefix}${nextNumStr}${counter.suffix}`,
+      lastUlr: `${counter.prefix}${yy}${numStr}`,
+      nextUlr: `${counter.prefix}${yy}${nextNumStr}`,
       currentValue: counter.currentValue
     });
   } catch (err) {
