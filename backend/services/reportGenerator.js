@@ -443,6 +443,9 @@ const generateReport = async (job, reportType) => {
         children: [new TextRun({ text: "TEST RESULT", bold: true, font: "Times New Roman", size: 24 })],
         alignment: AlignmentType.CENTER, spacing: { before: 100, after: 60 }
       }));
+    } else {
+      // Small spacer to separate repeating header from results table
+      children.push(new Paragraph({ children: [], spacing: { before: 100, after: 60 } }));
     }
 
     children.push(buildResultsTable(pageObj.rows, hasSpec, pageObj.startIdx, pageObj.repeatHeader));
@@ -507,7 +510,7 @@ const generateReport = async (job, reportType) => {
       }
 
       // Spacer for physical signing space
-      children.push(new Paragraph({ children: [], spacing: { before: 500 } }));
+      children.push(new Paragraph({ children: [], spacing: { before: 600 } }));
       children.push(new Table({ rows: [new TableRow({ children: sigCells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, borders: TABLE_BORDERS_NONE }));
 
       children.push(new Paragraph({
