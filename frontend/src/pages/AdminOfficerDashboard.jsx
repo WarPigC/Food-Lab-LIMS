@@ -1657,6 +1657,8 @@ function Jobs() {
               if (returnEvent) returnNote = returnEvent.note;
             }
           }
+          
+          const isCancelled = editingJob?.status === "CANCELLED";
 
           return (
             <div
@@ -1812,8 +1814,25 @@ function Jobs() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "1rem",
+                  position: "relative",
                 }}
               >
+                {/* Overlay for cancelled jobs */}
+                {isCancelled && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: "rgba(255, 255, 255, 0.6)",
+                      zIndex: 100,
+                      cursor: "not-allowed",
+                      borderRadius: "var(--radius-md)",
+                    }}
+                  />
+                )}
                 {/* ── CUSTOMER INFORMATION ── */}
                 <div
                   className="card"
@@ -2929,16 +2948,18 @@ function Jobs() {
                     type="submit"
                     className="btn btn-primary"
                     title="Save/Dispatch Job (Ctrl + Enter)"
-                    style={{ padding: "0.8rem 2rem" }}
-                    disabled={isSubmitting}
+                    style={{ padding: "0.8rem 2rem", ...(isCancelled ? { backgroundColor: "var(--color-border)", borderColor: "var(--color-border)", color: "var(--color-text-muted)" } : {}) }}
+                    disabled={isSubmitting || isCancelled}
                   >
                     {isSubmitting
                       ? "Processing..."
-                      : editingJobId
-                        ? "Save Changes"
-                        : reopenParentId
-                          ? "Save Retest Job"
-                          : "Create Job & Dispatch"}
+                      : isCancelled
+                        ? "Job Cancelled"
+                        : editingJobId
+                          ? "Save Changes"
+                          : reopenParentId
+                            ? "Save Retest Job"
+                            : "Create Job & Dispatch"}
                   </button>
                   {!editingJobId && !reopenParentId && (
                     <button
