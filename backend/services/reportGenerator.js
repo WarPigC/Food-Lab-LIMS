@@ -13,6 +13,9 @@ const MARGIN_BOTTOM = 720;
 const FOOTER_RESERVE = 400; // space for page number footer
 const USABLE_HEIGHT = PAGE_HEIGHT_DXA - MARGIN_TOP - MARGIN_BOTTOM - FOOTER_RESERVE;
 
+// Safety multiplier: Word Online renders ~10% larger than PDF engine
+const SAFETY_FACTOR = 1.10;
+
 // Approximate character width in twips for Times New Roman at size 20 (10pt)
 const AVG_CHAR_WIDTH = 100;
 const LINE_HEIGHT = 260;     // single line height in twips
@@ -29,28 +32,34 @@ const estimateLines = (text, colWidthDxa) => {
   return total;
 };
 
-// Estimate height of a result row based on its longest cell
+// Estimate height of a result row based on its longest cell (with safety margin)
 const estimateResultRowHeight = (row, hasSpec) => {
+  let baseHeight;
   if (row.type === 'header') {
     // Discipline header: 2 lines of text typically
-    return 2 * LINE_HEIGHT + ROW_PADDING;
+    baseHeight = 2 * LINE_HEIGHT + ROW_PADDING;
+  } else {
+    // Data row — the "Test Parameters" column (35% width) is usually the tallest
+    const paramColWidth = Math.round(PAGE_WIDTH_DXA * 35 / 100);
+    const nameLines = estimateLines(row.data.name, paramColWidth);
+    baseHeight = nameLines * LINE_HEIGHT + ROW_PADDING;
   }
-  // Data row — the "Test Parameters" column (35% width) is usually the tallest
-  const paramColWidth = Math.round(PAGE_WIDTH_DXA * 35 / 100);
-  const nameLines = estimateLines(row.data.name, paramColWidth);
-  return nameLines * LINE_HEIGHT + ROW_PADDING;
+  return Math.ceil(baseHeight * SAFETY_FACTOR);
 };
 
-// Fixed height estimates for non-result content
-const HEADER_HEIGHT = 1600;       // header table (logo + address block)
-const FTL_REF_HEIGHT = 340;       // FTL/AIPER/F/7.8-01 line
-const TEST_REPORT_TITLE = 360;    // "TEST REPORT" title
-const REPORT_ULR_LINE = 280;      // Report No / ULR line
-const TEST_RESULT_TITLE = 400;    // "TEST RESULT" title
-const RESULTS_HEADER_ROW = 320;   // Column headers of results table
+// Fixed height estimates for non-result content (all include safety margin)
+const HEADER_HEIGHT = Math.ceil(1600 * SAFETY_FACTOR);
+const FTL_REF_HEIGHT = Math.ceil(340 * SAFETY_FACTOR);
+const TEST_REPORT_TITLE = Math.ceil(360 * SAFETY_FACTOR);
+const REPORT_ULR_LINE = Math.ceil(280 * SAFETY_FACTOR);
+const TEST_RESULT_TITLE = Math.ceil(400 * SAFETY_FACTOR);
+const RESULTS_HEADER_ROW = Math.ceil(320 * SAFETY_FACTOR);
 
-// Footer block (abbreviations + notes + signatures + end of report)
-const FOOTER_BLOCK_HEIGHT = 2800;
+// Footer block (abbreviations + notes + signing spacer + signatures + end of report)
+const FOOTER_BLOCK_HEIGHT = Math.ceil(3200 * SAFETY_FACTOR);
+
+// Height of a discipline header row (for injection on continuation pages)
+const DISCIPLINE_HEADER_HEIGHT = Math.ceil((2 * LINE_HEIGHT + ROW_PADDING) * SAFETY_FACTOR);
 
 // Estimate sample info table height based on content
 const estimateSampleInfoHeight = (job) => {
@@ -66,7 +75,7 @@ const estimateSampleInfoHeight = (job) => {
   // Sampling details might wrap
   const samplingLines = estimateLines(sample.sampling_details, Math.round(PAGE_WIDTH_DXA * 20 / 100));
   if (samplingLines > 1) height += (samplingLines - 1) * LINE_HEIGHT;
-  return height;
+  return Math.ceil(height * SAFETY_FACTOR);
 };
 
 // First page overhead (everything before results)
@@ -74,8 +83,11 @@ const calcFirstPageOverhead = (job) => {
   return FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + estimateSampleInfoHeight(job) + TEST_RESULT_TITLE + RESULTS_HEADER_ROW;
 };
 
-// Continuation page overhead
-const CONTINUATION_OVERHEAD = FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + (LINE_HEIGHT + ROW_PADDING) + TEST_RESULT_TITLE + RESULTS_HEADER_ROW;
+// Continuation page overhead (header + TEST REPORT + Report/ULR + mini sample info + TEST RESULT + column headers)
+const calcContinuationOverhead = () => {
+  const CONT_SAMPLE_INFO = Math.ceil((LINE_HEIGHT + ROW_PADDING) * SAFETY_FACTOR);
+  return FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + CONT_SAMPLE_INFO + TEST_RESULT_TITLE + RESULTS_HEADER_ROW;
+};
 
 const BORDERS_NONE = {
   top: { style: BorderStyle.NONE, size: 0, color: "auto" },
@@ -231,7 +243,7 @@ const buildSampleInfoTable = (job) => {
   return new Table({ rows: r, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
 };
 
-const buildResultsTable = (rowsData, hasSpec, startIdx) => {
+const buildResultsTable = (rowsData, hasSpec, startIdx, repeatHeader = null) => {
   const tableRows = [];
   let counter = startIdx;
 
@@ -244,6 +256,16 @@ const buildResultsTable = (rowsData, hasSpec, startIdx) => {
   ];
   if (hasSpec) headerCells.push(createCell("Specification", { bold: true, alignment: AlignmentType.CENTER, widthPct: 15 }));
   tableRows.push(new TableRow({ children: headerCells }));
+
+  // Inject repeat discipline header for continuation pages
+  if (repeatHeader) {
+    tableRows.push(new TableRow({
+      children: [
+        createCell(`Discipline- ${repeatHeader.dept === 'CHEMICAL' ? 'Chemical' : 'Biological'}\n${repeatHeader.dept === 'CHEMICAL' ? 'Chemical Test Parameter' : 'Microbiology Test Parameters'}`, { bold: true, colSpan: 3 }),
+        createCell(`Group \u2013 ${repeatHeader.group}\nSub Group \u2013 ${repeatHeader.subGroup}`, { bold: true, colSpan: hasSpec ? 3 : 2 })
+      ]
+    }));
+  }
 
   for (const r of rowsData) {
     if (r.type === 'header') {
@@ -298,24 +320,48 @@ const generateReport = async (job, reportType) => {
   const hasSpec = !!job.showSpecifications;
 
   // --- Dynamic pagination via height estimation ---
+  // Track the "active discipline" so we can inject a repeat header on continuation pages
   const pages = [];
   let idx = 0;
   let currentResultIndex = 0;
+  let activeDiscipline = null; // tracks the last discipline header we passed
 
   while (idx < allRows.length || pages.length === 0) {
     const isFirstPage = pages.length === 0;
-    const overhead = isFirstPage ? calcFirstPageOverhead(job) : CONTINUATION_OVERHEAD;
+    const overhead = isFirstPage ? calcFirstPageOverhead(job) : calcContinuationOverhead();
     let usedHeight = overhead;
     const pageRows = [];
+
+    // If this is a continuation page and we're mid-discipline, inject a repeat header
+    let needsDisciplineRepeat = !isFirstPage && activeDiscipline !== null;
+    if (needsDisciplineRepeat) {
+      // Reserve space for the injected discipline header
+      usedHeight += DISCIPLINE_HEADER_HEIGHT;
+    }
 
     while (idx < allRows.length) {
       const row = allRows[idx];
       const rowHeight = estimateResultRowHeight(row, hasSpec);
 
-      // Check if adding this row (+ footer if it would be last page) fits
-      const remainingRows = allRows.length - idx - 1;
-      const needsFooter = remainingRows === 0; // this would be the last row
-      const footerHeight = needsFooter ? FOOTER_BLOCK_HEIGHT : 0;
+      // Track discipline context
+      if (row.type === 'header') {
+        activeDiscipline = row;
+      }
+
+      // --- Footer-aware lookahead ---
+      // Calculate height of ALL remaining rows (after this one) to see if
+      // they plus the footer would still fit on this page. If they would,
+      // we're on the last page and must account for the footer NOW.
+      let remainingHeight = 0;
+      for (let j = idx + 1; j < allRows.length; j++) {
+        remainingHeight += estimateResultRowHeight(allRows[j], hasSpec);
+      }
+      const allRemainingFitHere = (usedHeight + rowHeight + remainingHeight + FOOTER_BLOCK_HEIGHT) <= USABLE_HEIGHT;
+      const isLastRow = idx === allRows.length - 1;
+
+      // If all remaining rows + footer fit, include footer in the check
+      // If only this is the last row, include footer in the check
+      const footerHeight = (allRemainingFitHere || isLastRow) ? FOOTER_BLOCK_HEIGHT : 0;
 
       if (usedHeight + rowHeight + footerHeight > USABLE_HEIGHT && pageRows.length > 0) {
         break; // doesn't fit, start new page
@@ -324,9 +370,21 @@ const generateReport = async (job, reportType) => {
       pageRows.push(row);
       usedHeight += rowHeight;
       idx++;
+
+      // After adding a discipline header, cancel the repeat flag since we just added one
+      if (row.type === 'header') {
+        needsDisciplineRepeat = false;
+      }
     }
 
-    pages.push({ rows: pageRows, startIdx: currentResultIndex });
+    // Determine the discipline context for this page (for repeat header injection)
+    let repeatHeader = null;
+    if (!isFirstPage && needsDisciplineRepeat && activeDiscipline) {
+      // The page starts mid-discipline — inject a repeat header
+      repeatHeader = activeDiscipline;
+    }
+
+    pages.push({ rows: pageRows, startIdx: currentResultIndex, repeatHeader });
     currentResultIndex += pageRows.filter(r => r.type === 'result').length;
 
     if (pageRows.length === 0 && idx >= allRows.length) break; // safety
@@ -394,7 +452,7 @@ const generateReport = async (job, reportType) => {
       alignment: AlignmentType.CENTER, spacing: { before: 100, after: 60 }
     }));
 
-    children.push(buildResultsTable(pageObj.rows, hasSpec, pageObj.startIdx));
+    children.push(buildResultsTable(pageObj.rows, hasSpec, pageObj.startIdx, pageObj.repeatHeader));
 
     if (isLast) {
       // Abbreviations - updated to match final format
@@ -456,7 +514,7 @@ const generateReport = async (job, reportType) => {
       }
 
       // Spacer for physical signing space
-      children.push(new Paragraph({ children: [], spacing: { before: 800 } }));
+      children.push(new Paragraph({ children: [], spacing: { before: 500 } }));
       children.push(new Table({ rows: [new TableRow({ children: sigCells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, borders: TABLE_BORDERS_NONE }));
 
       children.push(new Paragraph({
