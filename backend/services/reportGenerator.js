@@ -57,7 +57,7 @@ const TEST_RESULT_TITLE = Math.ceil(400 * SAFETY_FACTOR);
 const RESULTS_HEADER_ROW = Math.ceil(320 * SAFETY_FACTOR);
 
 // Footer block (abbreviations + notes + signing spacer + signatures + end of report)
-const FOOTER_BLOCK_HEIGHT = Math.ceil(2600 * SAFETY_FACTOR);
+const FOOTER_BLOCK_HEIGHT = Math.ceil(3200 * SAFETY_FACTOR);
 
 // Height of a discipline header row (for injection on continuation pages)
 const DISCIPLINE_HEADER_HEIGHT = Math.ceil((2 * LINE_HEIGHT + ROW_PADDING) * SAFETY_FACTOR);
@@ -480,18 +480,18 @@ const generateReport = async (job, reportType) => {
       // Diksha always appears
       sigCells.push(new TableCell({
         children: [
-          new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } }),
-          new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } }),
-          new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } })
+          new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
         ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA }
       }));
 
       if (hasChem) {
         sigCells.push(new TableCell({
           children: [
-            new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } }),
-            new Paragraph({ children: [new TextRun({ text: job.distribution?.chemical?.assignedHead?.name || 'Ms. Monika Pali', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } }),
-            new Paragraph({ children: [new TextRun({ text: "Technical Manager", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } })
+            new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+            new Paragraph({ children: [new TextRun({ text: job.distribution?.chemical?.assignedHead?.name || 'Ms. Monika Pali', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+            new Paragraph({ children: [new TextRun({ text: "Technical Manager", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
           ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA }
         }));
       }
@@ -499,20 +499,20 @@ const generateReport = async (job, reportType) => {
       if (hasMicro) {
         sigCells.push(new TableCell({
           children: [
-            new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } }),
-            new Paragraph({ children: [new TextRun({ text: job.distribution?.micro?.assignedHead?.name || 'Ms. Jyoti Pathak', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } }),
-            new Paragraph({ children: [new TextRun({ text: "Microbiology Head", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: { line: 200, before: 0, after: 0 } })
+            new Paragraph({ children: [new TextRun({ text: "Authorized Signatory", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+            new Paragraph({ children: [new TextRun({ text: job.distribution?.micro?.assignedHead?.name || 'Ms. Jyoti Pathak', font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+            new Paragraph({ children: [new TextRun({ text: "Microbiology Head", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
           ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA }
         }));
       }
 
       // Spacer for physical signing space
-      children.push(new Paragraph({ children: [], spacing: { before: 300 } }));
+      children.push(new Paragraph({ children: [], spacing: { before: 500 } }));
       children.push(new Table({ rows: [new TableRow({ children: sigCells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }, borders: TABLE_BORDERS_NONE }));
 
       children.push(new Paragraph({
         children: [new TextRun({ text: "*End of report*", bold: true, font: "Times New Roman", size: 22 })],
-        alignment: AlignmentType.CENTER, spacing: { before: 40, after: 0 }
+        alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }
       }));
     }
 
