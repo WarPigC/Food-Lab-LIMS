@@ -357,7 +357,7 @@ const generateReport = async (job, reportType) => {
 
     // Report No + ULR No on same line (single paragraph with tab stop)
     const reportUlrRuns = [
-      new TextRun({ text: "Report  No. ", bold: true, font: "Times New Roman", size: 20, underline: { type: "single" } }),
+      new TextRun({ text: "Report  No. ", bold: true, font: "Times New Roman", size: 20 }),
       new TextRun({ text: testReportNo, font: "Times New Roman", size: 20 })
     ];
     if (isNabl && job.sample?.ulr_no) {

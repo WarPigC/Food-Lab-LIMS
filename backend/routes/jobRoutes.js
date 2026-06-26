@@ -58,6 +58,7 @@ async function getNextUlr() {
   );
   const yy = String(new Date().getFullYear()).slice(2);
   const numStr = String(counter.currentValue).padStart(9, '0');
+  // New ULR Code: prefix + YY + 9-digit-counter
   return `${counter.prefix}${yy}${numStr}`;
 }
 
@@ -95,8 +96,8 @@ router.get('/next-ulr', protect, async (req, res) => {
     const numStr = String(counter.currentValue).padStart(9, '0');
     const nextNumStr = String(counter.currentValue + 1).padStart(9, '0');
     res.json({
-      lastUlr: `${counter.prefix}${yy}${numStr}`,
-      nextUlr: `${counter.prefix}${yy}${nextNumStr}`,
+      lastUlr: `${counter.prefix}${yy}${numStr}F`,
+      nextUlr: `${counter.prefix}${yy}${nextNumStr}F`,
       currentValue: counter.currentValue
     });
   } catch (err) {
