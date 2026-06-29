@@ -2537,22 +2537,19 @@ function ReviewQueue() {
                   }
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: "1.05rem" }}>
-                      Analysis Results Review
+                    <div style={{ fontWeight: 600, fontSize: "1.05rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ fontFamily: "monospace", color: "var(--color-primary-dark)" }}>
+                        {formatJobCode(inst.testCode)}
+                      </span>
                     </div>
                     <div
                       style={{
                         fontSize: "0.85rem",
                         color: "var(--color-text-muted)",
-                        marginTop: "0.2rem",
+                        marginTop: "0.3rem",
                       }}
                     >
-                      Code:{" "}
-                      <span style={{ fontFamily: "monospace" }}>
-                        {formatJobCode(inst.testCode)}
-                      </span>{" "}
-                      · Analyst: {inst.assignedTo?.name} · Client:{" "}
-                      {inst.clientName}
+                      Analyst: {inst.assignedTo?.name} · Client: {inst.clientName}
                     </div>
                   </div>
                   <span className="badge badge-warning">Awaiting Review</span>

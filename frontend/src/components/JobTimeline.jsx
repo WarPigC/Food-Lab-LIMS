@@ -189,21 +189,6 @@ export default function JobTimeline({ job, allJobs = [], onReopen }) {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {/* Progress ring */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', backgroundColor: 'white', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Progress</span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{progress}%</span>
-              </div>
-              <div style={{ width: '44px', height: '44px' }}>
-                <svg width="44" height="44" viewBox="0 0 36 36">
-                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#E5E7EB" strokeWidth="3" />
-                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={progress === 100 ? '#10B981' : '#3B82F6'} strokeWidth="3" strokeDasharray={`${progress}, 100`} />
-                </svg>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Pipeline tracks — scrollable on mobile */}
