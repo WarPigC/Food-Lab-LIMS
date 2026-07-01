@@ -383,7 +383,13 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
     const { customer, sample, compliance, parameters, groupMetadata, pesticidePanel, sampleFlow, assignedMicroHead, assignedChemicalHead, showSpecifications } = req.body;
 
     if (customer) job.customer = customer;
-    if (sample) job.sample = sample;
+    if (sample) {
+      job.sample = {
+        ...sample,
+        nabl_type: job.sample?.nabl_type,
+        ulr_no: job.sample?.ulr_no
+      };
+    }
     if (compliance) job.compliance = compliance;
     if (showSpecifications !== undefined) job.showSpecifications = showSpecifications;
 
