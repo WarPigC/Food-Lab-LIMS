@@ -49,16 +49,27 @@ async function getNextSerial() {
 
 /**
  * Atomically increment and return the next ULR string.
+ * Format: TC-XXXXXYYNNNNNNNN  (prefix + 2-digit year + 8-digit running number)
+ * The running number resets to 1 when the calendar year changes.
  */
 async function getNextUlr() {
-  const counter = await UlrCounter.findOneAndUpdate(
+  const yy = String(new Date().getFullYear()).slice(2);
+  let counter = await UlrCounter.findOne({});
+
+  // Year-based reset: if the stored year differs from current, reset counter
+  if (counter && counter.lastYear && counter.lastYear !== yy) {
+    counter.currentValue = 0; // will be incremented to 1 below
+    counter.lastYear = yy;
+    await counter.save();
+  }
+
+  counter = await UlrCounter.findOneAndUpdate(
     {},
-    { $inc: { currentValue: 1 } },
+    { $inc: { currentValue: 1 }, $set: { lastYear: yy } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
-  const yy = String(new Date().getFullYear()).slice(2);
-  const numStr = String(counter.currentValue).padStart(9, '0');
-  // New ULR Code: prefix + YY + 9-digit-counter
+  const numStr = String(counter.currentValue).padStart(8, '0');
+  // ULR Code: prefix + YY + 8-digit-counter (no suffix)
   return `${counter.prefix}${yy}${numStr}`;
 }
 
@@ -93,11 +104,11 @@ router.get('/next-ulr', protect, async (req, res) => {
   try {
     const counter = await UlrCounter.findOne({}) || { prefix: 'TC-12434', currentValue: 0 };
     const yy = String(new Date().getFullYear()).slice(2);
-    const numStr = String(counter.currentValue).padStart(9, '0');
-    const nextNumStr = String(counter.currentValue + 1).padStart(9, '0');
+    const numStr = String(counter.currentValue).padStart(8, '0');
+    const nextNumStr = String(counter.currentValue + 1).padStart(8, '0');
     res.json({
-      lastUlr: `${counter.prefix}${yy}${numStr}F`,
-      nextUlr: `${counter.prefix}${yy}${nextNumStr}F`,
+      lastUlr: `${counter.prefix}${yy}${numStr}`,
+      nextUlr: `${counter.prefix}${yy}${nextNumStr}`,
       currentValue: counter.currentValue
     });
   } catch (err) {
