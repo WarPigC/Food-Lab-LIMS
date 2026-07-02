@@ -8,6 +8,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const ParameterGroup = require('../models/ParameterGroup');
 const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../utils/notifier');
+const { audit } = require('../utils/auditLogger');
 
 // --- TEST INSTANCES ---
 
@@ -173,6 +174,12 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
       req.app.get('io').emit('JOB_DISTRIBUTED');
     }
 
+    audit('TEST_DISPATCHED', {
+      req,
+      message: `${dept.toUpperCase()} HEAD dispatched ${createdInstances.length} test(s) for job ${job.jobCode}`,
+      target: { model: 'Job', documentId: jobId, identifier: job.jobCode }
+    });
+
     res.status(201).json({ message: 'Dispatched successfully', instances: createdInstances });
   } catch (err) {
     res.status(500).json({ message: 'Error creating instance', error: err.message });
@@ -241,6 +248,12 @@ router.put('/instances/:id/results', protect, authorize('ASSISTANT'), async (req
     if (req.app.get('io')) {
       req.app.get('io').emit('TEST_SUBMITTED');
     }
+
+    audit('TEST_RESULTS_SUBMITTED', {
+      req,
+      message: `Results submitted for test ${instance.testCode}`,
+      target: { model: 'TestInstance', documentId: instance._id.toString(), identifier: instance.testCode }
+    });
 
     res.json(instance);
   } catch (err) {
@@ -479,6 +492,12 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
     if (req.app.get('io')) {
       req.app.get('io').emit('TEST_REVIEWED');
     }
+
+    audit('TEST_REVIEWED', {
+      req,
+      message: `Test ${instance.testCode} ${action === 'approve' ? 'approved' : 'reassigned'} by HEAD`,
+      target: { model: 'TestInstance', documentId: instance._id.toString(), identifier: instance.testCode }
+    });
 
     res.json(instance);
   } catch (err) {

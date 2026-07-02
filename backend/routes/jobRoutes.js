@@ -10,6 +10,7 @@ const { createNotification, notifyAdmins, notifyAdminOfficers } = require('../ut
 const User = require('../models/User');
 const UlrCounter = require('../models/UlrCounter');
 const SampleCounter = require('../models/SampleCounter');
+const { audit } = require('../utils/auditLogger');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -365,8 +366,17 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       createdJobs = [job];
     }
 
+    // Audit log each created job
+    for (const cj of createdJobs) {
+      audit('JOB_CREATED', {
+        req,
+        message: `Job ${cj.jobCode} created for ${cj.clientName} (${cj.sample?.nabl_type || 'N/A'})`,
+        target: { model: 'Job', documentId: cj._id.toString(), identifier: cj.jobCode }
+      });
+    }
+
     if (req.app.get('io')) {
-      req.app.get('io').emit('JOB_CREATED'); // Not emitting specific job since it could be multiple
+      req.app.get('io').emit('JOB_CREATED');
     }
 
     res.status(201).json(createdJobs.length === 1 ? createdJobs[0] : createdJobs);
@@ -379,6 +389,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
+    // Snapshot before mutation for audit diff
+    const beforeSnapshot = job ? job.toObject() : null;
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
     // Only allow editing if the job is not fully complete?
@@ -463,9 +475,18 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
     await job.save();
 
+    // Audit log with before/after diff
+    audit('JOB_UPDATED', {
+      req,
+      message: `Job ${job.jobCode} ${isResubmitted ? 'resubmitted' : 'updated'}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode },
+      before: beforeSnapshot,
+      after: job.toObject(),
+      fields: ['sample', 'sample.nabl_type', 'sample.ulr_no', 'sample.sample_name', 'sample.sample_description', 'customer', 'customer.customer_name', 'parameters', 'distribution', 'showSpecifications', 'compliance']
+    });
+
     if (req.app.get('io')) {
-      // Notify clients that jobs have changed
-      req.app.get('io').emit('JOB_CREATED'); // Re-using this event will force refresh the table
+      req.app.get('io').emit('JOB_CREATED');
     }
 
     res.json(job);
@@ -538,6 +559,12 @@ router.put('/:id/approve-review', protect, authorize('HEAD'), async (req, res) =
 
     await job.save();
 
+    audit('JOB_REVIEW_APPROVED', {
+      req,
+      message: `${myDept.toUpperCase()} HEAD approved job ${job.jobCode}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+    });
+
     if (req.app.get('io')) {
       req.app.get('io').emit('JOB_UPDATED');
     }
@@ -588,6 +615,12 @@ router.post('/:id/return', protect, authorize('HEAD'), async (req, res) => {
     });
 
     await job.save();
+
+    audit('JOB_RETURNED', {
+      req,
+      message: `Job ${job.jobCode} returned by ${department.toUpperCase()} HEAD — reason: ${note}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+    });
 
     // Notification to Admin Officer
     await notifyAdminOfficers({
@@ -720,6 +753,12 @@ router.put('/:id/cancel', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (r
 
     await job.save();
 
+    audit('JOB_CANCELLED', {
+      req,
+      message: `Job ${job.jobCode} cancelled`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+    });
+
     // Cascade cancellation to any generated tasks or transfers
     await TestInstance.updateMany({ jobId: job._id }, { status: 'CANCELLED' });
     await SampleTransfer.updateMany({ jobId: job._id }, { status: 'CANCELLED' });
@@ -737,6 +776,12 @@ router.put('/:id/cancel', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (r
           note: 'Sibling job was cancelled.'
         });
         await sibling.save();
+
+        audit('JOB_CANCELLED', {
+          req,
+          message: `Sibling job ${sibling.jobCode} auto-cancelled`,
+          target: { model: 'Job', documentId: sibling._id.toString(), identifier: sibling.jobCode }
+        });
         
         await TestInstance.updateMany({ jobId: sibling._id }, { status: 'CANCELLED' });
         await SampleTransfer.updateMany({ jobId: sibling._id }, { status: 'CANCELLED' });

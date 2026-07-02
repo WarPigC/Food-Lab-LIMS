@@ -6,6 +6,7 @@ const Job = require('../models/Job');
 const TestInstance = require('../models/TestInstance');
 const { generateReport } = require('../services/reportGenerator');
 const { uploadCustomReport, downloadCustomReport, deleteCustomReport, getReportStatus } = require('../services/reportStorage');
+const { audit } = require('../utils/auditLogger');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -146,6 +147,13 @@ router.post('/report/:jobId/upload', protect, upload.single('reportDoc'), async 
         }
       }
     });
+    if (job) {
+      audit('REPORT_UPLOADED', {
+        req,
+        message: `Custom ${type} report uploaded for job ${job.jobCode}`,
+        target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+      });
+    }
 
     res.json({ message: 'Custom report uploaded successfully', fileId });
   } catch (error) {
@@ -177,6 +185,14 @@ router.post('/report/:jobId/revert', protect, async (req, res) => {
         }
       }
     });
+    const job = await Job.findById(jobId);
+    if (job) {
+      audit('REPORT_REVERTED', {
+        req,
+        message: `Reverted to auto-generated ${type} report for job ${job.jobCode}`,
+        target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+      });
+    }
 
     res.json({ message: 'Reverted to auto-generated report successfully' });
   } catch (error) {

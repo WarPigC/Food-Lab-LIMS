@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../utils/notifier');
+const { audit } = require('../utils/auditLogger');
 
 // GET transfer history for a job
 router.get('/', protect, async (req, res) => {
@@ -181,6 +182,12 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
       req.app.get('io').emit('TRANSFER_INITIATED');
     }
 
+    audit('SAMPLE_TRANSFER_INITIATED', {
+      req,
+      message: `Sample #${job.sampleSerial} transferred from ${fromLabel} to ${toLabel}`,
+      target: { model: 'SampleTransfer', documentId: transfer._id.toString(), identifier: job.sampleSerial }
+    });
+
     res.status(201).json(transfer);
   } catch (err) {
     res.status(500).json({ message: 'Error initiating transfer', error: err.message });
@@ -249,6 +256,12 @@ router.put('/:id/receive', protect, authorize('HEAD'), async (req, res) => {
     if (req.app.get('io')) {
       req.app.get('io').emit('TRANSFER_RECEIVED');
     }
+
+    audit('SAMPLE_TRANSFER_RECEIVED', {
+      req,
+      message: `${toLabel} HEAD confirmed receipt of sample #${transfer.sampleSerial}`,
+      target: { model: 'SampleTransfer', documentId: transfer._id.toString(), identifier: transfer.sampleSerial }
+    });
 
     res.json(transfer);
   } catch (err) {

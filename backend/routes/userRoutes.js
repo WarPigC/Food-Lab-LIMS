@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
+const { audit } = require('../utils/auditLogger');
 
 // Get all users (Admin sees all, Admin Officer sees all except Admin maybe? Let's just let Admin/Admin Officer see all. Head sees their assistants)
 router.get('/', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (req, res) => {
@@ -62,6 +63,12 @@ router.post('/', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (re
       role: user.role,
       temporaryPassword: defaultPassword 
     });
+
+    audit('USER_CREATED', {
+      req,
+      message: `User ${user.email} (${user.role}) created`,
+      target: { model: 'User', documentId: user._id.toString(), identifier: user.email }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -72,6 +79,8 @@ router.post('/', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (re
 router.put('/:id', protect, authorize('ADMIN_OFFICER', 'HEAD'), async (req, res) => {
   try {
     const userToEdit = await User.findById(req.params.id);
+    const beforeSnapshot = userToEdit ? userToEdit.toObject() : null;
+    
     if (!userToEdit) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -94,6 +103,16 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER', 'HEAD'), async (req, res)
     }
 
     await userToEdit.save();
+
+    audit('USER_UPDATED', {
+      req,
+      message: `User ${userToEdit.email} updated`,
+      target: { model: 'User', documentId: userToEdit._id.toString(), identifier: userToEdit.email },
+      before: beforeSnapshot,
+      after: userToEdit.toObject(),
+      fields: ['name', 'email', 'phone', 'department', 'branch']
+    });
+
     res.json(userToEdit);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -120,6 +139,13 @@ router.delete('/:id', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), asyn
     }
 
     await User.deleteOne({ _id: req.params.id });
+
+    audit('USER_DELETED', {
+      req,
+      message: `User ${userToDelete.email} (${userToDelete.role}) deleted`,
+      target: { model: 'User', documentId: userToDelete._id.toString(), identifier: userToDelete.email }
+    });
+
     res.json({ message: 'User removed' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

@@ -5,6 +5,7 @@ const Otp = require('../models/Otp');
 const jwt = require('jsonwebtoken');
 const { protect } = require('../middlewares/authMiddleware');
 const { sendOtpEmail } = require('../utils/brevoMailer');
+const { audit } = require('../utils/auditLogger');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -17,6 +18,11 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && (await user.comparePassword(password))) {
+      audit('LOGIN_SUCCESS', {
+        message: `${user.name} (${user.role}) logged in`,
+        user: { id: user._id, name: user.name, role: user.role },
+        req
+      });
       res.json({
         _id: user._id,
         name: user.name,
@@ -28,6 +34,11 @@ router.post('/login', async (req, res) => {
         token: generateToken(user._id),
       });
     } else {
+      audit('LOGIN_FAILED', {
+        message: `Failed login attempt for email: ${email}`,
+        user: { name: email, role: 'UNKNOWN' },
+        req
+      });
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
@@ -46,6 +57,11 @@ router.put('/change-password', protect, async (req, res) => {
       user.password = newPassword;
       user.requiresPasswordChange = false;
       await user.save();
+      audit('PASSWORD_CHANGED', {
+        message: `${user.name} changed their password`,
+        req,
+        target: { model: 'User', documentId: user._id.toString(), identifier: user.email }
+      });
       res.json({ message: 'Password updated successfully' });
     } else {
       res.status(404).json({ message: 'User not found' });
