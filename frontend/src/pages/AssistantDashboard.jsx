@@ -6,6 +6,16 @@ import Spinner from '../components/Spinner';
 import { useSocket } from '../context/SocketContext';
 import API_URL from '../utils/api';
 
+const UNITS_LIST = [
+  'mg/kg', '%', 'mcg/kg', 'µg/m³', 'ng/m³', 'mg/m³', 'mg/Nm³', 'Nm³/s', 'k', 'g/ml',
+  'µg/kg', '% w/w', 'meq/1000g', 'ppm', '°C', 'g/cm³', 'ml', 'A°', 'ppb', 'meq/kg',
+  'minute', 'ds/meter', 'Kcal', 'g/100L', 'Agreeable', 'Disagreeable', 'Positive',
+  'Negative', 'Complies', 'Does not comply', 'Present', 'Absent', 'kg/hl', 'mm',
+  'mg/100g', 'mcg/100g', 'lovibond scale', 'IU/g', '°Brix', 'SHU', 'ms/cm', 'µs/cm',
+  'ICUMSA unit', 'kg/ha', 'mg/l', 'hazen', 'NTU', 'µg/l', 'g/50cm³', 'CU', 'g/litre',
+  'mg KOH/gm'
+];
+
 export default function AssistantDashboard() {
   const [tasks, setTasks] = useState([]);
   const [activeTask, setActiveTask] = useState(null);
@@ -200,7 +210,7 @@ export default function AssistantDashboard() {
   const handleResultChange = (index, field, val) => {
     const updated = [...resultsData];
     updated[index][field] = val;
-    if (field === 'value') {
+    if (field === 'value' || field === 'unit') {
       updated[index].isSaved = false;
     }
     setResultsData(updated);
@@ -538,10 +548,29 @@ export default function AssistantDashboard() {
                                 placeholder="Enter value…" 
                                 style={{
                                   ...inputStyle,
+                                  flex: 1,
                                   borderColor: (resItem.value && !isNaN(parseFloat(resItem.value)) && parseFloat(resItem.value) < 0) ? 'var(--color-danger)' : 'var(--color-border)'
                                 }} 
                               />
-                              <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', minWidth: '36px' }}>{resItem.unit}</span>
+                              <select 
+                                value={resItem.unit || ''}
+                                onChange={e => handleResultChange(i, 'unit', e.target.value)}
+                                style={{
+                                  ...inputStyle,
+                                  width: 'auto',
+                                  minWidth: '100px',
+                                  padding: '0.5rem',
+                                  fontSize: '0.82rem',
+                                  color: 'var(--color-text-main)'
+                                }}
+                              >
+                                {resItem.unit && !UNITS_LIST.includes(resItem.unit) && (
+                                  <option value={resItem.unit}>{resItem.unit}</option>
+                                )}
+                                {UNITS_LIST.map(u => (
+                                  <option key={u} value={u}>{u}</option>
+                                ))}
+                              </select>
                             </div>
                           </div>
                           <div>

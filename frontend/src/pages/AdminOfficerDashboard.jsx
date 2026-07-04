@@ -2556,13 +2556,13 @@ function Jobs() {
                                 color: "#1e3a8a",
                               }}
                             >
-                              ULR Number (Auto-assigned){" "}
+                              ULR Number {editingJobId ? '' : '(Auto-assigned)'}{" "}
                               <span style={{ color: "var(--color-danger)" }}>
                                 *
                               </span>
                             </label>
                             <input
-                              value={ulrPreview}
+                              value={editingJobId ? (formData.ulr_no || 'N/A') : ulrPreview}
                               readOnly
                               style={{
                                 width: "100%",
@@ -2573,6 +2573,7 @@ function Jobs() {
                                 letterSpacing: "0.05em",
                               }}
                             />
+                            {!editingJobId && (
                             <div
                               style={{
                                 fontSize: "0.75rem",
@@ -2583,6 +2584,7 @@ function Jobs() {
                               This ULR will be officially assigned when the job
                               is submitted.
                             </div>
+                            )}
                           </div>
                         )}
 

@@ -36,7 +36,8 @@ const attachResultsToJob = async (job) => {
       resultMap[r.parameterId.toString()] = {
         value: r.value,
         testMethod: r.testMethod,
-        specification: r.specification // in case they filled it dynamically, though we prefer the static one in job
+        specification: r.specification, // in case they filled it dynamically, though we prefer the static one in job
+        unit: r.unit // analyst may override the default unit
       };
     });
   });
@@ -50,7 +51,8 @@ const attachResultsToJob = async (job) => {
         ...p,
         value: resData?.value || '',
         testMethod: resData?.testMethod || '',
-        specification: p.specification || resData?.specification || ''
+        specification: p.specification || resData?.specification || '',
+        unit: resData?.unit || p.unit // analyst override takes priority, fallback to job parameter default
       };
     });
   };

@@ -2,11 +2,19 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 
-// Load env variables
-dotenv.config();
+// Load env variables — .env.local overrides .env for local development
+const envLocalPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath });
+  console.log('🔧 Using LOCAL dev environment (.env.local)');
+} else {
+  dotenv.config();
+}
 
 // Logging
 const { initMongoTransport, logError } = require('./utils/logger');
