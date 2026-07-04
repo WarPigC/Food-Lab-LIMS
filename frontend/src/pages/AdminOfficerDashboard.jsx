@@ -23,6 +23,7 @@ import {
   Calendar,
   ArrowRightLeft,
   AlertTriangle,
+  Repeat2,
 } from "lucide-react";
 import JobLogTable from "../components/JobLogTable";
 import CascadingParameterSelector from "../components/CascadingParameterSelector";
@@ -965,6 +966,8 @@ function Jobs() {
   const [reopenParentId, setReopenParentId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [isEditingReturnedJob, setIsEditingReturnedJob] = useState(false);
+  const [retainForm, setRetainForm] = useState(false);
+  const [selectorResetKey, setSelectorResetKey] = useState(0);
 
   // Parameter State - Cascading Selector
   const [selectedParams, setSelectedParams] = useState(() => {
@@ -1097,6 +1100,7 @@ function Jobs() {
       setNonNablParams([]);
       setNonNablGroupMetadata(null);
       setNonNablPesticidePanel({ enabled: false, panelType: null });
+      setSelectorResetKey(k => k + 1);
     }
   };
 
@@ -1526,25 +1530,39 @@ function Jobs() {
         await axios.post(`${API_URL}/api/jobs`, payload);
       }
 
-      setShowForm(false);
-      setFormData({ ...BLANK_FORM, reopenReason: "" });
-      setReopenParentId(null);
-      setEditingJobId(null);
-      setIsEditingReturnedJob(false);
-      setSelectedParams([]);
-      setShowSpecifications(false);
-      setGroupMetadata(null);
-      setPesticidePanel({ enabled: false, panelType: null });
-      setNablParams([]);
-      setNablShowSpecifications(false);
-      setNablGroupMetadata(null);
-      setNablPesticidePanel({ enabled: false, panelType: null });
-      setNonNablParams([]);
-      setNonNablShowSpecifications(false);
-      setNonNablGroupMetadata(null);
-      setNonNablPesticidePanel({ enabled: false, panelType: null });
-      setAssignedMicroHead("");
-      setAssignedChemicalHead("");
+      if (retainForm && !editingJobId && !reopenParentId) {
+        // Keep form populated, just reset job-specific state and refresh sample ID
+        setEditingJobId(null);
+        setReopenParentId(null);
+        setIsEditingReturnedJob(false);
+        setAssignedMicroHead("");
+        setAssignedChemicalHead("");
+        // Re-select default heads
+        const micro = heads.filter((h) => h.department === "Micro");
+        if (micro.length > 0) setAssignedMicroHead(micro[0]._id);
+        const chemical = heads.filter((h) => h.department === "Chemical");
+        if (chemical.length > 0) setAssignedChemicalHead(chemical[0]._id);
+      } else {
+        setShowForm(false);
+        setFormData({ ...BLANK_FORM, reopenReason: "" });
+        setReopenParentId(null);
+        setEditingJobId(null);
+        setIsEditingReturnedJob(false);
+        setSelectedParams([]);
+        setShowSpecifications(false);
+        setGroupMetadata(null);
+        setPesticidePanel({ enabled: false, panelType: null });
+        setNablParams([]);
+        setNablShowSpecifications(false);
+        setNablGroupMetadata(null);
+        setNablPesticidePanel({ enabled: false, panelType: null });
+        setNonNablParams([]);
+        setNonNablShowSpecifications(false);
+        setNonNablGroupMetadata(null);
+        setNonNablPesticidePanel({ enabled: false, panelType: null });
+        setAssignedMicroHead("");
+        setAssignedChemicalHead("");
+      }
       invalidateCache(CACHE_KEYS.JOBS);
       fetchJobs();
       fetchNextSerial();
@@ -2599,6 +2617,7 @@ function Jobs() {
                           {formData.nabl_mode === "hybrid" ? (
                             <>
                               <CascadingParameterSelector
+                                key={`nabl-${selectorResetKey}`}
                                 label="NABL Job Parameters"
                                 modeClass="nabl-card"
                                 allGroupData={allGroupData}
@@ -2623,6 +2642,7 @@ function Jobs() {
                                 }}
                               />
                               <CascadingParameterSelector
+                                key={`nonnabl-${selectorResetKey}`}
                                 label="Non-NABL Job Parameters"
                                 modeClass="non-nabl-card"
                                 allGroupData={allGroupData}
@@ -2649,6 +2669,7 @@ function Jobs() {
                             </>
                           ) : (
                             <CascadingParameterSelector
+                              key={`standard-${selectorResetKey}`}
                               label="Test Parameters"
                               allGroupData={allGroupData}
                               initialSelectedParams={selectedParams}
@@ -2976,6 +2997,42 @@ function Jobs() {
                       }}
                     >
                       Clear Draft
+                    </button>
+                  )}
+                  {!editingJobId && !reopenParentId && (
+                    <button
+                      type="button"
+                      onClick={() => setRetainForm(!retainForm)}
+                      className="btn"
+                      style={{
+                        padding: "0.6rem 1.4rem",
+                        marginLeft: "auto",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        border: "none",
+                        borderRadius: "999px",
+                        fontSize: "0.82rem",
+                        fontWeight: 600,
+                        color: retainForm ? "#fff" : "var(--color-text-muted)",
+                        background: retainForm
+                          ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
+                          : "var(--color-surface-elevated, #f1f5f9)",
+                        boxShadow: retainForm
+                          ? "0 2px 12px rgba(99, 102, 241, 0.35)"
+                          : "inset 0 1px 3px rgba(0,0,0,0.06)",
+                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        transform: retainForm ? "scale(1.02)" : "scale(1)",
+                      }}
+                    >
+                      <Repeat2
+                        size={15}
+                        style={{
+                          transition: "transform 0.4s ease",
+                          transform: retainForm ? "rotate(180deg)" : "rotate(0deg)",
+                        }}
+                      />
+                      {retainForm ? "Retaining" : "Retain Form"}
                     </button>
                   )}
                 </div>

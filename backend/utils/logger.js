@@ -1,5 +1,4 @@
 const winston = require('winston');
-const { MongoDB } = require('winston-mongodb');
 
 /**
  * Central logger for the AIPER application.
@@ -16,25 +15,26 @@ const MONGODB_URI = process.env.MONGODB_URI;
 // Custom format for console output
 const consoleFormat = winston.format.combine(
   winston.format.timestamp({ format: 'HH:mm:ss' }),
-  winston.format.printf(({ timestamp, level, event, message, user, request }) => {
+  winston.format.printf(({ timestamp, level, event, msg, user, request }) => {
+    const levelUp = level.toUpperCase();
+    const icon = levelUp === 'ERROR' ? '✗' : levelUp === 'WARN' ? '⚠' : '→';
     const userStr = user?.name ? ` [${user.name}]` : '';
-    const reqStr = request?.method ? ` ${request.method} ${request.url}` : '';
-    const statusStr = request?.statusCode ? ` → ${request.statusCode}` : '';
-    const timeStr = request?.responseTimeMs ? ` (${request.responseTimeMs}ms)` : '';
-    return `${timestamp} ${level.toUpperCase().padEnd(5)} ${event || 'LOG'}${userStr}${reqStr}${statusStr}${timeStr} — ${message}`;
+    const statusStr = request?.statusCode ? ` ${request.statusCode}` : '';
+    const timeStr = request?.responseTimeMs ? ` ${request.responseTimeMs}ms` : '';
+    const brief = timeStr ? `${statusStr} ${timeStr}` : statusStr;
+    return `${timestamp} ${icon} ${event || levelUp}${userStr} ${msg || ''}${brief ? ` (${brief.trim()})` : ''}`;
   })
 );
 
 // Build transports array
 const transports = [
   new winston.transports.Console({
-    level: process.env.NODE_ENV === 'production' ? 'warn' : LOG_LEVEL,
+    level: process.env.NODE_ENV === 'production' ? 'warn' : 'audit',
     format: consoleFormat
   })
 ];
 
-// MongoDB transport — added after DB connection is established
-let mongoTransportAdded = false;
+
 
 const logger = winston.createLogger({
   level: LOG_LEVEL,
@@ -60,32 +60,14 @@ winston.addColors({
 });
 
 /**
- * Initialize the MongoDB transport once the connection is ready.
+ * Initialize logging confirmation once the DB connection is ready.
  * Called from server.js after mongoose.connect() succeeds.
+ * Note: Persistence is handled via direct SystemLog.create() in log(),
+ * not via winston-mongodb transport, to ensure schema consistency.
  */
 function initMongoTransport() {
-  if (!LOG_DB_ENABLED || !MONGODB_URI || mongoTransportAdded) return;
-
-  try {
-    logger.add(new MongoDB({
-      db: MONGODB_URI,
-      collection: 'systemlogs',
-      level: 'audit', // Only persist audit, warn, error (not info/debug)
-      options: { useUnifiedTopology: true },
-      storeHost: true,
-      decolorize: true,
-      metaKey: 'meta',
-      // Transform winston log entry to match our SystemLog schema
-      format: winston.format.combine(
-        winston.format.metadata(),
-        winston.format.json()
-      )
-    }));
-    mongoTransportAdded = true;
-    console.log('[Logger] MongoDB transport initialized');
-  } catch (err) {
-    console.error('[Logger] Failed to initialize MongoDB transport:', err.message);
-  }
+  if (!LOG_DB_ENABLED || !MONGODB_URI) return;
+  console.log('[Logger] MongoDB logging enabled (direct writes to SystemLog collection)');
 }
 
 /**
@@ -109,8 +91,7 @@ function log(level, event, data = {}) {
     source: data.source || 'server'
   };
 
-  // Also write directly to SystemLog collection for audit entries
-  // (winston-mongodb can be unreliable with custom schemas)
+  // Persist audit/warn/error directly to SystemLog for reliable schema-matched writes
   if (['audit', 'error', 'warn'].includes(level) && LOG_DB_ENABLED) {
     const SystemLog = require('../models/SystemLog');
     SystemLog.create({
@@ -130,8 +111,9 @@ function log(level, event, data = {}) {
     });
   }
 
-  // Always write to console via winston
-  logger.log(level, entry.message, entry);
+  // Write to console via winston (only audit+ levels will show due to transport config)
+  // Use 'msg' key to avoid winston's built-in 'message' merging behavior
+  logger.log(level, '', { ...entry, msg: entry.message });
 }
 
 // Convenience methods
