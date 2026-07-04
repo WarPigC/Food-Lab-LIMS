@@ -397,7 +397,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
     // User requested "once the entire process is done, job form must be made immutable".
     // For now, if the distribution has completed statuses for everything required, it's immutable.
     const isMicroDone = !job.distribution.micro.required || job.distribution.micro.status === 'COMPLETED';
-    const isChemicalDone = !job.distribution.chemical.required || job.distribution.chemical.sta === 'COMPLETED';
+    const isChemicalDone = !job.distribution.chemical.required || job.distribution.chemical.status === 'COMPLETED';
 
     if (isMicroDone && isChemicalDone) {
       return res.status(400).json({ message: 'Job is complete and immutable.' });
