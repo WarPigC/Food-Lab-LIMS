@@ -148,16 +148,24 @@ const createImageCell = (imageBuffer, width, height, borders = BORDERS_ALL, alig
 };
 
 const deriveReportFields = (jobCode) => {
-  const baseCode = jobCode ? jobCode.split('-')[0] : '';
+  // Extract the base numeric code (first 10 digits), ignoring suffixes like -N, -retest-1
+  const baseCode = jobCode ? jobCode.match(/^(\d+)/)?.[1] || '' : '';
   const last4 = baseCode ? baseCode.slice(-4) : '0000';
   const yy = baseCode ? baseCode.slice(0, 2) : '00';
+
+  // Detect Non-NABL suffix (-N)
+  const isNonNabl = jobCode ? /^[\d]+-N(?:-|$)/.test(jobCode) || jobCode.endsWith('-N') : false;
+  const nonNablSuffix = isNonNabl ? '-N' : '';
+
+  // Detect retest suffix (-retest-1 → A, -retest-2 → B, etc.)
   const retestMatch = jobCode ? jobCode.match(/retest-(\d+)/i) : null;
   let retestLetter = '';
   if (retestMatch && retestMatch[1]) {
     retestLetter = String.fromCharCode(64 + parseInt(retestMatch[1], 10));
   }
+
   const baseReportNo = `FTL/AIPER/${yy}/${last4}`;
-  const testReportNo = `${baseReportNo}${retestLetter ? '-' + retestLetter : ''}`;
+  const testReportNo = `${baseReportNo}${nonNablSuffix}${retestLetter ? '-' + retestLetter : ''}`;
   const registrationNo = String(Math.max(0, parseInt(last4, 10) - 1099));
   return { testReportNo, registrationNo, isAmended: !!retestLetter, baseReportNo };
 };
