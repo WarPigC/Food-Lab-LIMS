@@ -233,6 +233,12 @@ const buildSampleInfoTable = (job) => {
     ? `${new Date(tp.startDate).toLocaleDateString('en-IN')} to ${new Date(tp.endDate).toLocaleDateString('en-IN')}`
     : 'N/A';
 
+  const contactDetailsArr = [];
+  if (customer.contact_person) contactDetailsArr.push(customer.contact_person);
+  if (customer.mobile_number) contactDetailsArr.push(customer.mobile_number);
+  if (customer.email) contactDetailsArr.push(customer.email);
+  const contactDetailsStr = contactDetailsArr.length > 0 ? contactDetailsArr.join(' ') : 'N/A';
+
   const r = [];
 
   // Customer info row
@@ -241,7 +247,7 @@ const buildSampleInfoTable = (job) => {
       children: [
         new Paragraph({ children: [new TextRun({ text: "Customer Name :  ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_name || job.clientName || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }),
         new Paragraph({ children: [new TextRun({ text: "Address :               ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_address || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }),
-        new Paragraph({ children: [new TextRun({ text: "Contact details:", bold: true, font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } })
+        new Paragraph({ children: [new TextRun({ text: "Contact details:   ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: contactDetailsStr, font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } })
       ], columnSpan: 5, borders: BORDERS_ALL, margins: { top: 20, bottom: 20, left: 40, right: 40 }
     })]
   }));
