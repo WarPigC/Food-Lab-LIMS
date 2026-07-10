@@ -6,15 +6,7 @@ import Spinner from '../components/Spinner';
 import { useSocket } from '../context/SocketContext';
 import API_URL from '../utils/api';
 
-const UNITS_LIST = [
-  'mg/kg', '%', 'mcg/kg', 'µg/m³', 'ng/m³', 'mg/m³', 'mg/Nm³', 'Nm³/s', 'k', 'g/ml',
-  'µg/kg', '% w/w', 'meq/1000g', 'ppm', '°C', 'g/cm³', 'ml', 'A°', 'ppb', 'meq/kg',
-  'minute', 'ds/meter', 'Kcal', 'g/100L', 'Agreeable', 'Disagreeable', 'Positive',
-  'Negative', 'Complies', 'Does not comply', 'Present', 'Absent', 'kg/hl', 'mm',
-  'mg/100g', 'mcg/100g', 'lovibond scale', 'IU/g', '°Brix', 'SHU', 'ms/cm', 'µs/cm',
-  'ICUMSA unit', 'kg/ha', 'mg/l', 'hazen', 'NTU', 'µg/l', 'g/50cm³', 'CU', 'g/litre',
-  'mg KOH/gm'
-];
+
 
 export default function AssistantDashboard() {
   const [tasks, setTasks] = useState([]);
@@ -22,6 +14,7 @@ export default function AssistantDashboard() {
   const [resultsData, setResultsData] = useState([]);
   const [testingPeriod, setTestingPeriod] = useState({ startDate: '', endDate: '' });
   const [testMethods, setTestMethods] = useState([]);
+  const [units, setUnits] = useState([]);
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(() => !sessionStorage.getItem(CACHE_KEYS.MY_TASKS));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,9 +55,21 @@ export default function AssistantDashboard() {
     }
   };
 
+  const fetchUnits = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/units`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setUnits(res.data);
+    } catch (err) {
+      console.error('Failed to fetch units', err);
+    }
+  };
+
   useEffect(() => { 
     fetchTasks(); 
     fetchTestMethods();
+    fetchUnits();
   }, []);
 
   const handleAddTestMethod = async (newText) => {
@@ -215,6 +220,8 @@ export default function AssistantDashboard() {
     }
     setResultsData(updated);
   };
+
+
 
   const handleIndividualSave = async (index) => {
     if (isSubmitting) return;
@@ -552,25 +559,13 @@ export default function AssistantDashboard() {
                                   borderColor: (resItem.value && !isNaN(parseFloat(resItem.value)) && parseFloat(resItem.value) < 0) ? 'var(--color-danger)' : 'var(--color-border)'
                                 }} 
                               />
-                              <select 
+                              <UnitDropdown
                                 value={resItem.unit || ''}
-                                onChange={e => handleResultChange(i, 'unit', e.target.value)}
-                                style={{
-                                  ...inputStyle,
-                                  width: 'auto',
-                                  minWidth: '100px',
-                                  padding: '0.5rem',
-                                  fontSize: '0.82rem',
-                                  color: 'var(--color-text-main)'
-                                }}
-                              >
-                                {resItem.unit && !UNITS_LIST.includes(resItem.unit) && (
-                                  <option value={resItem.unit}>{resItem.unit}</option>
-                                )}
-                                {UNITS_LIST.map(u => (
-                                  <option key={u} value={u}>{u}</option>
-                                ))}
-                              </select>
+                                onChange={val => handleResultChange(i, 'unit', val)}
+                                units={units}
+                                onRefresh={fetchUnits}
+                                inputStyle={inputStyle}
+                              />
                             </div>
                           </div>
                           <div>
@@ -868,6 +863,181 @@ const TestMethodDropdown = ({ value, onChange, testMethods, onUpdate, onDelete, 
           </button>
           <button type="button" onClick={() => { setIsCreatingNew(false); setNewMethodText(''); }} disabled={isSavingNew} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', border: '1px solid var(--color-border)' }}>Cancel</button>
         </div>
+      )}
+    </div>
+  );
+};
+
+// UnitDropdown Component — DB-backed unit picker with add/delete
+const UnitDropdown = ({ value, onChange, units, onRefresh, inputStyle }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [filter, setFilter] = useState(value || '');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newUnitText, setNewUnitText] = useState('');
+  const [isSavingNew, setIsSavingNew] = useState(false);
+
+  useEffect(() => {
+    setFilter(value || '');
+  }, [value]);
+
+  const filteredUnits = units.filter(u => u.text.toLowerCase().includes(filter.toLowerCase()));
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filter]);
+
+  const handleKeyDown = (e) => {
+    if (!isOpen || filteredUnits.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < filteredUnits.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const u = filteredUnits[activeIndex];
+      if (u) { onChange(u.text); setFilter(u.text); setIsOpen(false); }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  const handleDeleteUnit = async (id) => {
+    if (!window.confirm('Delete this unit from the shared list?')) return;
+    try {
+      await axios.delete(`${API_URL}/api/units/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      onRefresh();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error deleting unit');
+    }
+  };
+
+  const handleCreateUnit = async () => {
+    if (!newUnitText.trim() || isSavingNew) return;
+    setIsSavingNew(true);
+    try {
+      const res = await axios.post(`${API_URL}/api/units`, { text: newUnitText }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      onChange(res.data.text);
+      setFilter(res.data.text);
+      setIsCreatingNew(false);
+      setNewUnitText('');
+      onRefresh();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error creating unit');
+    }
+    setIsSavingNew(false);
+  };
+
+  return (
+    <div style={{ position: 'relative', minWidth: '100px' }}>
+      <input
+        type="text"
+        value={filter}
+        onChange={e => { setFilter(e.target.value); onChange(e.target.value); setIsOpen(true); }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder="Unit…"
+        style={{
+          ...inputStyle,
+          width: '100%',
+          padding: '0.5rem',
+          fontSize: '0.82rem',
+          color: 'var(--color-text-main)'
+        }}
+      />
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+          borderTop: 'none', borderRadius: '0 0 var(--radius-sm) var(--radius-sm)',
+          maxHeight: '220px', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}>
+          {/* Add Unit — pinned at top */}
+          {!isCreatingNew ? (
+            <div
+              onMouseDown={(e) => { e.preventDefault(); setIsCreatingNew(true); }}
+              style={{
+                padding: '0.45rem 0.6rem', cursor: 'pointer', fontSize: '0.78rem',
+                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                color: 'var(--color-primary)', fontWeight: 600,
+                borderBottom: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-surface)', flexShrink: 0
+              }}
+            >
+              <Plus size={12} /> Add New Unit
+            </div>
+          ) : (
+            <div
+              onMouseDown={(e) => e.preventDefault()}
+              style={{
+                padding: '0.45rem', display: 'flex', gap: '0.3rem', alignItems: 'center',
+                borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', flexShrink: 0
+              }}
+            >
+              <input
+                type="text"
+                placeholder="New unit…"
+                value={newUnitText}
+                onChange={e => setNewUnitText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateUnit(); } }}
+                style={{ ...inputStyle, flex: 1, padding: '0.3rem', fontSize: '0.78rem' }}
+                autoFocus
+              />
+              <button type="button" onMouseDown={(e) => { e.preventDefault(); handleCreateUnit(); }} className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem', minWidth: '40px', justifyContent: 'center' }} disabled={!newUnitText.trim() || isSavingNew}>
+                {isSavingNew ? '...' : 'Add'}
+              </button>
+              <button type="button" onMouseDown={(e) => { e.preventDefault(); setIsCreatingNew(false); setNewUnitText(''); }} disabled={isSavingNew} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
+                <X size={12} />
+              </button>
+            </div>
+          )}
+          {/* Scrollable unit list */}
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {filteredUnits.map((u, index) => (
+              <div
+                key={u._id}
+                onMouseEnter={() => setActiveIndex(index)}
+                style={{
+                  padding: '0.4rem 0.6rem', cursor: 'pointer', fontSize: '0.82rem',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  borderBottom: '1px solid var(--color-border)',
+                  backgroundColor: activeIndex === index ? 'var(--color-surface-hover)' : 'transparent',
+                  borderLeft: activeIndex === index ? '3px solid var(--color-primary)' : '3px solid transparent',
+                  transition: 'background-color 0.1s'
+                }}
+              >
+                <div
+                  style={{ flex: 1, wordBreak: 'break-word' }}
+                  onMouseDown={(e) => { e.preventDefault(); onChange(u.text); setFilter(u.text); setIsOpen(false); }}
+                >
+                  {u.text}
+                </div>
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); handleDeleteUnit(u._id); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px', flexShrink: 0 }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+            {filter && filteredUnits.length === 0 && (
+              <div style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                No matching units
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }} onClick={() => setIsOpen(false)} />
       )}
     </div>
   );

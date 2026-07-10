@@ -30,15 +30,26 @@ const attachResultsToJob = async (job) => {
   
   // Create a map of parameterId -> result for quick lookup
   const resultMap = {};
+  const allInstanceParams = []; // track ALL params across instances (including custom ones)
   instances.forEach(inst => {
     // We only want the latest active instance per department, so we can just grab results
     inst.results.forEach(r => {
-      resultMap[r.parameterId.toString()] = {
+      const pid = r.parameterId.toString();
+      resultMap[pid] = {
         value: r.value,
         testMethod: r.testMethod,
         specification: r.specification, // in case they filled it dynamically, though we prefer the static one in job
         unit: r.unit // analyst may override the default unit
       };
+      allInstanceParams.push({
+        parameterId: pid,
+        name: r.name,
+        type: r.type || 'Chemical',
+        unit: r.unit,
+        specification: r.specification || '',
+        value: r.value,
+        testMethod: r.testMethod
+      });
     });
   });
 
@@ -58,6 +69,20 @@ const attachResultsToJob = async (job) => {
   };
 
   jobObj.parameters = mergeResults(jobObj.parameters);
+
+  // Append custom parameters added by analysts that aren't in the original job
+  const existingIds = new Set(
+    (jobObj.parameters || []).map(p =>
+      p.parameterId ? (p.parameterId._id || p.parameterId).toString() : null
+    ).filter(Boolean)
+  );
+
+  for (const ip of allInstanceParams) {
+    if (!existingIds.has(ip.parameterId)) {
+      jobObj.parameters.push(ip);
+      existingIds.add(ip.parameterId);
+    }
+  }
 
   return jobObj;
 };

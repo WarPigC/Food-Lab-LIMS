@@ -189,13 +189,19 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
 // ASSISTANT saves partial progress
 router.put('/instances/:id/save-progress', protect, authorize('ASSISTANT'), async (req, res) => {
   try {
-    const { results } = req.body;
+    const { results, testingPeriod } = req.body;
     const instance = await TestInstance.findOne({ _id: req.params.id, assignedTo: req.user._id });
 
     if (!instance) return res.status(404).json({ message: 'Test not found or not assigned to you' });
     if (instance.status !== 'PENDING') return res.status(400).json({ message: 'Test is not in a submittable state' });
 
     instance.results = results;
+    if (testingPeriod) {
+      instance.testingPeriod = {
+        startDate: testingPeriod.startDate || null,
+        endDate: testingPeriod.endDate || null
+      };
+    }
     await instance.save();
 
     res.json(instance);

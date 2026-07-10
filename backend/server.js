@@ -63,6 +63,7 @@ app.use('/api/sample-transfers', require('./routes/sampleTransferRoutes'));
 app.use('/api/bug-reports', require('./routes/bugReportRoutes'));
 app.use('/api/data-settings', require('./routes/dataSettingsRoutes'));
 app.use('/api/test-methods', require('./routes/testMethodRoutes'));
+app.use('/api/units', require('./routes/unitRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
 app.use('/api/logs', require('./routes/logRoutes'));
 
