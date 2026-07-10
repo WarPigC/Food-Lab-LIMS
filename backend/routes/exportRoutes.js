@@ -84,6 +84,31 @@ const attachResultsToJob = async (job) => {
     }
   }
 
+  // Merge testingPeriod from TestInstances (earliest start, latest end)
+  let mergedStart = null;
+  let mergedEnd = null;
+  let latestCompletedAt = null;
+  for (const inst of instances) {
+    if (inst.testingPeriod?.startDate) {
+      const s = new Date(inst.testingPeriod.startDate);
+      if (!mergedStart || s < mergedStart) mergedStart = s;
+    }
+    if (inst.testingPeriod?.endDate) {
+      const e = new Date(inst.testingPeriod.endDate);
+      if (!mergedEnd || e > mergedEnd) mergedEnd = e;
+    }
+    if (inst.completedAt) {
+      const c = new Date(inst.completedAt);
+      if (!latestCompletedAt || c > latestCompletedAt) latestCompletedAt = c;
+    }
+  }
+  if (mergedStart || mergedEnd) {
+    jobObj.testingPeriod = { startDate: mergedStart, endDate: mergedEnd };
+  }
+  if (latestCompletedAt && !jobObj.completedAt) {
+    jobObj.completedAt = latestCompletedAt;
+  }
+
   return jobObj;
 };
 

@@ -194,18 +194,26 @@ const buildHeaderTable = (isNabl) => {
   ];
 
   if (isNabl) {
-    const nablChildren = [];
-    if (nablLogoBuf) nablChildren.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 80, height: 80 }, type: "png" }));
-    if (nablLogoBuf && nablQrcodeBuf) nablChildren.push(new TextRun({ text: "\u00A0" }));
-    if (nablQrcodeBuf) nablChildren.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 80, height: 80 }, type: "png" }));
-    cells.push(new TableCell({
+    const nablLogoBuf2 = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
+    const nablQrcodeBuf2 = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
+    // Borders: remove the shared edge so the two cells look like one
+    const nablLogoBorders = { top: BORDERS_ALL.top, bottom: BORDERS_ALL.bottom, left: BORDERS_ALL.left, right: { style: BorderStyle.NONE, size: 0, color: "auto" } };
+    const qrBorders = { top: BORDERS_ALL.top, bottom: BORDERS_ALL.bottom, left: { style: BorderStyle.NONE, size: 0, color: "auto" }, right: BORDERS_ALL.right };
+    // NABL logo cell with TC-12434 directly below
+    const nablLogoCell = new TableCell({
       children: [
-        new Paragraph({ children: nablChildren, alignment: AlignmentType.CENTER }),
+        ...(nablLogoBuf2 ? [new Paragraph({ children: [new ImageRun({ data: nablLogoBuf2, transformation: { width: 80, height: 80 }, type: "png" })], alignment: AlignmentType.CENTER })] : []),
         new Paragraph({ children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: { before: 30 } })
       ],
-      verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
-      width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
-    }));
+      verticalAlign: VerticalAlign.CENTER, borders: nablLogoBorders,
+      width: { size: Math.round(PAGE_WIDTH_DXA * 13 / 100), type: WidthType.DXA }
+    });
+    // QR code cell
+    const qrCell = nablQrcodeBuf2
+      ? createImageCell(nablQrcodeBuf2, 80, 80, qrBorders, AlignmentType.CENTER, 12)
+      : new TableCell({ children: [new Paragraph({ children: [] })], borders: qrBorders, width: { size: Math.round(PAGE_WIDTH_DXA * 12 / 100), type: WidthType.DXA } });
+    cells.push(nablLogoCell);
+    cells.push(qrCell);
   }
 
   return new Table({ rows: [new TableRow({ children: cells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
@@ -216,9 +224,10 @@ const buildSampleInfoTable = (job) => {
   const sample = job.sample || {};
   const compliance = job.compliance || {};
   const { testReportNo, registrationNo } = deriveReportFields(job.jobCode);
-  const completedAt = job.completedAt || new Date();
+  const fallbackDate = sample.received_date || job.createdAt;
+  const completedAt = job.completedAt || fallbackDate;
   const issueDate = new Date(completedAt).toLocaleDateString('en-IN');
-  const receiptDate = new Date(job.createdAt).toLocaleDateString('en-IN');
+  const receiptDate = new Date(fallbackDate).toLocaleDateString('en-IN');
   const tp = job.testingPeriod || {};
   const testingPeriodStr = tp.startDate && tp.endDate
     ? `${new Date(tp.startDate).toLocaleDateString('en-IN')} to ${new Date(tp.endDate).toLocaleDateString('en-IN')}`
