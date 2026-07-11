@@ -8,7 +8,9 @@ import Spinner from './Spinner';
 
 export default function ReportModal({ job, onClose }) {
   const { user } = useContext(AuthContext);
-  const [reportType, setReportType] = useState('non_nabl'); // default
+  // Initialize reportType synchronously based on job data to prevent double-fetching
+  const initialType = job.sample?.nabl_type === 'Nabl' ? 'nabl' : 'non_nabl';
+  const [reportType, setReportType] = useState(initialType);
   const [blob, setBlob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null);
@@ -18,39 +20,46 @@ export default function ReportModal({ job, onClose }) {
   const isHybrid = job.sample?.nabl_type === 'Hybrid';
 
   useEffect(() => {
+    // If the modal is kept open but job changes, update the type
     if (job.sample?.nabl_type === 'Nabl') setReportType('nabl');
-    if (job.sample?.nabl_type === 'Non Nabl') setReportType('non_nabl');
-    // For Hybrid, it defaults to 'non_nabl', but user can toggle
-  }, [job]);
-
-  const loadReport = async () => {
-    setLoading(true);
-    setBlob(null);
-    try {
-      const token = localStorage.getItem('token');
-      // 1. Fetch Status
-      const statusRes = await axios.get(`${API_URL}/api/export/report/${job._id}/status?type=${reportType}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStatus(statusRes.data);
-
-      // 2. Fetch Blob
-      const blobRes = await axios.get(`${API_URL}/api/export/report/${job._id}?type=${reportType}&_t=${Date.now()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
-      });
-      setBlob(blobRes.data);
-    } catch (err) {
-      console.error('Failed to load report', err);
-      alert('Failed to load report. Check console.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    else if (job.sample?.nabl_type === 'Non Nabl') setReportType('non_nabl');
+  }, [job._id]);
 
   useEffect(() => {
+    let isMounted = true;
+    
+    const loadReport = async () => {
+      setLoading(true);
+      setBlob(null);
+      try {
+        const token = localStorage.getItem('token');
+        // 1. Fetch Status
+        const statusRes = await axios.get(`${API_URL}/api/export/report/${job._id}/status?type=${reportType}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!isMounted) return;
+        setStatus(statusRes.data);
+
+        // 2. Fetch Blob
+        const blobRes = await axios.get(`${API_URL}/api/export/report/${job._id}?type=${reportType}&_t=${Date.now()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob'
+        });
+        if (!isMounted) return;
+        setBlob(blobRes.data);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('Failed to load report', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
     loadReport();
-    // eslint-disable-next-line
+
+    return () => {
+      isMounted = false; // Prevent state updates if component unmounts or reportType changes
+    };
   }, [job._id, reportType]);
 
   const handleDownload = () => {

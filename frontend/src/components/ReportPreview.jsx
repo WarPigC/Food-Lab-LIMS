@@ -7,10 +7,14 @@ export default function ReportPreview({ blob }) {
   useEffect(() => {
     if (!blob || !containerRef.current) return;
     
-    // Clear previous render
-    containerRef.current.innerHTML = '';
+    let isStale = false;
     
-    docx.renderAsync(blob, containerRef.current, null, {
+    // Create a fresh container for this render pass
+    const innerContainer = document.createElement('div');
+    containerRef.current.innerHTML = '';
+    containerRef.current.appendChild(innerContainer);
+    
+    docx.renderAsync(blob, innerContainer, null, {
       className: 'docx',
       inWrapper: true,
       ignoreWidth: false, 
@@ -22,27 +26,47 @@ export default function ReportPreview({ blob }) {
       trimXmlDeclaration: true,
       debug: false
     }).then(() => {
+      if (isStale) return; // Ignore if a new render started
+
       // Post-render: apply scale-to-fit for the container
-      const wrapper = containerRef.current.querySelector('.docx-wrapper');
+      const wrapper = innerContainer.querySelector('.docx-wrapper');
       if (wrapper) {
         wrapper.style.backgroundColor = 'transparent';
         wrapper.style.padding = '0';
       }
       
-      const sections = containerRef.current.querySelectorAll('section.docx');
+      const sections = innerContainer.querySelectorAll('section.docx');
       sections.forEach(sec => {
         sec.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
         sec.style.marginBottom = '2rem';
         sec.style.borderRadius = '4px';
       });
 
-      // Fix docx-preview rendering artifacts
-      fixUlrAlignment();
-      fixNablLogoStacking();
+      // Debug image rendering issues
+      const images = innerContainer.querySelectorAll('img');
+      console.log(`[ReportPreview] Found ${images.length} images in docx-preview output.`);
+      images.forEach((img, i) => {
+        console.log(`[ReportPreview] Image ${i}: src starts with "${img.src.substring(0, 30)}...", width=${img.width}, naturalWidth=${img.naturalWidth}`);
+        
+        // Failsafe: if the image fails to load, log it
+        img.onerror = () => {
+          console.error(`[ReportPreview] Image ${i} failed to load. Src: ${img.src}`);
+        };
+      });
 
-      // Scale-to-fit: measure the rendered page width and scale it to fit the container
-      applyScaleToFit();
-    }).catch(err => console.error("Error rendering docx preview:", err));
+      // Fix docx-preview rendering artifacts
+      fixUlrAlignment(innerContainer);
+      fixNablLogoStacking(innerContainer);
+
+      // Scale-to-fit
+      applyScaleToFit(innerContainer);
+    }).catch(err => {
+      if (!isStale) console.error("Error rendering docx preview:", err);
+    });
+
+    return () => {
+      isStale = true; // Cleanup marks this render as stale
+    };
   }, [blob]);
 
   /**
@@ -50,9 +74,9 @@ export default function ReportPreview({ blob }) {
    * docx-preview ignores tab stops, so "Report No. xxx\tULR No. xxx" renders
    * as a single left-aligned line. We find the ULR spans and float them right.
    */
-  const fixUlrAlignment = () => {
-    if (!containerRef.current) return;
-    const allSpans = containerRef.current.querySelectorAll('span');
+  const fixUlrAlignment = (container) => {
+    if (!container) return;
+    const allSpans = container.querySelectorAll('span');
     
     allSpans.forEach(span => {
       if (span.textContent.trim() === 'ULR No.') {
@@ -90,16 +114,16 @@ export default function ReportPreview({ blob }) {
   };
 
   /**
-   * Fix NABL logo + QR code stacking.
-   * docx-preview wraps each image in a div with display:inline-block, but they
-   * may stack vertically. We ensure the container cell uses flexbox to keep
-   * images side-by-side, and also fix image visibility on first load.
+   * Fix TC-12434 positioning in the NABL cell.
+   * docx-preview renders the right indent differently from Word,
+   * so we nudge the text slightly left to align under the NABL logo.
+   * Note: flexbox is NOT applied here — it causes Chrome to skip painting images.
+   * The backend already puts both images inline in one paragraph to prevent stacking.
    */
-  const fixNablLogoStacking = () => {
-    if (!containerRef.current) return;
+  const fixNablLogoStacking = (container) => {
+    if (!container) return;
     
-    // Find the header table (first table in each section)
-    const sections = containerRef.current.querySelectorAll('section.docx');
+    const sections = container.querySelectorAll('section.docx');
     sections.forEach(sec => {
       const firstTable = sec.querySelector('table');
       if (!firstTable) return;
@@ -108,28 +132,13 @@ export default function ReportPreview({ blob }) {
       cells.forEach(cell => {
         const images = cell.querySelectorAll('img');
         if (images.length >= 2) {
-          // This is the NABL cell with logo + QR code — fix layout
-          const paragraph = cell.querySelector('p');
-          if (paragraph) {
-            paragraph.style.cssText += 'display: flex; align-items: center; justify-content: center; gap: 4pt; flex-wrap: nowrap;';
-          }
-          // Ensure image containers don't force block layout
-          const imgDivs = cell.querySelectorAll('div');
-          imgDivs.forEach(d => {
-            if (d.querySelector('img')) {
-              d.style.display = 'inline-block';
-              d.style.flexShrink = '0';
-            }
-          });
-
-          // Fix TC-12434 positioning: docx-preview renders the right indent
-          // differently from Word, so we nudge it left via translateX
+          // Fix TC-12434 positioning only — no layout changes
           const allPs = cell.querySelectorAll('p');
           allPs.forEach(p => {
             const spans = p.querySelectorAll('span');
             spans.forEach(s => {
               if (s.textContent.trim() === 'TC-12434') {
-                p.style.transform = 'translateX(-8px)';
+                p.style.transform = 'translateX(-2px)';
               }
             });
           });
@@ -138,17 +147,17 @@ export default function ReportPreview({ blob }) {
     });
   };
 
-  const applyScaleToFit = () => {
-    if (!containerRef.current) return;
-    const section = containerRef.current.querySelector('section.docx');
+  const applyScaleToFit = (container = containerRef.current) => {
+    if (!container) return;
+    const section = container.querySelector('section.docx');
     if (!section) return;
 
-    const containerWidth = containerRef.current.clientWidth;
+    const containerWidth = container.clientWidth || (container.parentElement && container.parentElement.clientWidth);
     const sectionWidth = section.scrollWidth || section.offsetWidth;
 
-    if (sectionWidth > containerWidth) {
+    if (sectionWidth > containerWidth && containerWidth > 0) {
       const scale = containerWidth / sectionWidth;
-      const wrapper = containerRef.current.querySelector('.docx-wrapper');
+      const wrapper = container.querySelector('.docx-wrapper');
       if (wrapper) {
         wrapper.style.transformOrigin = 'top left';
         wrapper.style.transform = `scale(${scale})`;
