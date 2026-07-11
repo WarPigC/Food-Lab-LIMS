@@ -228,7 +228,7 @@ const buildHeaderTable = (isNabl) => {
     nablChildren.push(new Paragraph({
       children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
       alignment: AlignmentType.CENTER,
-      indent: { right: 1250 },
+      indent: { right: 1100 },
       spacing: { before: 20, after: 0 }
     }));
 
