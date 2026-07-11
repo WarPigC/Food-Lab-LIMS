@@ -203,50 +203,40 @@ const buildHeaderTable = (isNabl) => {
 
   const cells = [logoCell, textCell];
 
-  // --- Cell 3 & 4 (NABL only): Split into two cells to avoid docx-preview bug ---
+  // --- Cell 3 (NABL only): Single cell with NABL logo + QR side-by-side ---
   if (isNabl) {
-    // We split the 25% width into two 12.5% cells and hide the border between them
-    const BORDER_NONE = { style: "none", size: 0, color: "auto" };
-    
-    // Cell 3: NABL Logo (left side)
-    const nablLogoChildren = [];
+    const nablChildren = [];
+
+    // Both images INLINE in one paragraph — forces them side-by-side, never stacks
+    const inlineImages = [];
     if (nablLogoBuf) {
-      nablLogoChildren.push(new Paragraph({
-        children: [new ImageRun({ data: nablLogoBuf, transformation: { width: 65, height: 65 }, type: "png" })],
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0 }
-      }));
+      inlineImages.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 65, height: 65 }, type: "png" }));
     }
-    nablLogoChildren.push(new Paragraph({
+    // Add spacing between the two images
+    inlineImages.push(new TextRun({ text: "    ", font: "Times New Roman", size: 16 }));
+    if (nablQrcodeBuf) {
+      inlineImages.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 65, height: 65 }, type: "png" }));
+    }
+    nablChildren.push(new Paragraph({
+      children: inlineImages,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 }
+    }));
+
+    // TC-12434 centered in the left half of the cell (under NABL logo)
+    // Right indent shrinks the centering zone to align with the left image
+    nablChildren.push(new Paragraph({
       children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
       alignment: AlignmentType.CENTER,
+      indent: { right: 1100 },
       spacing: { before: 20, after: 0 }
     }));
 
     cells.push(new TableCell({
-      children: nablLogoChildren,
+      children: nablChildren,
       verticalAlign: VerticalAlign.CENTER,
-      borders: { ...BORDERS_ALL, right: BORDER_NONE },
-      width: { size: Math.round(PAGE_WIDTH_DXA * 12.5 / 100), type: WidthType.DXA }
-    }));
-
-    // Cell 4: QR Code (right side)
-    const qrCodeChildren = [];
-    if (nablQrcodeBuf) {
-      qrCodeChildren.push(new Paragraph({
-        children: [new ImageRun({ data: nablQrcodeBuf, transformation: { width: 65, height: 65 }, type: "png" })],
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0 }
-      }));
-    } else {
-      qrCodeChildren.push(new Paragraph({ children: [] })); // empty fallback
-    }
-
-    cells.push(new TableCell({
-      children: qrCodeChildren,
-      verticalAlign: VerticalAlign.CENTER,
-      borders: { ...BORDERS_ALL, left: BORDER_NONE },
-      width: { size: Math.round(PAGE_WIDTH_DXA * 12.5 / 100), type: WidthType.DXA }
+      borders: BORDERS_ALL,
+      width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
     }));
   }
 
