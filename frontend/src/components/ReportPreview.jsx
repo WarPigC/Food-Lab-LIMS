@@ -123,13 +123,13 @@ export default function ReportPreview({ blob }) {
           });
 
           // Fix TC-12434 positioning: docx-preview renders the right indent
-          // differently from Word, so we nudge it left via extra margin-right
+          // differently from Word, so we nudge it left via translateX
           const allPs = cell.querySelectorAll('p');
           allPs.forEach(p => {
             const spans = p.querySelectorAll('span');
             spans.forEach(s => {
               if (s.textContent.trim() === 'TC-12434') {
-                p.style.marginRight = (parseInt(p.style.marginRight || '0') + 8) + 'px';
+                p.style.transform = 'translateX(-8px)';
               }
             });
           });
