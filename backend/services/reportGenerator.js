@@ -176,8 +176,8 @@ const buildHeaderTable = (isNabl) => {
   const nablLogoBuf = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
   const nablQrcodeBuf = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
 
-  // Tight line spacing: 220 twips (single=240, so this is sub-single)
-  const LS = { before: 0, after: 0, line: 220 };
+  // Compact line spacing: 260 twips (slightly above single=240 for readability)
+  const LS = { before: 0, after: 0, line: 260 };
 
   // --- Cell 1: Acropolis logo (fixed 20%) ---
   const logoCell = createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 20);
@@ -228,7 +228,7 @@ const buildHeaderTable = (isNabl) => {
     nablChildren.push(new Paragraph({
       children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
       alignment: AlignmentType.CENTER,
-      indent: { right: 1100 },
+      indent: { right: 1250 },
       spacing: { before: 20, after: 0 }
     }));
 
