@@ -223,11 +223,12 @@ const buildHeaderTable = (isNabl) => {
       spacing: { before: 0, after: 0 }
     }));
 
-    // TC-12434 left-aligned under the NABL logo (left image)
+    // TC-12434 centered in the left half of the cell (under NABL logo)
+    // Right indent shrinks the centering zone to align with the left image
     nablChildren.push(new Paragraph({
       children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
-      alignment: AlignmentType.LEFT,
-      indent: { left: 180 },
+      alignment: AlignmentType.CENTER,
+      indent: { right: 1100 },
       spacing: { before: 20, after: 0 }
     }));
 
