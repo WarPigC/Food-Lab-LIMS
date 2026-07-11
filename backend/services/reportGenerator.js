@@ -181,12 +181,11 @@ const buildHeaderTable = (isNabl) => {
     createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, logoWidthPct),
     new TableCell({
       children: [
-        new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: { before: 20, after: 20 } }),
-        new Paragraph({ children: [new TextRun({ text: "Acropolis Institute of Pharmaceutical Education and Research", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: "Mangliya Square, Indore Bypass Road, Indore M.P.-453771; Mobile: +91 9201974674", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: "Landline: 731-4730174, 175,176 & 184", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: "Email ID:ftl@acropolis.edu.in", font: "Times New Roman", size: 18, color: "0000FF" })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: "Website: www.acrolabs.in", font: "Times New Roman", size: 18, color: "0000FF" })], alignment: AlignmentType.CENTER })
+        new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
+        new Paragraph({ children: [new TextRun({ text: "Acropolis Institute of Pharmaceutical Education and Research", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
+        new Paragraph({ children: [new TextRun({ text: "Mangliya Square, Indore Bypass Road, Indore M.P.-453771", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
+        new Paragraph({ children: [new TextRun({ text: "Mobile: +91 9201974674; Landline: 731-4730174, 175,176 & 184", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
+        new Paragraph({ children: [new TextRun({ text: "Email ID:ftl@acropolis.edu.in", font: "Times New Roman", size: 18, color: "0000FF" }), new TextRun({ text: "  |  ", font: "Times New Roman", size: 18 }), new TextRun({ text: "Website: www.acrolabs.in", font: "Times New Roman", size: 18, color: "0000FF" })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } })
       ],
       verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
       width: { size: Math.round(PAGE_WIDTH_DXA * (isNabl ? 50 : 80) / 100), type: WidthType.DXA }
@@ -194,26 +193,35 @@ const buildHeaderTable = (isNabl) => {
   ];
 
   if (isNabl) {
+    // Single cell with a nested 2-column table: [NABL logo + TC-12434 | QR code]
+    // This avoids border issues and keeps TC-12434 under just the logo
     const nablLogoBuf2 = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
     const nablQrcodeBuf2 = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
-    // Borders: remove the shared edge so the two cells look like one
-    const nablLogoBorders = { top: BORDERS_ALL.top, bottom: BORDERS_ALL.bottom, left: BORDERS_ALL.left, right: { style: BorderStyle.NONE, size: 0, color: "auto" } };
-    const qrBorders = { top: BORDERS_ALL.top, bottom: BORDERS_ALL.bottom, left: { style: BorderStyle.NONE, size: 0, color: "auto" }, right: BORDERS_ALL.right };
-    // NABL logo cell with TC-12434 directly below
-    const nablLogoCell = new TableCell({
-      children: [
-        ...(nablLogoBuf2 ? [new Paragraph({ children: [new ImageRun({ data: nablLogoBuf2, transformation: { width: 80, height: 80 }, type: "png" })], alignment: AlignmentType.CENTER })] : []),
-        new Paragraph({ children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: { before: 30 } })
-      ],
-      verticalAlign: VerticalAlign.CENTER, borders: nablLogoBorders,
-      width: { size: Math.round(PAGE_WIDTH_DXA * 13 / 100), type: WidthType.DXA }
+
+    const innerCol1Children = [];
+    if (nablLogoBuf2) innerCol1Children.push(new Paragraph({ children: [new ImageRun({ data: nablLogoBuf2, transformation: { width: 70, height: 70 }, type: "png" })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 } }));
+    innerCol1Children.push(new Paragraph({ children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }));
+
+    const innerCol2Children = [];
+    if (nablQrcodeBuf2) innerCol2Children.push(new Paragraph({ children: [new ImageRun({ data: nablQrcodeBuf2, transformation: { width: 70, height: 70 }, type: "png" })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 } }));
+    if (innerCol2Children.length === 0) innerCol2Children.push(new Paragraph({ children: [] }));
+
+    const innerTable = new Table({
+      rows: [new TableRow({
+        children: [
+          new TableCell({ children: innerCol1Children, borders: BORDERS_NONE, verticalAlign: VerticalAlign.CENTER, width: { size: 50, type: WidthType.PERCENTAGE } }),
+          new TableCell({ children: innerCol2Children, borders: BORDERS_NONE, verticalAlign: VerticalAlign.CENTER, width: { size: 50, type: WidthType.PERCENTAGE } })
+        ]
+      })],
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: TABLE_BORDERS_NONE
     });
-    // QR code cell
-    const qrCell = nablQrcodeBuf2
-      ? createImageCell(nablQrcodeBuf2, 80, 80, qrBorders, AlignmentType.CENTER, 12)
-      : new TableCell({ children: [new Paragraph({ children: [] })], borders: qrBorders, width: { size: Math.round(PAGE_WIDTH_DXA * 12 / 100), type: WidthType.DXA } });
-    cells.push(nablLogoCell);
-    cells.push(qrCell);
+
+    cells.push(new TableCell({
+      children: [innerTable],
+      verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
+      width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
+    }));
   }
 
   return new Table({ rows: [new TableRow({ children: cells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
