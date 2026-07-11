@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "serve dist -s -p $PORT",
+    "start": "serve dist -s -l 0.0.0.0:$PORT",
     "lint": "eslint .",
     "preview": "vite preview"
   },
