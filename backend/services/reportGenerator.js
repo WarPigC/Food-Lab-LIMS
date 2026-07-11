@@ -176,50 +176,65 @@ const buildHeaderTable = (isNabl) => {
   const nablLogoBuf = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
   const nablQrcodeBuf = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
 
-  const logoWidthPct = isNabl ? 25 : 20;
-  const cells = [
-    createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, logoWidthPct),
-    new TableCell({
-      children: [
-        new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
-        new Paragraph({ children: [new TextRun({ text: "Acropolis Institute of Pharmaceutical Education and Research", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
-        new Paragraph({ children: [new TextRun({ text: "Mangliya Square, Indore Bypass Road, Indore M.P.-453771", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
-        new Paragraph({ children: [new TextRun({ text: "Mobile: +91 9201974674; Landline: 731-4730174, 175,176 & 184", font: "Times New Roman", size: 18 })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } }),
-        new Paragraph({ children: [new TextRun({ text: "Email ID:ftl@acropolis.edu.in", font: "Times New Roman", size: 18, color: "0000FF" }), new TextRun({ text: "  |  ", font: "Times New Roman", size: 18 }), new TextRun({ text: "Website: www.acrolabs.in", font: "Times New Roman", size: 18, color: "0000FF" })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0, line: 240 } })
-      ],
-      verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
-      width: { size: Math.round(PAGE_WIDTH_DXA * (isNabl ? 50 : 80) / 100), type: WidthType.DXA }
-    })
-  ];
+  // Tight line spacing: 220 twips (single=240, so this is sub-single)
+  const LS = { before: 0, after: 0, line: 220 };
 
+  // --- Cell 1: Acropolis logo (fixed 20%) ---
+  const logoCell = createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 20);
+
+  // --- Cell 2: Text block ---
+  // Compact: merge phone lines, merge email+website onto one line
+  const textCellWidth = isNabl ? 55 : 80;
+  const textCell = new TableCell({
+    children: [
+      new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Acropolis Institute of Pharmaceutical Education and Research", font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Mangliya Square, Indore Bypass Road, Indore M.P.-453771", font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Mobile: +91 9201974674; Landline: 731-4730174, 175,176 & 184", font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [
+        new TextRun({ text: "Email ID:ftl@acropolis.edu.in", font: "Times New Roman", size: 16, color: "0000FF" }),
+        new TextRun({ text: "  |  ", font: "Times New Roman", size: 16 }),
+        new TextRun({ text: "Website: www.acrolabs.in", font: "Times New Roman", size: 16, color: "0000FF" })
+      ], alignment: AlignmentType.CENTER, spacing: LS })
+    ],
+    verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
+    width: { size: Math.round(PAGE_WIDTH_DXA * textCellWidth / 100), type: WidthType.DXA }
+  });
+
+  const cells = [logoCell, textCell];
+
+  // --- Cell 3 (NABL only): Single cell with NABL logo + QR side-by-side ---
   if (isNabl) {
-    // Single cell with a nested 2-column table: [NABL logo + TC-12434 | QR code]
-    // This avoids border issues and keeps TC-12434 under just the logo
-    const nablLogoBuf2 = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
-    const nablQrcodeBuf2 = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
+    const nablChildren = [];
 
-    const innerCol1Children = [];
-    if (nablLogoBuf2) innerCol1Children.push(new Paragraph({ children: [new ImageRun({ data: nablLogoBuf2, transformation: { width: 70, height: 70 }, type: "png" })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 } }));
-    innerCol1Children.push(new Paragraph({ children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: { before: 20, after: 0 } }));
+    // Both images INLINE in one paragraph — forces them side-by-side, never stacks
+    const inlineImages = [];
+    if (nablLogoBuf) {
+      inlineImages.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 65, height: 65 }, type: "png" }));
+    }
+    // Add spacing between the two images
+    inlineImages.push(new TextRun({ text: "    ", font: "Times New Roman", size: 16 }));
+    if (nablQrcodeBuf) {
+      inlineImages.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 65, height: 65 }, type: "png" }));
+    }
+    nablChildren.push(new Paragraph({
+      children: inlineImages,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 }
+    }));
 
-    const innerCol2Children = [];
-    if (nablQrcodeBuf2) innerCol2Children.push(new Paragraph({ children: [new ImageRun({ data: nablQrcodeBuf2, transformation: { width: 70, height: 70 }, type: "png" })], alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 } }));
-    if (innerCol2Children.length === 0) innerCol2Children.push(new Paragraph({ children: [] }));
-
-    const innerTable = new Table({
-      rows: [new TableRow({
-        children: [
-          new TableCell({ children: innerCol1Children, borders: BORDERS_NONE, verticalAlign: VerticalAlign.CENTER, width: { size: 50, type: WidthType.PERCENTAGE } }),
-          new TableCell({ children: innerCol2Children, borders: BORDERS_NONE, verticalAlign: VerticalAlign.CENTER, width: { size: 50, type: WidthType.PERCENTAGE } })
-        ]
-      })],
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      borders: TABLE_BORDERS_NONE
-    });
+    // TC-12434 left-aligned under the NABL logo (left image)
+    nablChildren.push(new Paragraph({
+      children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
+      alignment: AlignmentType.LEFT,
+      indent: { left: 180 },
+      spacing: { before: 20, after: 0 }
+    }));
 
     cells.push(new TableCell({
-      children: [innerTable],
-      verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
+      children: nablChildren,
+      verticalAlign: VerticalAlign.CENTER,
+      borders: BORDERS_ALL,
       width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
     }));
   }
