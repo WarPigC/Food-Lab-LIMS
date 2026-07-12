@@ -1,8 +1,7 @@
 # Acropolis FTL LIMS
-*(Food Testing Laboratory Information Management System)*
 
 ## Overview
-Acropolis FTL LIMS is a specialized Laboratory Information Management System developed specifically for the Food Testing Laboratory at the Acropolis Institute of Pharmaceutical Education and Research (AIPER). Built to handle the rigorous demands of a modern testing facility, this system streamlines the entire lifecycle of sample testing—from client intake and job distribution to the automated, high-fidelity generation of NABL-compliant test reports. 
+Acropolis FTL LIMS is a specialized Laboratory Information Management System developed specifically for the Food Testing Laboratory at the Acropolis Institute of Pharmaceutical Education and Research (AIPER). Built to handle the rigorous demands of a modern testing facility, this system streamlines the entire lifecycle of sample testing, from client intake and job distribution to the automated, high-fidelity generation of NABL-compliant test reports. 
 
 ## Key Features & Capabilities
 
@@ -33,6 +32,12 @@ The client-side interface is a blazing-fast Single Page Application (SPA) driven
 
 ### Node.js / Express Backend Engine
 The core API is powered by Express 5, taking full advantage of native async routing to securely handle business logic and complex validation. Mongoose enforces strict schema typings against MongoDB. For file handling, the backend bypasses vulnerable local file systems entirely; it uses `multer` and `gridfs-stream` to securely chunk and store sensitive files (like signatures and accreditation logos) directly inside the database. Additionally, `winston-mongodb` actively pipes critical API access logs directly into the database for a permanent, tamper-evident audit trail.
+
+### Security & Authentication Layer
+Security is baked into the foundational layer of the architecture. The system employs stateless, secure session management utilizing JSON Web Tokens (JWT) coupled with `bcrypt` for cryptographic password hashing. Every API endpoint is protected by granular, role-based middleware that actively verifies user clearance levels before authorizing data mutations, ensuring that assistants cannot access admin-only data settings or approve official reports.
+
+### Database & Data Modeling
+While utilizing MongoDB as a flexible NoSQL database, the system enforces heavily structured relational paradigms via Mongoose. Complex data relationships (such as linking Jobs to distinct Test Instances, Parameter Groups, and System Logs) are managed through advanced reference population. This hybrid approach provides the rapid iteration speed of NoSQL while maintaining the strict relational integrity required for laboratory auditing.
 
 ### Dynamic Document Rendering System
 To meet NABL's strict formatting regulations, the system utilizes a specialized server-side document engine via programmatic `docx` generation. Rather than relying on brittle HTML-to-PDF converters, this engine calculates exact twip/DXA margins, exact percentage-based table widths, and balances inline images mathematically. The frontend then utilizes `docx-preview` and `html2pdf.js` to render these complex blobs natively within the browser canvas, completely eliminating the need to download files just to verify them.
