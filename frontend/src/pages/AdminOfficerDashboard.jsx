@@ -867,6 +867,12 @@ const BLANK_FORM = {
   mobile_number: "",
   email: "",
   customer_reference_no: "",
+  batch_no: "",
+  dom: "",
+  brand_name: "",
+  any_other_info: "",
+  batch_size: "",
+  doe: "",
   // Sample
   sample_name: "",
   sample_id: "",
@@ -1261,6 +1267,12 @@ function Jobs() {
       mobile_number: j.customer?.mobile_number || "",
       email: j.customer?.email || "",
       customer_reference_no: j.customer?.customer_reference_no || "",
+      batch_no: j.customer?.batch_no || "",
+      dom: j.customer?.dom || "",
+      brand_name: j.customer?.brand_name || "",
+      any_other_info: j.customer?.any_other_info || "",
+      batch_size: j.customer?.batch_size || "",
+      doe: j.customer?.doe || "",
       sample_name: j.sample?.sample_name || "",
       sample_id: j.sample?.sample_id || "",
       sample_quantity: j.sample?.sample_quantity?.split(" ")[0] || "",
@@ -1473,6 +1485,12 @@ function Jobs() {
           mobile_number: formData.mobile_number,
           email: formData.email,
           customer_reference_no: formData.customer_reference_no,
+          batch_no: formData.batch_no,
+          dom: formData.dom,
+          brand_name: formData.brand_name,
+          any_other_info: formData.any_other_info,
+          batch_size: formData.batch_size,
+          doe: formData.doe,
         },
         sample: {
           sample_name: formData.sample_name,
@@ -1922,10 +1940,7 @@ function Jobs() {
                             fontSize: "0.9rem",
                           }}
                         >
-                          Mobile Number{" "}
-                          <span style={{ color: "var(--color-danger)" }}>
-                            *
-                          </span>
+                          Mobile Number
                         </label>
                         <input
                           type="tel"
@@ -1942,7 +1957,6 @@ function Jobs() {
                                 .slice(0, 10),
                             )
                           }
-                          required
                         />
                       </div>
                       <div style={{ gridColumn: "1 / -1" }}>
@@ -1954,10 +1968,7 @@ function Jobs() {
                             fontSize: "0.9rem",
                           }}
                         >
-                          Customer Address{" "}
-                          <span style={{ color: "var(--color-danger)" }}>
-                            *
-                          </span>
+                          Customer Address
                         </label>
                         <input
                           type="text"
@@ -1965,7 +1976,6 @@ function Jobs() {
                           onChange={(e) =>
                             setField("customer_address", e.target.value)
                           }
-                          required
                           style={{ width: "100%" }}
                         />
                       </div>
@@ -2021,6 +2031,110 @@ function Jobs() {
                           onChange={(e) =>
                             setField("customer_reference_no", e.target.value)
                           }
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          Batch No.
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.batch_no}
+                          onChange={(e) => setField("batch_no", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          DOM
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.dom}
+                          onChange={(e) => setField("dom", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          Brand Name
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.brand_name}
+                          onChange={(e) => setField("brand_name", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          Any other information
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.any_other_info}
+                          onChange={(e) =>
+                            setField("any_other_info", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          Batch Size
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.batch_size}
+                          onChange={(e) => setField("batch_size", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          DOE
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.doe}
+                          onChange={(e) => setField("doe", e.target.value)}
                         />
                       </div>
                     </div>
