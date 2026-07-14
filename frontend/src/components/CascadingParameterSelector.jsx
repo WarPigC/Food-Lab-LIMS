@@ -231,13 +231,17 @@ const CascadingParameterSelector = ({
   const [newParamForm, setNewParamForm] = useState({ name: '', type: 'Micro', unit: '' });
 
   const handleCreateParameter = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newParamForm.name.trim()) {
+      alert("Parameter Name is required");
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(`${API_URL}/api/parameters`, newParamForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setGlobalParameters(prev => [...prev, res.data].sort((a,b) => a.name.localeCompare(b.name)));
+      setGlobalParameters(prev => [...prev, res.data].sort((a,b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
       addParameter(res.data);
       setIsCreatingNew(false);
       setNewParamForm({ name: '', type: 'Micro', unit: '' });
@@ -537,15 +541,15 @@ const CascadingParameterSelector = ({
           </div>
           )}
           {isCreatingNew && (
-            <form onSubmit={handleCreateParameter} style={{ display: 'flex', gap: '0.5rem', padding: '1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="text" placeholder="Parameter Name" required value={newParamForm.name} onChange={e => setNewParamForm({...newParamForm, name: e.target.value})} style={{ padding: '0.4rem', flex: 1, minWidth: '150px' }} />
+            <div style={{ display: 'flex', gap: '0.5rem', padding: '1rem', backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="text" placeholder="Parameter Name" value={newParamForm.name} onChange={e => setNewParamForm({...newParamForm, name: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleCreateParameter(e)} style={{ padding: '0.4rem', flex: 1, minWidth: '150px' }} />
               <select value={newParamForm.type} onChange={e => setNewParamForm({...newParamForm, type: e.target.value})} style={{ padding: '0.4rem' }}>
                 <option value="Micro">Micro</option>
                 <option value="Chemical">Chemical</option>
               </select>
-              <input type="text" placeholder="Unit (e.g. mg/L)" value={newParamForm.unit} onChange={e => setNewParamForm({...newParamForm, unit: e.target.value})} style={{ padding: '0.4rem', width: '100px' }} />
-              <button type="submit" className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}>Create</button>
-            </form>
+              <input type="text" placeholder="Unit (e.g. mg/L)" value={newParamForm.unit} onChange={e => setNewParamForm({...newParamForm, unit: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleCreateParameter(e)} style={{ padding: '0.4rem', width: '100px' }} />
+              <button type="button" onClick={handleCreateParameter} className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}>Create</button>
+            </div>
           )}
           {/* Selected parameters list */}
           {selectedParams.length > 0 && (

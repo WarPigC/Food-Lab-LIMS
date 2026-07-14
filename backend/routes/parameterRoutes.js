@@ -12,7 +12,9 @@ router.get('/', protect, async (req, res) => {
     if (searchTerm) {
       query.name = { $regex: searchTerm, $options: 'i' };
     }
-    const parameters = await Parameter.find(query).sort({ name: 1 });
+    const parameters = await Parameter.find(query)
+      .collation({ locale: 'en', strength: 2 })
+      .sort({ name: 1 });
 
     // Rank results by relevance if a search term was provided
     if (searchTerm) {
