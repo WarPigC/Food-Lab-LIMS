@@ -974,6 +974,7 @@ function Jobs() {
   const [isEditingReturnedJob, setIsEditingReturnedJob] = useState(false);
   const [isJobFullyComplete, setIsJobFullyComplete] = useState(false);
   const [originalEditParams, setOriginalEditParams] = useState(null); // snapshot for param diff
+  const [isFormClosing, setIsFormClosing] = useState(false);
   const [retainForm, setRetainForm] = useState(false);
   const [selectorResetKey, setSelectorResetKey] = useState(0);
 
@@ -1256,7 +1257,9 @@ function Jobs() {
       populateFormFromJob(j);
       setReopenParentId(j._id);
       window.history.replaceState({}, document.title);
+      // Scroll both window and the layout container (overflow-y: auto)
       window.scrollTo({ top: 0, behavior: "smooth" });
+      document.querySelector(".layout-content")?.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [location.state]);
 
@@ -1379,6 +1382,18 @@ function Jobs() {
 
     setReopenParentId(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    document.querySelector(".layout-content")?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Closes the form with an exit animation before unmounting
+  const closeForm = (callback) => {
+    setIsFormClosing(true);
+    // Duration matches the formCollapse animation (280ms)
+    setTimeout(() => {
+      setShowForm(false);
+      setIsFormClosing(false);
+      if (callback) callback();
+    }, 280);
   };
 
   const handleSubmit = (e) => {
@@ -1664,25 +1679,24 @@ function Jobs() {
           <button
             className="btn btn-primary"
             onClick={() => {
-              if (!showForm) {
-                // Pre-select first heads when opening
+              if (showForm) {
+                // Close with animation
+                closeForm(() => {
+                  setReopenParentId(null);
+                  setEditingJobId(null);
+                  setIsEditingReturnedJob(false);
+                  setIsJobFullyComplete(false);
+                  setOriginalEditParams(null);
+                  setAssignedMicroHead("");
+                  setAssignedChemicalHead("");
+                });
+              } else {
+                // Open — pre-select first heads
                 const micro = heads.filter((h) => h.department === "Micro");
                 if (micro.length > 0) setAssignedMicroHead(micro[0]._id);
-                const chemical = heads.filter(
-                  (h) => h.department === "Chemical",
-                );
-                if (chemical.length > 0)
-                  setAssignedChemicalHead(chemical[0]._id);
-              }
-              setShowForm(!showForm);
-              if (showForm) {
-                setReopenParentId(null);
-                setEditingJobId(null);
-                setIsEditingReturnedJob(false);
-                setIsJobFullyComplete(false);
-                setOriginalEditParams(null);
-                setAssignedMicroHead("");
-                setAssignedChemicalHead("");
+                const chemical = heads.filter((h) => h.department === "Chemical");
+                if (chemical.length > 0) setAssignedChemicalHead(chemical[0]._id);
+                setShowForm(true);
               }
             }}
           >
@@ -1723,6 +1737,9 @@ function Jobs() {
                   : "none",
                 maxWidth: "100%",
                 boxSizing: "border-box",
+                animation: isFormClosing
+                  ? "formCollapse 0.28s cubic-bezier(0.4, 0, 1, 1) both"
+                  : "formReveal 0.35s cubic-bezier(0.22, 1, 0.36, 1) both",
               }}
             >
               {returnNote && (
@@ -1821,7 +1838,7 @@ function Jobs() {
                     />
                   </div>
                 )}
-                {!reopenParentId && nextSerial && (
+                {!reopenParentId && (
                   <div
                     style={{
                       display: "flex",
@@ -1836,7 +1853,7 @@ function Jobs() {
                         color: "var(--color-text-muted)",
                       }}
                     >
-                      Next Job Code
+                      {editingJobId ? "Job Code" : "Next Job Code"}
                     </span>
                     <span
                       style={{
@@ -1851,7 +1868,11 @@ function Jobs() {
                         border: "1px solid var(--color-border)",
                       }}
                     >
-                      {buildJobCodePreview(nextSerial.serial)}
+                      {editingJobId && editingJob
+                        ? editingJob.jobCode
+                        : nextSerial
+                          ? buildJobCodePreview(nextSerial.serial)
+                          : "—"}
                     </span>
                   </div>
                 )}
@@ -3177,6 +3198,7 @@ function Jobs() {
           title="All Client Sample Jobs"
           onDeleteJob={handleDeleteJob}
           onEditJob={handleEditJob}
+          editingJobId={editingJobId}
           onReopen={(job) =>
             navigate("/admin-officer/jobs", { state: { reopenJob: job } })
           }

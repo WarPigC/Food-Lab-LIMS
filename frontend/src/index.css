@@ -251,6 +251,44 @@ tr:hover {
   to { transform: rotate(360deg); }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes formReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.99);
+    box-shadow: 0 0 0 0 rgba(44, 62, 80, 0);
+  }
+  60% {
+    box-shadow: 0 0 0 4px rgba(44, 62, 80, 0.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+@keyframes formCollapse {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.99);
+  }
+}
+
 .spinner {
   width: 48px;
   height: 48px;
