@@ -11,6 +11,7 @@ const User = require('../models/User');
 const UlrCounter = require('../models/UlrCounter');
 const SampleCounter = require('../models/SampleCounter');
 const { audit } = require('../utils/auditLogger');
+const { computeDelta, applyAdditions, applyRemovals, invalidateCustomReports } = require('../utils/parameterDelta');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -427,7 +428,24 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       isResubmitted = true;
     }
 
+    // --- Parameter Delta Engine ---
+    // Detect if parameters were modified on a dispatched (in-progress) job
+    let paramDelta = null;
+    let paramModNotifications = [];
+
     if (parameters) {
+      // Compute delta BEFORE overwriting job.parameters
+      const isDispatched = ['ASSIGNED_TO_ASSISTANT', 'COMPLETED', 'PENDING_HEAD_REVIEW'].includes(
+        job.distribution.micro?.status
+      ) || ['ASSIGNED_TO_ASSISTANT', 'COMPLETED', 'PENDING_HEAD_REVIEW'].includes(
+        job.distribution.chemical?.status
+      );
+
+      if (isDispatched) {
+        paramDelta = computeDelta(job.parameters || [], parameters);
+      }
+
+      // Now update job.parameters
       job.parameters = parameters;
       if (groupMetadata) job.groupMetadata = groupMetadata;
       if (pesticidePanel) job.pesticidePanel = pesticidePanel;
@@ -451,42 +469,163 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         job.sampleTransferState = (hasMicro && hasChemical) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
       }
 
+      // --- Apply delta mutations to TestInstances (only on dispatched jobs) ---
+      if (paramDelta && (paramDelta.added.length > 0 || paramDelta.removed.length > 0)) {
+        // ADDITIONS: inject into TestInstances, roll back completed ones
+        if (paramDelta.added.length > 0) {
+          const { rolledBackInstances, affectedDepts } = await applyAdditions(job, paramDelta.added);
+
+          // For added params in departments that were COMPLETED, roll distribution status back
+          for (const dept of affectedDepts) {
+            if (['COMPLETED', 'PENDING_HEAD_REVIEW'].includes(job.distribution[dept]?.status)) {
+              microStatus = dept === 'micro' ? 'ASSIGNED_TO_ASSISTANT' : microStatus;
+              chemicalStatus = dept === 'chemical' ? 'ASSIGNED_TO_ASSISTANT' : chemicalStatus;
+            }
+          }
+
+          // Queue notifications for rolled-back analysts
+          for (const inst of rolledBackInstances) {
+            paramModNotifications.push({
+              recipient: inst.assignedTo,
+              type: 'WARNING',
+              title: 'Parameters Modified',
+              message: `New parameters have been added to your assignment ${inst.testCode}. Please complete them.`,
+              relatedJobId: job._id,
+              relatedInstanceId: inst._id,
+              link: '/assistant'
+            });
+          }
+        }
+
+        // REMOVALS: pull from TestInstances, handle zero-param cleanup
+        if (paramDelta.removed.length > 0) {
+          const { deactivatedDepts } = await applyRemovals(job, paramDelta.removed, parameters);
+
+          for (const dept of deactivatedDepts) {
+            if (dept === 'micro') { microStatus = 'PENDING'; }
+            if (dept === 'chemical') { chemicalStatus = 'PENDING'; }
+          }
+        }
+
+        // Invalidate custom reports (they're now stale)
+        const reportReverted = await invalidateCustomReports(job._id);
+        if (reportReverted) {
+          job.history.push({
+            action: 'REPORT_REVERTED',
+            by: req.user._id,
+            note: 'Custom report auto-reverted due to parameter modification'
+          });
+        }
+      }
+
+      // Handle newly activated / deactivated departments
+      // New dept bypass: goes straight to PENDING (no PENDING_REVIEW gate)
+      const wasMicroRequired = job.distribution.micro?.required;
+      const wasChemicalRequired = job.distribution.chemical?.required;
+
+      if (hasMicro && !wasMicroRequired && !isResubmitted) {
+        // New department activated via param modification — bypass approval
+        microStatus = 'PENDING';
+      }
+      if (hasChemical && !wasChemicalRequired && !isResubmitted) {
+        chemicalStatus = 'PENDING';
+      }
+
       job.distribution = {
         micro: { required: hasMicro, status: hasMicro ? microStatus : 'PENDING', assignedHead: assignedMicroHead || job.distribution.micro?.assignedHead || null },
         chemical: { required: hasChemical, status: hasChemical ? chemicalStatus : 'PENDING', assignedHead: assignedChemicalHead || job.distribution.chemical?.assignedHead || null }
       };
 
+      // Handle sample transfer state for single↔multi dept transitions
       if (hasMicro && hasChemical) {
         job.sampleFlow = {
           type: 'PARALLEL',
           firstDepartment: 'micro',
           transferDeadline: sampleFlow?.transferDeadline || job.sampleFlow?.transferDeadline || null
         };
+        // If transitioning from single to multi dept, set transfer state
+        if (!wasMicroRequired || !wasChemicalRequired) {
+          if (!isResubmitted && job.sampleTransferState === 'NOT_REQUIRED') {
+            job.sampleTransferState = 'PENDING_TRANSFER';
+          }
+        }
       } else {
         job.sampleFlow = undefined;
+        // If transitioning from multi to single dept, clean up transfer state
+        if (wasMicroRequired && wasChemicalRequired) {
+          job.sampleTransferState = 'NOT_REQUIRED';
+        }
       }
     }
 
-    job.history.push({
-      action: isResubmitted ? 'RESUBMITTED' : 'UPDATED',
-      by: req.user._id,
-      note: isResubmitted ? 'Job resubmitted by Admin Officer after corrections' : 'Job updated by Admin Officer'
-    });
+    // --- History Entry ---
+    const hasParamChanges = paramDelta && (paramDelta.added.length > 0 || paramDelta.removed.length > 0);
+    if (hasParamChanges) {
+      const addedNames = paramDelta.added.map(p => p.name).filter(Boolean);
+      const removedNames = paramDelta.removed.map(p => p.name).filter(Boolean);
+      const parts = [];
+      if (addedNames.length > 0) parts.push(`Added: ${addedNames.join(', ')}`);
+      if (removedNames.length > 0) parts.push(`Removed: ${removedNames.join(', ')}`);
+
+      job.history.push({
+        action: 'UPDATED',
+        by: req.user._id,
+        note: `Parameters modified. ${parts.join('. ')}.`
+      });
+    } else {
+      job.history.push({
+        action: isResubmitted ? 'RESUBMITTED' : 'UPDATED',
+        by: req.user._id,
+        note: isResubmitted ? 'Job resubmitted by Admin Officer after corrections' : 'Job updated by Admin Officer'
+      });
+    }
 
     await job.save();
 
     // Audit log with before/after diff
-    audit('JOB_UPDATED', {
+    const hasParamChanges2 = paramDelta && (paramDelta.added.length > 0 || paramDelta.removed.length > 0);
+    audit(hasParamChanges2 ? 'PARAMETERS_MODIFIED' : 'JOB_UPDATED', {
       req,
-      message: `Job ${job.jobCode} ${isResubmitted ? 'resubmitted' : 'updated'}`,
+      message: `Job ${job.jobCode} ${hasParamChanges2 ? 'parameters modified' : isResubmitted ? 'resubmitted' : 'updated'}`,
       target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode },
       before: beforeSnapshot,
       after: job.toObject(),
       fields: ['sample', 'sample.nabl_type', 'sample.ulr_no', 'sample.sample_name', 'sample.sample_description', 'customer', 'customer.customer_name', 'parameters', 'distribution', 'showSpecifications', 'compliance']
     });
 
+    // Send queued parameter modification notifications
+    if (paramModNotifications.length > 0) {
+      for (const notif of paramModNotifications) {
+        try { await createNotification(notif); } catch (e) { console.warn('Notification failed:', e.message); }
+      }
+
+      // Also notify affected department heads
+      for (const dept of ['micro', 'chemical']) {
+        const headId = job.distribution[dept]?.assignedHead;
+        if (headId && paramDelta) {
+          const deptAdded = paramDelta.added.filter(p => (p.type === 'Micro' ? 'micro' : 'chemical') === dept);
+          const deptRemoved = paramDelta.removed.filter(p => (p.type === 'Micro' ? 'micro' : 'chemical') === dept);
+          if (deptAdded.length > 0 || deptRemoved.length > 0) {
+            try {
+              await createNotification({
+                recipient: headId,
+                type: 'WARNING',
+                title: 'Parameters Modified',
+                message: `Parameters have been modified for Job ${job.jobCode}. Please review.`,
+                relatedJobId: job._id,
+                link: '/head/dispatcher'
+              });
+            } catch (e) { console.warn('Head notification failed:', e.message); }
+          }
+        }
+      }
+    }
+
     if (req.app.get('io')) {
       req.app.get('io').emit('JOB_CREATED');
+      if (hasParamChanges2) {
+        req.app.get('io').emit('PARAMETERS_MODIFIED', { jobId: job._id, jobCode: job.jobCode });
+      }
     }
 
     res.json(job);
