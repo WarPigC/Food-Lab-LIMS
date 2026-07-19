@@ -972,6 +972,8 @@ function Jobs() {
   const [reopenParentId, setReopenParentId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [isEditingReturnedJob, setIsEditingReturnedJob] = useState(false);
+  const [isJobFullyComplete, setIsJobFullyComplete] = useState(false);
+  const [originalEditParams, setOriginalEditParams] = useState(null); // snapshot for param diff
   const [retainForm, setRetainForm] = useState(false);
   const [selectorResetKey, setSelectorResetKey] = useState(0);
 
@@ -1365,6 +1367,16 @@ function Jobs() {
       job.distribution?.chemical?.status === "RETURNED";
     setIsEditingReturnedJob(isReturned);
 
+    // Check if the entire job is fully complete (both depts done = immutable)
+    const isMicroDone = !job.distribution?.micro?.required || job.distribution?.micro?.status === 'COMPLETED';
+    const isChemDone = !job.distribution?.chemical?.required || job.distribution?.chemical?.status === 'COMPLETED';
+    setIsJobFullyComplete(isMicroDone && isChemDone);
+
+    // Snapshot current params for diff detection in the confirmation modal
+    setOriginalEditParams(
+      (job.parameters || []).map(p => (p._id || p.parameterId)?.toString()).filter(Boolean)
+    );
+
     setReopenParentId(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1566,6 +1578,8 @@ function Jobs() {
         setReopenParentId(null);
         setEditingJobId(null);
         setIsEditingReturnedJob(false);
+        setIsJobFullyComplete(false);
+        setOriginalEditParams(null);
         setSelectedParams([]);
         setShowSpecifications(false);
         setGroupMetadata(null);
@@ -1665,6 +1679,8 @@ function Jobs() {
                 setReopenParentId(null);
                 setEditingJobId(null);
                 setIsEditingReturnedJob(false);
+                setIsJobFullyComplete(false);
+                setOriginalEditParams(null);
                 setAssignedMicroHead("");
                 setAssignedChemicalHead("");
               }
@@ -2743,7 +2759,7 @@ function Jobs() {
                                 }
                                 externalSync={nonNablGroupMetadata}
                                 immutable={
-                                  !!editingJobId && !isEditingReturnedJob
+                                  !!editingJobId && isJobFullyComplete
                                 }
                                 onDataChange={(data) => {
                                   setNablParams(data.parameters);
@@ -2768,7 +2784,7 @@ function Jobs() {
                                 }
                                 externalSync={nablGroupMetadata}
                                 immutable={
-                                  !!editingJobId && !isEditingReturnedJob
+                                  !!editingJobId && isJobFullyComplete
                                 }
                                 onDataChange={(data) => {
                                   setNonNablParams(data.parameters);
@@ -2791,7 +2807,7 @@ function Jobs() {
                               initialPesticidePanel={pesticidePanel}
                               initialShowSpecifications={showSpecifications}
                               immutable={
-                                !!editingJobId && !isEditingReturnedJob
+                                !!editingJobId && isJobFullyComplete
                               }
                               onDataChange={(data) => {
                                 setSelectedParams(data.parameters);
@@ -3189,39 +3205,106 @@ function Jobs() {
             className="card"
             style={{
               width: "100%",
-              maxWidth: "450px",
+              maxWidth: "500px",
               padding: "2rem",
               animation: "slideUp 0.3s ease",
-              borderTop: "4px solid var(--color-primary)",
+              borderTop: editingJobId && originalEditParams && (() => {
+                const currentIds = new Set(selectedParams.map(p => (p._id || p.parameterId)?.toString()).filter(Boolean));
+                const originalIds = new Set(originalEditParams);
+                return [...currentIds].some(id => !originalIds.has(id)) || [...originalIds].some(id => !currentIds.has(id));
+              })() ? "4px solid var(--color-warning)" : "4px solid var(--color-primary)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                marginBottom: "1.5rem",
-                color: "var(--color-primary)",
-              }}
-            >
-              <Activity size={32} />
-              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
-                Confirm Job Creation
-              </h2>
-            </div>
+            {/* Compute param diff for modal display */}
+            {(() => {
+              let addedParams = [];
+              let removedParams = [];
+              let hasParamChanges = false;
 
-            <p
-              style={{
-                margin: "0 0 1.5rem 0",
-                color: "var(--color-text-main)",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {editingJobId
-                ? `You are about to save changes to the sample job for ${formData.customer_name}.`
-                : `You are about to log and distribute a new sample job for ${formData.customer_name}.\n\nThis will generate job codes and notify the relevant department heads immediately.`}
-            </p>
+              if (editingJobId && originalEditParams) {
+                const currentIds = new Set(selectedParams.map(p => (p._id || p.parameterId)?.toString()).filter(Boolean));
+                const originalIds = new Set(originalEditParams);
+                addedParams = selectedParams.filter(p => {
+                  const id = (p._id || p.parameterId)?.toString();
+                  return id && !originalIds.has(id);
+                });
+                const currentParamMap = Object.fromEntries(
+                  selectedParams.map(p => [(p._id || p.parameterId)?.toString(), p])
+                );
+                removedParams = originalEditParams
+                  .filter(id => !currentIds.has(id))
+                  .map(id => {
+                    const editingJob = jobs.find(j => j._id === editingJobId);
+                    const orig = editingJob?.parameters?.find(p => (p._id || p.parameterId)?.toString() === id);
+                    return orig || { name: 'Unknown parameter', parameterId: id };
+                  });
+                hasParamChanges = addedParams.length > 0 || removedParams.length > 0;
+              }
+
+              return (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "1rem",
+                      marginBottom: "1.5rem",
+                      color: hasParamChanges ? "var(--color-warning)" : "var(--color-primary)",
+                    }}
+                  >
+                    {hasParamChanges ? <AlertTriangle size={32} /> : <Activity size={32} />}
+                    <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
+                      {hasParamChanges ? "Parameter Modification" : editingJobId ? "Confirm Changes" : "Confirm Job Creation"}
+                    </h2>
+                  </div>
+
+                  <p
+                    style={{
+                      margin: "0 0 1rem 0",
+                      color: "var(--color-text-main)",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {editingJobId
+                      ? `You are about to save changes to the sample job for ${formData.customer_name}.`
+                      : `You are about to log and distribute a new sample job for ${formData.customer_name}.\n\nThis will generate job codes and notify the relevant department heads immediately.`}
+                  </p>
+
+                  {hasParamChanges && (
+                    <div
+                      style={{
+                        marginBottom: "1.5rem",
+                        padding: "1rem",
+                        borderRadius: "var(--radius-md)",
+                        backgroundColor: "rgba(245, 158, 11, 0.08)",
+                        border: "1px solid rgba(245, 158, 11, 0.25)",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-warning)", marginBottom: "0.6rem" }}>
+                        ⚠ The following parameters will be modified:
+                      </div>
+                      {addedParams.length > 0 && (
+                        <div style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
+                          <span style={{ color: "#16a34a", fontWeight: 600 }}>+ Added: </span>
+                          {addedParams.map(p => p.name).join(", ")}
+                        </div>
+                      )}
+                      {removedParams.length > 0 && (
+                        <div style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
+                          <span style={{ color: "var(--color-danger)", fontWeight: 600 }}>− Removed: </span>
+                          {removedParams.map(p => p.name).join(", ")}
+                        </div>
+                      )}
+                      <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
+                        This will update active test assignments. Completed work by analysts will be rolled back for review.
+                        {removedParams.length > 0 && " Any custom reports will be auto-reverted."}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div
               style={{
