@@ -20,6 +20,7 @@ export default function JobLogTable({
   onReopen,
   onDeleteJob,
   onEditJob,
+  editingJobId,
   defaultExpandedId,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -248,6 +249,11 @@ export default function JobLogTable({
                         expandedJobId === job._id
                           ? "none"
                           : "1px solid var(--color-border)",
+                      // Highlight the row being actively edited
+                      ...(editingJobId === job._id && {
+                        backgroundColor: "rgba(245, 158, 11, 0.06)",
+                        boxShadow: "inset 4px 0 0 var(--color-warning)",
+                      }),
                     }}
                     onClick={() => toggleExpand(job._id)}
                   >
@@ -368,13 +374,21 @@ export default function JobLogTable({
                               setHistoryJob(job);
                             }}
                             style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--color-text-muted)",
+                              background: editingJobId === job._id
+                                ? "rgba(245, 158, 11, 0.15)"
+                                : "none",
+                              border: editingJobId === job._id
+                                ? "1px solid rgba(245, 158, 11, 0.4)"
+                                : "none",
+                              color: editingJobId === job._id
+                                ? "var(--color-warning)"
+                                : "var(--color-text-muted)",
                               cursor: "pointer",
-                              padding: "0.2rem",
+                              padding: "0.2rem 0.4rem",
+                              borderRadius: "4px",
                               display: "flex",
                               alignItems: "center",
+                              transition: "all 0.2s",
                             }}
                             title="View Job History"
                           >
@@ -388,15 +402,23 @@ export default function JobLogTable({
                               onEditJob(job);
                             }}
                             style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--color-primary)",
+                              background: editingJobId === job._id
+                                ? "rgba(245, 158, 11, 0.15)"
+                                : "none",
+                              border: editingJobId === job._id
+                                ? "1px solid rgba(245, 158, 11, 0.4)"
+                                : "none",
+                              color: editingJobId === job._id
+                                ? "var(--color-warning)"
+                                : "var(--color-primary)",
                               cursor: "pointer",
-                              padding: "0.2rem",
+                              padding: "0.2rem 0.4rem",
+                              borderRadius: "4px",
                               display: "flex",
                               alignItems: "center",
+                              transition: "all 0.2s",
                             }}
-                            title="Edit Job"
+                            title={editingJobId === job._id ? "Currently Editing" : "Edit Job"}
                           >
                             <Edit size={16} />
                           </button>
@@ -486,9 +508,14 @@ export default function JobLogTable({
                 padding: "1.25rem",
                 boxShadow: "var(--shadow-sm)",
                 border:
-                  expandedJobId === job._id
-                    ? "2px solid var(--color-primary)"
-                    : "1px solid var(--color-border)",
+                  editingJobId === job._id
+                    ? "2px solid var(--color-warning)"
+                    : expandedJobId === job._id
+                      ? "2px solid var(--color-primary)"
+                      : "1px solid var(--color-border)",
+                backgroundColor: editingJobId === job._id
+                  ? "rgba(245, 158, 11, 0.04)"
+                  : "var(--color-surface)",
               }}
             >
               <div
@@ -580,10 +607,16 @@ export default function JobLogTable({
                       onClick={() => setHistoryJob(job)}
                       style={{
                         padding: "0.5rem",
-                        background: "var(--color-surface-hover)",
-                        border: "1px solid var(--color-border)",
+                        background: editingJobId === job._id
+                          ? "rgba(245, 158, 11, 0.15)"
+                          : "var(--color-surface-hover)",
+                        border: editingJobId === job._id
+                          ? "1px solid rgba(245, 158, 11, 0.4)"
+                          : "1px solid var(--color-border)",
                         borderRadius: "6px",
-                        color: "var(--color-text-main)",
+                        color: editingJobId === job._id
+                          ? "var(--color-warning)"
+                          : "var(--color-text-main)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -597,14 +630,21 @@ export default function JobLogTable({
                       onClick={() => onEditJob(job)}
                       style={{
                         padding: "0.5rem",
-                        background: "var(--color-surface-hover)",
-                        border: "1px solid var(--color-border)",
+                        background: editingJobId === job._id
+                          ? "rgba(245, 158, 11, 0.15)"
+                          : "var(--color-surface-hover)",
+                        border: editingJobId === job._id
+                          ? "1px solid rgba(245, 158, 11, 0.4)"
+                          : "1px solid var(--color-border)",
                         borderRadius: "6px",
-                        color: "var(--color-primary)",
+                        color: editingJobId === job._id
+                          ? "var(--color-warning)"
+                          : "var(--color-primary)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
+                      title={editingJobId === job._id ? "Currently Editing" : "Edit Job"}
                     >
                       <Edit size={16} />
                     </button>
@@ -688,7 +728,7 @@ export default function JobLogTable({
 
       {historyJob && (
         <GlobalJobHistory
-          history={historyJob.history}
+          job={historyJob}
           onClose={() => setHistoryJob(null)}
         />
       )}
