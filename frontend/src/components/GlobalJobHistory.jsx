@@ -1,7 +1,9 @@
 import React from 'react';
 import { Clock, PlusCircle, CheckCircle, RotateCcw, Edit, RefreshCw, X } from 'lucide-react';
 
-export default function GlobalJobHistory({ history, onClose }) {
+export default function GlobalJobHistory({ history, job, onClose }) {
+  // Support passing either full job object or just history array
+  const historyData = job?.history || history || [];
   const getActionIcon = (action) => {
     switch (action) {
       case 'CREATED': return <PlusCircle size={16} />;
@@ -35,25 +37,47 @@ export default function GlobalJobHistory({ history, onClose }) {
       zIndex: 9999, backdropFilter: 'blur(4px)'
     }}>
       <div className="card" style={{ width: '600px', maxWidth: '90%', padding: '2rem', animation: 'slideUp 0.3s ease', borderTop: '4px solid var(--color-primary)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Clock size={20} color="var(--color-primary)" />
-            Job History Timeline
-          </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Clock size={20} color="var(--color-primary)" />
+              Job History Timeline
+            </h2>
+            {job && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: 'var(--color-primary)',
+                  backgroundColor: 'rgba(44, 62, 80, 0.07)',
+                  padding: '0.2rem 0.55rem',
+                  borderRadius: '999px',
+                  letterSpacing: '0.04em',
+                }}>
+                  {job.jobCode}
+                </span>
+                <span style={{ color: 'var(--color-border)', fontSize: '0.9rem' }}>·</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                  {job.clientName}
+                </span>
+              </div>
+            )}
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', flexShrink: 0 }}>
             <X size={20} color="var(--color-text-muted)" />
           </button>
         </div>
 
         <div style={{ padding: '0.5rem', maxHeight: '60vh', overflowY: 'auto' }}>
-          {!history || history.length === 0 ? (
+          {historyData.length === 0 ? (
             <p style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>No history available for this job.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
               {/* Vertical line connecting timeline dots */}
               <div style={{ position: 'absolute', top: '10px', bottom: '10px', left: '15px', width: '2px', backgroundColor: 'var(--color-border)', zIndex: 0 }} />
               
-              {history.map((event, idx) => (
+              {historyData.map((event, idx) => (
                 <div key={idx} style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 1 }}>
                   <div style={{ 
                     minWidth: '32px', height: '32px', borderRadius: '50%', 
