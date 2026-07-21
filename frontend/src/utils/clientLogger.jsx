@@ -1,4 +1,5 @@
-import api from './api';
+import API_URL from './api';
+import axios from 'axios';
 
 /**
  * ClientLogger - batches telemetry and errors to send to the backend.
@@ -62,7 +63,7 @@ class ClientLogger {
 
     try {
       // Don't use the standard fetchWithCache since we don't want cache or spinner
-      await api.post('/logs/client', { entries: entriesToSend });
+      await axios.post(`${API_URL}/logs/client`, { entries: entriesToSend });
     } catch (err) {
       // If logging fails, fall back to console but don't re-buffer 
       // (prevents infinite loops if the log endpoint is down)

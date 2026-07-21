@@ -24,14 +24,6 @@ export default function DataSettings() {
   const [loading, setLoading] = useState(true);
   const [paramsLoading, setParamsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [recentUlrs, setRecentUlrs] = useState([]);
-
-  // ULR State
-  const [ulrPreview, setUlrPreview] = useState("");
-  const [nextUlrPreview, setNextUlrPreview] = useState("");
-  const [ulrOffset, setUlrOffset] = useState("");
-  const [isUpdatingOffset, setIsUpdatingOffset] = useState(false);
-  const [confirmUlrModal, setConfirmUlrModal] = useState(false);
 
   // Sample Serial State
   const [serialPreview, setSerialPreview] = useState("");
@@ -111,30 +103,15 @@ export default function DataSettings() {
     }
   };
 
-  const fetchUlrData = async () => {
+  const fetchSerialData = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/jobs/next-ulr`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUlrPreview(res.data.lastUlr || res.data.ulr);
-      setNextUlrPreview(res.data.nextUlr || "");
-
-      const jobsRes = await axios.get(`${API_URL}/api/jobs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const jobsWithUlr = jobsRes.data
-        .filter((j) => j.sample?.ulr_no)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 5);
-      setRecentUlrs(jobsWithUlr);
-
       const serialRes = await axios.get(`${API_URL}/api/jobs/next-sample-id`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setSerialPreview(serialRes.data.currentValue || "");
+      setSerialPreview(serialRes.data.currentJobCode || serialRes.data.currentValue || "");
       setNextSerialPreview(
-        serialRes.data.nextValue || serialRes.data.serial || "",
+        serialRes.data.nextJobCode || serialRes.data.nextValue || serialRes.data.serial || "",
       );
     } catch (err) {
       console.error("Could not fetch counter data", err);
@@ -143,7 +120,7 @@ export default function DataSettings() {
 
   useEffect(() => {
     fetchData();
-    fetchUlrData();
+    fetchSerialData();
   }, []);
 
   // Update selected subgroup data when data changes
@@ -166,9 +143,6 @@ export default function DataSettings() {
         if (statusModal.show) {
           setStatusModal({ show: false, type: "", title: "", message: "" });
         }
-        if (confirmUlrModal) {
-          setConfirmUlrModal(false);
-        }
         if (confirmSerialModal) {
           setConfirmSerialModal(false);
         }
@@ -182,7 +156,6 @@ export default function DataSettings() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     statusModal.show,
-    confirmUlrModal,
     confirmSerialModal,
     isAddingGroup,
     isAddingSubgroup,
@@ -190,52 +163,13 @@ export default function DataSettings() {
   ]);
 
   // ═══════════════════════════════════
-  //  ULR HANDLERS
+  //  SERIAL HANDLERS
   // ═══════════════════════════════════
-
-  const executeUlrUpdate = async () => {
-    setIsUpdatingOffset(true);
-    setConfirmUlrModal(false);
-    try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `${API_URL}/api/jobs/ulr-offset`,
-        { offset: parseInt(ulrOffset, 10) },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      setUlrOffset("");
-      fetchUlrData();
-      setStatusModal({
-        show: true,
-        type: "success",
-        title: "Success",
-        message: "ULR value updated successfully.",
-      });
-    } catch (err) {
-      console.error(err);
-      setStatusModal({
-        show: true,
-        type: "error",
-        title: "Update Failed",
-        message:
-          "Failed to update ULR value: " +
-          (err.response?.data?.message || err.message),
-      });
-    } finally {
-      setIsUpdatingOffset(false);
-    }
-  };
-
-  const handleUpdateUlrOffset = () => {
-    if (!ulrOffset) return;
-    setConfirmUlrModal(true);
-  };
 
   const executeSerialUpdate = async () => {
     setIsUpdatingSerialOffset(true);
     setConfirmSerialModal(false);
+
     try {
       const token = localStorage.getItem("token");
       await axios.put(
@@ -246,7 +180,7 @@ export default function DataSettings() {
         },
       );
       setSerialOffset("");
-      fetchUlrData();
+      fetchSerialData();
       setStatusModal({
         show: true,
         type: "success",
@@ -536,185 +470,7 @@ export default function DataSettings() {
         Settings
       </h1>
 
-      {/* ULR Settings Card */}
-      {user?.role !== "HEAD" && (
-        <div
-          className="card"
-          style={{
-            marginBottom: "2rem",
-            padding: "1.5rem",
-            backgroundColor: "#eff6ff",
-            border: "1px solid #bfdbfe",
-          }}
-        >
-          <h3
-            style={{
-              margin: "0 0 1.5rem 0",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              color: "#1e3a8a",
-              fontSize: "1.1rem",
-            }}
-          >
-            <Activity size={18} /> NABL ULR Settings
-          </h3>
-          <div
-            className="grid-2"
-            style={{ gap: "2rem", alignItems: "flex-start" }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: "0.9rem",
-                  color: "#1e40af",
-                  fontWeight: 600,
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Last Used ULR:
-              </div>
-              <div
-                style={{
-                  fontFamily: "monospace",
-                  fontSize: "1.25rem",
-                  fontWeight: 700,
-                  color: "#1d4ed8",
-                  backgroundColor: "rgba(255,255,255,0.7)",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "var(--radius-md)",
-                  display: "inline-block",
-                  border: "1px solid #93c5fd",
-                }}
-              >
-                {ulrPreview || "Loading..."}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.9rem",
-                  color: "#1e40af",
-                  fontWeight: 600,
-                  marginTop: "1rem",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Next Value:
-              </div>
-              <div
-                style={{
-                  fontFamily: "monospace",
-                  fontSize: "1.25rem",
-                  fontWeight: 700,
-                  color: "#10b981",
-                  backgroundColor: "rgba(255,255,255,0.7)",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "var(--radius-md)",
-                  display: "inline-block",
-                  border: "1px solid #6ee7b7",
-                }}
-              >
-                {nextUlrPreview || "Loading..."}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#3b82f6",
-                  marginTop: "0.5rem",
-                  maxWidth: "250px",
-                }}
-              >
-                This will be the ULR assigned to the next submitted job.
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "0.9rem",
-                  color: "#1e40af",
-                  fontWeight: 600,
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Update ULR:
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <input
-                  type="text"
-                  placeholder="Digits only"
-                  value={ulrOffset}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    if (val.length < 8) setUlrOffset(val);
-                  }}
-                  style={{
-                    flex: 1,
-                    border: "1px solid #93c5fd",
-                    backgroundColor: "white",
-                  }}
-                />
-                <button
-                  onClick={handleUpdateUlrOffset}
-                  disabled={isUpdatingOffset || !ulrOffset}
-                  className="btn btn-primary"
-                  style={{ backgroundColor: "#2563eb" }}
-                >
-                  {isUpdatingOffset ? "Updating..." : "Update ULR"}
-                </button>
-              </div>
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#3b82f6",
-                  marginTop: "0.5rem",
-                }}
-              >
-                Input ULR
-              </div>
-            </div>
-          </div>
-          <div
-            style={{
-              marginTop: "1.5rem",
-              paddingTop: "1.5rem",
-              borderTop: "1px solid #bfdbfe",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.9rem",
-                color: "#1e40af",
-                fontWeight: 600,
-                marginBottom: "0.5rem",
-              }}
-            >
-              Last 5 Recent ULRs:
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {recentUlrs.map((j) => (
-                <span
-                  key={j._id}
-                  style={{
-                    fontFamily: "monospace",
-                    fontSize: "0.85rem",
-                    backgroundColor: "#dbeafe",
-                    color: "#1e40af",
-                    padding: "0.3rem 0.6rem",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid #bfdbfe",
-                  }}
-                >
-                  {j.sample.ulr_no}
-                </span>
-              ))}
-              {recentUlrs.length === 0 && (
-                <span style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-                  No recent ULRs found.
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Sample Serial Settings Card */}
       {user?.role !== "HEAD" && (
@@ -795,16 +551,6 @@ export default function DataSettings() {
               >
                 {nextSerialPreview || "Loading..."}
               </div>
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#15803d",
-                  marginTop: "0.5rem",
-                  maxWidth: "250px",
-                }}
-              >
-                This will be the trailing serial part of the next job code.
-              </div>
             </div>
             <div>
               <div
@@ -820,11 +566,14 @@ export default function DataSettings() {
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <input
                   type="text"
-                  placeholder="Digits only"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength="10"
+                  placeholder="10 digit Job Code"
                   value={serialOffset}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, "");
-                    if (val.length < 8) setSerialOffset(val);
+                    if (val.length <= 10) setSerialOffset(val);
                   }}
                   style={{
                     flex: 1,
@@ -1885,90 +1634,6 @@ export default function DataSettings() {
       )}
 
       {/* ── CUSTOM CONFIRMATION MODALS ── */}
-      {confirmUlrModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              padding: "1.5rem",
-              animation: "slideUp 0.3s ease",
-            }}
-          >
-            <h3
-              style={{
-                margin: "0 0 1rem 0",
-                color: "#1e3a8a",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <AlertCircle size={20} /> Confirm ULR Update
-            </h3>
-            <p
-              style={{
-                margin: "0 0 1.5rem 0",
-                color: "var(--color-text-main)",
-                fontSize: "0.95rem",
-                lineHeight: 1.5,
-              }}
-            >
-              Are you sure you want to update the NABL ULR value to{" "}
-              <strong style={{ color: "#1d4ed8" }}>{ulrOffset}</strong>?
-            </p>
-            <p
-              style={{
-                margin: "0 0 1.5rem 0",
-                color: "var(--color-text-muted)",
-                fontSize: "0.85rem",
-                lineHeight: 1.5,
-              }}
-            >
-              This will directly affect the very next job logged as NABL. Please
-              double-check this number against the NABL portal.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setConfirmUlrModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={executeUlrUpdate}
-                style={{ backgroundColor: "#2563eb" }}
-              >
-                Confirm Update
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {confirmSerialModal && (
         <div

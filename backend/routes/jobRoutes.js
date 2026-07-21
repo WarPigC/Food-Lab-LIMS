@@ -20,11 +20,19 @@ const { computeDelta, applyAdditions, applyRemovals, invalidateCustomReports } =
  * e.g. serial 1001 on 7 May 2026  →  "2605071001"
  */
 function buildJobCode(serial) {
+  const serialStr = String(serial);
+  
+  // If the serial is already a 10-digit code (or close to it), return it directly.
+  if (serialStr.length >= 8) {
+    return serialStr;
+  }
+
+  // Legacy fallback: if it's a small 4-digit counter, prepend today's date.
   const now = new Date();
   const yy = String(now.getFullYear()).slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const nn = String(serial).padStart(4, '0');
+  const nn = serialStr.padStart(4, '0');
   return `${yy}${mm}${dd}${nn}`;
 }
 
@@ -92,7 +100,14 @@ router.get('/next-sample-id', protect, async (req, res) => {
       counter = { currentValue: initialValue };
     }
     const nextSerial = counter.currentValue + 1;
-    res.json({ currentValue: counter.currentValue, nextValue: nextSerial, serial: nextSerial, padded: String(nextSerial).padStart(4, '0') });
+    res.json({ 
+      currentValue: counter.currentValue, 
+      nextValue: nextSerial, 
+      serial: nextSerial, 
+      padded: String(nextSerial).padStart(4, '0'),
+      currentJobCode: buildJobCode(counter.currentValue),
+      nextJobCode: buildJobCode(nextSerial)
+    });
   } catch (err) {
     res.status(500).json({ message: 'Error calculating next sample ID', error: err.message });
   }
@@ -217,7 +232,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
     const sampleWithId = {
       ...sample,
-      sample_id: String(serial).padStart(4, '0')
+      sample_id: String(serial).slice(-4).padStart(4, '0')
     };
 
     const flowType = sampleFlow?.type || 'PARALLEL';

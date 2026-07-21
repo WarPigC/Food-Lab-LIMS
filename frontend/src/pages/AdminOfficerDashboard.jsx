@@ -900,11 +900,19 @@ const BLANK_FORM = {
 // Helper: same format as backend buildJobCode — YYMMDD + 4-digit padded serial
 function buildJobCodePreview(serial) {
   if (!serial) return "…";
+  const serialStr = String(serial);
+  
+  // If the serial is already a 10-digit code (or close to it), return it directly.
+  if (serialStr.length >= 8) {
+    return serialStr;
+  }
+
+  // Legacy fallback: if it's a small 4-digit counter, prepend today's date.
   const now = new Date();
   const yy = String(now.getFullYear()).slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
-  const nn = String(serial).padStart(4, "0");
+  const nn = serialStr.padStart(4, "0");
   return `${yy}${mm}${dd}${nn}`;
 }
 
