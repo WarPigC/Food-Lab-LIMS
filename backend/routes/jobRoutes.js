@@ -19,42 +19,81 @@ const { computeDelta, applyAdditions, applyRemovals, invalidateCustomReports } =
  * Build a 10-digit job code:  YYMMDD + 4-digit zero-padded serial
  * e.g. serial 1001 on 7 May 2026  →  "2605071001"
  */
-function buildJobCode(serial) {
+function buildJobCode(serial, dateStr) {
   const serialStr = String(serial);
-  
-  // If the serial is already a 10-digit code (or close to it), return it directly.
-  if (serialStr.length >= 8) {
-    return serialStr;
+  const nn = serialStr.length >= 8
+    ? serialStr.slice(-4)          // already a full code — keep last 4
+    : serialStr.slice(-4).padStart(4, '0');
+
+  // If a custom date string (YYYY-MM-DD) was supplied, use its prefix
+  if (dateStr) {
+    const [yyyy, mm, dd] = dateStr.split('-');
+    const yy = String(yyyy).slice(2);
+    return `${yy}${mm}${dd}${nn}`;
   }
 
-  // Legacy fallback: if it's a small 4-digit counter, prepend today's date.
   const now = new Date();
   const yy = String(now.getFullYear()).slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const nn = serialStr.padStart(4, '0');
   return `${yy}${mm}${dd}${nn}`;
 }
 
 /**
- * Return the next sample serial using an atomic counter.
- * If the counter doesn't exist, initialize it from the highest sampleSerial in Job collection.
+ * Atomically increment and return the next sample serial.
+ * @param {string} [customDate] - Optional YYYY-MM-DD date to embed in the job code prefix.
+ *   If omitted, today's real date is used. The underlying counter always
+ *   increments normally so midnight rollover is never affected.
  */
-async function getNextSerial() {
+async function getNextSerial(customDate) {
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const todayPrefix = `${yy}${mm}${dd}`;
+
   let counter = await SampleCounter.findOne({});
   if (!counter) {
     const start = parseInt(process.env.SAMPLE_ID_START || '1000', 10);
     const last = await Job.findOne({}, { sampleSerial: 1 }, { sort: { sampleSerial: -1 } });
     const initialValue = last && last.sampleSerial ? last.sampleSerial : start;
-    counter = await SampleCounter.create({ currentValue: initialValue });
+    counter = await SampleCounter.create({ currentValue: initialValue, lastUpdatedDate: today });
   }
-  
-  const updated = await SampleCounter.findOneAndUpdate(
-    {},
-    { $inc: { currentValue: 1 } },
-    { new: true }
-  );
-  return updated.currentValue;
+
+  let nextSerial;
+
+  if (counter.lastUpdatedDate && counter.lastUpdatedDate !== today) {
+    // Real day rolled over — snap counter to today's prefix, then increment
+    const stringVal = String(counter.currentValue);
+    const serialPart = stringVal.length >= 8 ? stringVal.slice(-4) : stringVal.padStart(4, '0');
+    const newMassiveCounter = parseInt(`${todayPrefix}${serialPart}`, 10);
+    const updated = await SampleCounter.findOneAndUpdate(
+      {},
+      { $set: { currentValue: newMassiveCounter + 1, lastUpdatedDate: today } },
+      { new: true }
+    );
+    nextSerial = updated.currentValue;
+  } else {
+    // Same day (or freshly created) — just increment
+    const updated = await SampleCounter.findOneAndUpdate(
+      {},
+      { $inc: { currentValue: 1 }, $set: { lastUpdatedDate: today } },
+      { new: true }
+    );
+    nextSerial = updated.currentValue;
+  }
+
+  // If a custom date was requested, overlay its YYMMDD prefix onto the serial
+  // while keeping the same incrementing 4-digit suffix.
+  if (customDate && customDate !== today) {
+    const [yyyy, cmm, cdd] = customDate.split('-');
+    const cyy = String(yyyy).slice(2);
+    const suffix = String(nextSerial).slice(-4).padStart(4, '0');
+    return parseInt(`${cyy}${cmm}${cdd}${suffix}`, 10);
+  }
+
+  return nextSerial;
 }
 
 /**
@@ -93,20 +132,35 @@ async function getNextUlr() {
 router.get('/next-sample-id', protect, async (req, res) => {
   try {
     let counter = await SampleCounter.findOne({});
+    const today = new Date().toISOString().split('T')[0];
+    
     if (!counter) {
       const start = parseInt(process.env.SAMPLE_ID_START || '1000', 10);
       const last = await Job.findOne({}, { sampleSerial: 1 }, { sort: { sampleSerial: -1 } });
       const initialValue = last && last.sampleSerial ? last.sampleSerial : start;
-      counter = { currentValue: initialValue };
+      counter = { currentValue: initialValue, lastUpdatedDate: today };
     }
-    const nextSerial = counter.currentValue + 1;
+    
+    let simulatedNextValue = counter.currentValue + 1;
+    
+    if (counter.lastUpdatedDate && counter.lastUpdatedDate !== today) {
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const todayPrefix = `${yy}${mm}${dd}`;
+      const stringVal = String(counter.currentValue);
+      const serialPart = stringVal.length >= 8 ? stringVal.slice(-4) : stringVal.padStart(4, '0');
+      simulatedNextValue = parseInt(`${todayPrefix}${serialPart}`, 10) + 1;
+    }
+    
     res.json({ 
       currentValue: counter.currentValue, 
-      nextValue: nextSerial, 
-      serial: nextSerial, 
-      padded: String(nextSerial).padStart(4, '0'),
+      nextValue: simulatedNextValue, 
+      serial: simulatedNextValue, 
+      padded: String(simulatedNextValue).padStart(4, '0'),
       currentJobCode: buildJobCode(counter.currentValue),
-      nextJobCode: buildJobCode(nextSerial)
+      nextJobCode: buildJobCode(simulatedNextValue)
     });
   } catch (err) {
     res.status(500).json({ message: 'Error calculating next sample ID', error: err.message });
@@ -158,11 +212,25 @@ router.put('/ulr-offset', protect, authorize('ADMIN_OFFICER'), async (req, res) 
 router.put('/sample-serial-offset', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (req, res) => {
   try {
     const { offset } = req.body;
+    const offsetStr = String(offset);
+
+    // If the offset is a full job code (8+ digits like 2607170001),
+    // extract the date encoded in it so the midnight rollover fires correctly.
+    // Format: YYMMDD#### → lastUpdatedDate = "20YY-MM-DD"
+    let lastUpdatedDate = new Date().toISOString().split('T')[0]; // default: today
+    if (offsetStr.length >= 8) {
+      const yy = offsetStr.slice(0, 2);
+      const mm = offsetStr.slice(2, 4);
+      const dd = offsetStr.slice(4, 6);
+      lastUpdatedDate = `20${yy}-${mm}-${dd}`;
+    }
+
     let counter = await SampleCounter.findOne({});
     if (!counter) {
-      counter = await SampleCounter.create({ currentValue: parseInt(offset, 10) });
+      counter = await SampleCounter.create({ currentValue: parseInt(offset, 10), lastUpdatedDate });
     } else {
       counter.currentValue = parseInt(offset, 10);
+      counter.lastUpdatedDate = lastUpdatedDate;
       await counter.save();
     }
     res.json({ message: 'Sample Serial updated', currentValue: counter.currentValue });
@@ -225,10 +293,12 @@ router.get('/', protect, async (req, res) => {
 // Create a new job (ADMIN_OFFICER only)
 router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
-    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters, groupMetadata, pesticidePanel, nablGroupMetadata, nablPesticidePanel, nonNablGroupMetadata, nonNablPesticidePanel, showSpecifications, nablShowSpecifications, nonNablShowSpecifications } = req.body;
+    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters, groupMetadata, pesticidePanel, nablGroupMetadata, nablPesticidePanel, nonNablGroupMetadata, nonNablPesticidePanel, showSpecifications, nablShowSpecifications, nonNablShowSpecifications, customCreationDate } = req.body;
 
-    const serial = await getNextSerial();
-    const baseJobCode = buildJobCode(serial);
+    // customCreationDate is an optional YYYY-MM-DD string chosen by the officer.
+    // It overrides the date prefix in the job code but does NOT affect the counter.
+    const serial = await getNextSerial(customCreationDate || null);
+    const baseJobCode = buildJobCode(serial, customCreationDate || null);
 
     const sampleWithId = {
       ...sample,
@@ -308,6 +378,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         sampleTransferState: (nablDist.micro.required && nablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         showSpecifications: nablShowSpecifications !== undefined ? nablShowSpecifications : showSpecifications,
+        customCreationDate: customCreationDate ? new Date(customCreationDate) : undefined,
         createdBy: req.user._id,
         history: [{
           action: 'CREATED',
@@ -332,6 +403,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         sampleTransferState: (nonNablDist.micro.required && nonNablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         showSpecifications: nonNablShowSpecifications !== undefined ? nonNablShowSpecifications : showSpecifications,
+        customCreationDate: customCreationDate ? new Date(customCreationDate) : undefined,
         createdBy: req.user._id,
         siblingJobId: nablJob._id,
         history: [{
@@ -370,6 +442,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         sampleTransferState: (dist.micro.required && dist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         showSpecifications,
+        customCreationDate: customCreationDate ? new Date(customCreationDate) : undefined,
         createdBy: req.user._id,
         history: [{
           action: 'CREATED',

@@ -898,22 +898,31 @@ const BLANK_FORM = {
 };
 
 // Helper: same format as backend buildJobCode — YYMMDD + 4-digit padded serial
-function buildJobCodePreview(serial) {
+// Accepts an optional YYYY-MM-DD date string to override the date prefix.
+function buildJobCodePreview(serial, dateStr) {
   if (!serial) return "…";
-  const serialStr = String(serial);
-  
-  // If the serial is already a 10-digit code (or close to it), return it directly.
-  if (serialStr.length >= 8) {
-    return serialStr;
+  const nn = String(serial).slice(-4).padStart(4, "0");
+  if (dateStr) {
+    const [yyyy, mm, dd] = dateStr.split("-");
+    const yy = String(yyyy).slice(2);
+    return `${yy}${mm}${dd}${nn}`;
   }
-
-  // Legacy fallback: if it's a small 4-digit counter, prepend today's date.
   const now = new Date();
   const yy = String(now.getFullYear()).slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
-  const nn = serialStr.padStart(4, "0");
   return `${yy}${mm}${dd}${nn}`;
+}
+
+// Returns today's date as YYYY-MM-DD in IST (UTC+5:30)
+function getISTDateString() {
+  const now = new Date();
+  // Offset IST = UTC + 5h30m = 330 minutes
+  const ist = new Date(now.getTime() + (330 + now.getTimezoneOffset()) * 60000);
+  const yyyy = ist.getFullYear();
+  const mm = String(ist.getMonth() + 1).padStart(2, "0");
+  const dd = String(ist.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // Standard unit options for each department type
@@ -970,6 +979,7 @@ function Jobs() {
     const saved = sessionStorage.getItem("DRAFT_JOB_FORM");
     return saved ? JSON.parse(saved) : { ...BLANK_FORM, reopenReason: "" };
   });
+  const [customCreationDate, setCustomCreationDate] = useState(getISTDateString);
   const [sections, setSections] = useState({
     customer: true,
     sample: false,
@@ -1320,6 +1330,12 @@ function Jobs() {
         j.compliance?.special_handling_instructions || "",
       reopenReason: "",
     });
+    // Restore the job's original creation date (or today if not set)
+    setCustomCreationDate(
+      j.customCreationDate
+        ? new Date(j.customCreationDate).toISOString().split('T')[0]
+        : getISTDateString()
+    );
 
     const mapParams = (params) => {
       if (!params) return [];
@@ -1566,6 +1582,7 @@ function Jobs() {
         nablShowSpecifications,
         nonNablShowSpecifications,
         sampleFlow: {},
+        customCreationDate: customCreationDate || undefined,
       };
 
       if (editingJobId) {
@@ -1595,9 +1612,12 @@ function Jobs() {
         if (micro.length > 0) setAssignedMicroHead(micro[0]._id);
         const chemical = heads.filter((h) => h.department === "Chemical");
         if (chemical.length > 0) setAssignedChemicalHead(chemical[0]._id);
+        // Note: customCreationDate is intentionally kept so batch backdated jobs
+        // don't require the user to re-select the date on every submission.
       } else {
         setShowForm(false);
         setFormData({ ...BLANK_FORM, reopenReason: "" });
+        setCustomCreationDate(getISTDateString());
         setReopenParentId(null);
         setEditingJobId(null);
         setIsEditingReturnedJob(false);
@@ -1879,7 +1899,7 @@ function Jobs() {
                       {editingJobId && editingJob
                         ? editingJob.jobCode
                         : nextSerial
-                          ? buildJobCodePreview(nextSerial.serial)
+                          ? buildJobCodePreview(nextSerial.serial, customCreationDate)
                           : "—"}
                     </span>
                   </div>
@@ -2486,6 +2506,74 @@ function Jobs() {
                             />
                           </div>
                         </div>
+                      </div>
+
+                      {/* ── Job Date ── */}
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.4rem",
+                            fontWeight: 500,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          Job Date
+                          <span
+                            style={{
+                              marginLeft: "0.4rem",
+                              fontSize: "0.75rem",
+                              fontWeight: 400,
+                              color: "var(--color-text-muted)",
+                            }}
+                          >
+                            (sets the date in the job code)
+                          </span>
+                        </label>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <input
+                            type="date"
+                            value={customCreationDate}
+                            onChange={(e) => setCustomCreationDate(e.target.value)}
+                            style={{
+                              padding: "0.4rem 0.6rem",
+                              border: "1px solid var(--color-border)",
+                              borderRadius: "var(--radius-md)",
+                              fontSize: "0.9rem",
+                              cursor: "pointer",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCustomCreationDate(getISTDateString())}
+                            style={{
+                              padding: "0.4rem 0.75rem",
+                              fontSize: "0.8rem",
+                              border: "1px solid var(--color-border)",
+                              borderRadius: "var(--radius-md)",
+                              backgroundColor: "var(--color-surface-hover)",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Reset to today
+                          </button>
+                        </div>
+                        {customCreationDate !== getISTDateString() && (
+                          <div
+                            style={{
+                              marginTop: "0.35rem",
+                              fontSize: "0.78rem",
+                              color: "#d97706",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.3rem",
+                            }}
+                          >
+                            📅 Job code will use date{" "}
+                            <strong>{customCreationDate}</strong> instead of today.
+                          </div>
+                        )}
                       </div>
                       <div style={{ gridColumn: "1 / -1" }}>
                         <label

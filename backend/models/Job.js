@@ -128,6 +128,9 @@ const jobSchema = new mongoose.Schema({
   siblingJobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
   reopenReason: { type: String, default: null },
   retestNumber: { type: Number, default: 0 },
+
+  // Officer-specified creation date (overrides the date prefix in jobCode when set)
+  customCreationDate: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Job', jobSchema);

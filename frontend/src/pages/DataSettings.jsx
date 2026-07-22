@@ -29,6 +29,22 @@ export default function DataSettings() {
   const [serialPreview, setSerialPreview] = useState("");
   const [nextSerialPreview, setNextSerialPreview] = useState("");
   const [serialOffset, setSerialOffset] = useState("");
+  const [serialOffsetError, setSerialOffsetError] = useState("");
+
+  // Validates a 10-digit job code in YYMMDD#### format
+  const validateJobCode = (val) => {
+    if (!val) return "";
+    if (val.length !== 10) return "Must be exactly 10 digits.";
+    const yy = parseInt(val.slice(0, 2), 10);
+    const mm = parseInt(val.slice(2, 4), 10);
+    const dd = parseInt(val.slice(4, 6), 10);
+    const seq = val.slice(6);
+    if (yy < 20 || yy > 99) return "Year prefix looks invalid (expected 20–99).";
+    if (mm < 1 || mm > 12) return "Month must be between 01 and 12.";
+    if (dd < 1 || dd > 31) return "Day must be between 01 and 31.";
+    if (seq === "0000") return "Counter suffix cannot be 0000.";
+    return ""; // valid
+  };
   const [isUpdatingSerialOffset, setIsUpdatingSerialOffset] = useState(false);
   const [confirmSerialModal, setConfirmSerialModal] = useState(false);
 
@@ -170,11 +186,17 @@ export default function DataSettings() {
     setIsUpdatingSerialOffset(true);
     setConfirmSerialModal(false);
 
+    // Extract the last 4 digits if a full 10-digit job code is pasted
+    let offsetValue = serialOffset;
+    if (serialOffset.length >= 8) {
+      offsetValue = serialOffset.slice(-4);
+    }
+
     try {
       const token = localStorage.getItem("token");
       await axios.put(
         `${API_URL}/api/jobs/sample-serial-offset`,
-        { offset: parseInt(serialOffset, 10) },
+        { offset: parseInt(offsetValue, 10) },
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -573,33 +595,71 @@ export default function DataSettings() {
                   value={serialOffset}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, "");
-                    if (val.length <= 10) setSerialOffset(val);
+                    if (val.length <= 10) {
+                      setSerialOffset(val);
+                      setSerialOffsetError(validateJobCode(val));
+                    }
                   }}
                   style={{
                     flex: 1,
-                    border: "1px solid #86efac",
+                    border: serialOffsetError
+                      ? "1px solid #ef4444"
+                      : serialOffset.length === 10
+                      ? "1px solid #16a34a"
+                      : "1px solid #86efac",
                     backgroundColor: "white",
+                    outline: "none",
                   }}
                 />
                 <button
                   onClick={handleUpdateSerialOffset}
-                  disabled={isUpdatingSerialOffset || !serialOffset}
+                  disabled={isUpdatingSerialOffset || !serialOffset || !!serialOffsetError || serialOffset.length !== 10}
                   className="btn btn-primary"
                   style={{ backgroundColor: "#16a34a" }}
                 >
                   {isUpdatingSerialOffset ? "Updating..." : "Update Serial"}
                 </button>
               </div>
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#15803d",
-                  marginTop: "0.5rem",
-                }}
-              >
-                Input the last used serial number (the next job will be +1 of
-                this).
-              </div>
+              {serialOffsetError && (
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "#ef4444",
+                    marginTop: "0.35rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                  }}
+                >
+                  ⚠️ {serialOffsetError}
+                </div>
+              )}
+              {!serialOffsetError && serialOffset.length === 10 && (
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "#16a34a",
+                    marginTop: "0.35rem",
+                  }}
+                >
+                  ✅ Valid code — next job will be{" "}
+                  <strong>
+                    {`20${serialOffset.slice(0, 2)}-${serialOffset.slice(2, 4)}-${serialOffset.slice(4, 6)}`}
+                  </strong>
+                  , sequence #{parseInt(serialOffset.slice(6), 10) + 1}.
+                </div>
+              )}
+              {!serialOffset && (
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "#15803d",
+                    marginTop: "0.5rem",
+                  }}
+                >
+                  Input the last used serial number (the next job will be +1 of this).
+                </div>
+              )}
             </div>
           </div>
         </div>
