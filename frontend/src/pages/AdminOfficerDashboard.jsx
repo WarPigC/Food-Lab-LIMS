@@ -1330,12 +1330,19 @@ function Jobs() {
         j.compliance?.special_handling_instructions || "",
       reopenReason: "",
     });
-    // Restore the job's original creation date (or today if not set)
-    setCustomCreationDate(
-      j.customCreationDate
-        ? new Date(j.customCreationDate).toISOString().split('T')[0]
-        : getISTDateString()
-    );
+    // Restore the job's original creation date.
+    // Priority: customCreationDate field → date parsed from jobCode → today
+    let restoredDate = getISTDateString();
+    if (j.customCreationDate) {
+      restoredDate = new Date(j.customCreationDate).toISOString().split('T')[0];
+    } else if (j.jobCode && j.jobCode.length >= 6) {
+      // Parse YYMMDD from the start of the job code (e.g. "2607211660" → 2026-07-21)
+      const yy = j.jobCode.slice(0, 2);
+      const mm = j.jobCode.slice(2, 4);
+      const dd = j.jobCode.slice(4, 6);
+      restoredDate = `20${yy}-${mm}-${dd}`;
+    }
+    setCustomCreationDate(restoredDate);
 
     const mapParams = (params) => {
       if (!params) return [];
