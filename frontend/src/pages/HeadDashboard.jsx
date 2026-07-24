@@ -978,16 +978,7 @@ function Dispatcher() {
 
       // Refresh jobs list
       invalidateCache(CACHE_KEYS.JOBS);
-      const dept = user?.department ? user.department.toLowerCase() : "";
-      const res = await axios.get(`${API_URL}/api/jobs`);
-      setJobs(
-        res.data.filter((j) => {
-          const dKey = dept === "chemical" ? "chemical" : dept;
-          const dist = j.distribution[dKey];
-          const headId = dist?.assignedHead?._id || dist?.assignedHead;
-          return dist?.status === "PENDING" && (!headId || headId === user._id);
-        }),
-      );
+      fetchJobs();
     } catch (err) {
       console.error(err);
       alert("Error: " + (err.response?.data?.message || err.message));
