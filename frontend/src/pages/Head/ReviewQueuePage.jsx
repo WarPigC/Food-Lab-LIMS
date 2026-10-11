@@ -13,7 +13,7 @@ import {
   ClipboardCheck, CheckCircle, RotateCcw } from "lucide-react";
 import { useSocket } from "../../context/SocketContext";
 import { AuthContext } from "../../context/AuthContext";
-import { formatJobCode } from "../../utils/serialUtils";
+import { formatTestCode } from "../../utils/codeUtils";
 import Fuse from "fuse.js";
 import InfiniteScroll from "../../components/InfiniteScroll";
 import PageHeader from "../../components/PageHeader";
@@ -444,7 +444,7 @@ export default function ReviewQueue() {
                   <div>
                     <div style={{ fontWeight: 600, fontSize: "1.05rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <span style={{ fontFamily: "monospace", color: "var(--color-primary-dark)" }}>
-                        {formatJobCode(inst.testCode)}
+                        {formatTestCode(inst.testCode)}
                       </span>
                     </div>
                     <div
