@@ -241,7 +241,7 @@ Dependencies within SP1 dictate this sequence:
 |---|---|---|---|
 | SP2.P1 | F14 | Cross-Analyst Reassign Duplication Bug | ✅ Done |
 | SP2.P2 | B1 | ULR Preview Label Fix (Concurrent Jobs) | ✅ Done |
-| SP2.P3 | F8 | Toast System Overhaul | ⬜ Upcoming |
+| SP2.P3 | F8 | Toast System Overhaul | ✅ Done |
 | SP2.P4 | F15 | Global Modal Daemon | ⬜ Upcoming |
 | SP2.P5 | F13 | Analyst Reassignment History Tracking | ✅ Done |
 | SP2.P6 | F2 | Head Pages, Search, Filter & Sort | ✅ Done |
@@ -301,7 +301,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 **Design decisions locked:**
 - **Wipe on reassign**: When params are sent from analyst A to analyst B, values are fully wiped (`value: ''`, `testMethod: ''`, `isSaved: false`). B must independently re-test and enter fresh results. Previous values are stored in `instance.previousResults` for HEAD's audit trail only. This prevents Diksha's numbers from silently passing through as B's results.
 
-> ✅ **FULLY RESOLVED** (Pass 4). All paths confirmed working:
+> ✅ **FULLY RESOLVED** (commits `8d16221`, `4597761`, `1598725`, Pass 4). All paths confirmed working:
 > - Branch 1 (A retains some params, some go to B): filter+map, removes params sent away, A stays PENDING
 > - Branch 2 (all of A's params go to B): filter, A stays PENDING_HEAD_REVIEW (or COMPLETED if empty)  
 > - Merge into existing PENDING instance (retestOnly=[]): new params added, retestOnly untouched — all editable
@@ -332,7 +332,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 | SP2.P2.5 | Added explanatory comment in `jobCrudRoutes.js` `GET /next-ulr` route documenting the in-flight NABL limitation. No logic change |
 | SP2.P2.6 | Label cleaned further per user review: `(Auto-assigned)` parenthetical removed; label is now just `ULR Number *`. Caption trimmed to "The number shown here is an estimate." in `#6b7280` |
 
-> ✅ Completed. File changed: `frontend/src/pages/AdminOfficer/JobsPage.jsx` (lines ~364–370, ~2017–2025, ~2154). Comment added to `backend/routes/jobs/jobCrudRoutes.js` (lines ~69–72). No backend logic changes; no new endpoints.
+> ✅ Completed (commits `dbd6149`, `2473de6`, `f94189b`). File changed: `frontend/src/pages/AdminOfficer/JobsPage.jsx` (lines ~364–370, ~2017–2025, ~2154). Comment added to `backend/routes/jobs/jobCrudRoutes.js` (lines ~69–72). No backend logic changes; no new endpoints.
 
 ---
 
@@ -344,14 +344,14 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 - **Implementation**: Fully custom in-house system. No external library. `ToastContext` + `useToast` hook + `<ToastContainer>` renderer.
 - **Variants (shipped now)**: `success` and `error` only, the only two with confirmed, immediate use in the current 15 files. `warning`, `info`, and `loading` are deferred until a real use case exists.
 - **Variant extensibility**: Variants are defined in a single `TOAST_VARIANTS` config map (type key -> `{ icon, accentColor, defaultDuration }`). Adding a new variant in the future requires only one entry in that map, no changes to rendering logic, CSS keyframe logic, or the hook.
-- **Position**: Top-right. Rendered via a React Portal to `document.body` so it never sits inside a stacking-context-constrained parent. `z-index` sits above page content but below modals.
-- **Dismissal**: Auto-dismiss. Defaults: `success` = 4 s, `error` = 8 s. Each variant config entry owns its `defaultDuration`; callers can override via `opts.duration`.
-- **Manual close**: None. No X button. Timer handles it.
+- **Position**: Bottom-right (desktop: `bottom: 1.5rem, right: 1.5rem, z-index: 1050`; mobile: `bottom: calc(1rem + env(safe-area-inset-bottom, 0px))` with left/right padding). Rendered via a React Portal to `document.body` so it never sits inside a stacking-context-constrained parent.
+- **Dismissal**: Auto-dismiss with progress bar (defaults: `success` = 4 s, `error` = 8 s; overrideable via `opts.duration`) plus manual dismiss X button on each card.
+- **Manual close**: Close X button included on `<ToastCard>` for immediate manual dismiss.
 - **Stacking**: Newest on top, capped at 3 visible. When a 4th arrives the oldest is immediately evicted.
 - **Animation**: Slide in from right on enter, slide out to right on exit. CSS keyframe animation, no JS animation library.
 - **Progress bar**: Yes. A thin colored bar at the bottom of each toast depletes over its lifetime. Driven by a CSS `animation` timed to match the toast duration, zero JS overhead.
-- **Visual style**: Dark glassmorphic card matching the existing design language. Dark translucent background, subtle border. Colored **left-accent stripe** per variant (green / red). Icon (Lucide) on the left, message text alongside.
-- **Migration scope**: Full migration in this phase, all 15 existing files replaced.
+- **Visual style**: Dark glassmorphic card matching the existing design language. Dark translucent background, subtle border. Colored left-accent stripe per variant (green / red). Outline Lucide icon on the left, message text wrapped (`white-space: normal, word-break: break-word`), manual close button on the right.
+- **Migration scope**: Full migration across 15+ target files replaced.
 
 **Files created:**
 - `frontend/src/context/ToastContext.jsx`
@@ -360,6 +360,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 **Files modified:**
 - `frontend/src/main.jsx` (wrapped with `<ToastProvider>`)
 - `frontend/src/index.css` (toast keyframes, custom properties, and card classes)
+- `frontend/src/components/Header.jsx` (profile menu z-index adjusted to 1000, `--header-height` layout variable)
 - `frontend/src/pages/Head/DispatcherPage.jsx`
 - `frontend/src/pages/Head/ReviewQueuePage.jsx`
 - `frontend/src/pages/Head/AssistantsPage.jsx`
@@ -383,8 +384,8 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 | Subphase | Task | Status |
 |---|---|---|
 | SP2.P3.1 | **`ToastContext.jsx` config map and engine**: `TOAST_VARIANTS` map, state management, cap of 3 with auto-eviction, timer cleanup, portal rendering | ✅ Complete |
-| SP2.P3.2 | **`<ToastContainer>` renderer**: Portal to `document.body`, fixed top-right, z-index 900, `column-reverse` flex stacking | ✅ Complete |
-| SP2.P3.3 | **`<ToastCard>` sub-component**: Glassmorphic dark card, left accent stripe, outline Lucide icon, CSS progress bar, entrance/exit keyframe triggers | ✅ Complete |
+| SP2.P3.2 | **`<ToastContainer>` renderer**: Portal to `document.body`, fixed bottom-right, z-index 1050, column flex stacking, mobile safe-area padding | ✅ Complete |
+| SP2.P3.3 | **`<ToastCard>` sub-component**: Glassmorphic dark card, left accent stripe, outline Lucide icon, CSS progress bar, manual dismiss X button, word-wrap text, entrance/exit keyframe triggers | ✅ Complete |
 | SP2.P3.4 | **`index.css` keyframes and variables**: `--toast-accent-success`, `--toast-accent-error`, `@keyframes toast-slide-in`, `toast-slide-out`, `toast-progress` | ✅ Complete |
 | SP2.P3.5 | **`useToast.js` hook**: Lightweight hook returning `toast.success(msg, opts)` and `toast.error(msg, opts)` | ✅ Complete |
 | SP2.P3.6 | **`main.jsx` integration**: `<ToastProvider>` wrapped around `<App />` | ✅ Complete |
@@ -397,9 +398,9 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 | SP2.P3.13 | **Migration: `TransferManagement.jsx`, `SerialSettings.jsx`, `GroupSettings.jsx`, `DataSettings.jsx`**: Replaced dead success state, alerts, `statusModal`, and backup errors with `toast.*` | ✅ Complete |
 | SP2.P3.14 | **Migration: `CascadingParameterSelector.jsx`, `ReportModal.jsx`, `BugReportPage.jsx`, `UsersPage.jsx`, `Login.jsx`**: Migrated all remaining alerts and feedback to `toast.*` | ✅ Complete |
 | SP2.P3.15 | **Dead code sweep and build verification**: Verified 0 raw `alert()` calls, 0 `setSuccess` calls, and successful `npm run build` | ✅ Complete |
-| SP2.P3.16 | **Mobile and layout safety**: Container constrained to `max-width: calc(100vw - 2rem)`, positioned cleanly at top-right below modals | ✅ Complete |
+| SP2.P3.16 | **Mobile and layout safety**: Container constrained to `max-width: calc(100vw - 2rem)`, positioned cleanly at bottom-right with safe-area padding | ✅ Complete |
 
-> ✅ Completed. Files created: `frontend/src/context/ToastContext.jsx`, `frontend/src/hooks/useToast.js`. Modified: `frontend/src/index.css`, `frontend/src/main.jsx`, and all 15 target files across the codebase. Zero raw alert() calls or local setSuccess state remaining. Clean production build verified.
+> ✅ Completed (commits `f7a5e72`, `02bf5e9`). Files created: `frontend/src/context/ToastContext.jsx`, `frontend/src/hooks/useToast.js`. Modified: `frontend/src/index.css`, `frontend/src/main.jsx`, `frontend/src/components/Header.jsx`, and all 15 target files across the codebase. Manual dismiss X button added; bottom-right placement configured with mobile safe-area padding; toast messages wrap cleanly. Zero raw alert() calls or local setSuccess state remaining. Clean production build verified.
 
 ---
 
@@ -428,7 +429,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 5. **Purpose labels** — subtitles on the AssignmentHistory toggle and the GlobalJobHistory modal header so users understand what each view tracks vs the other.
 
-> ✅ **COMPLETE**. All subphases delivered. No backend changes required.
+> ✅ **COMPLETE** (commit `e959c96`). All subphases delivered. No backend changes required.
 
 ---
 
@@ -490,7 +491,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 | SP2.P6.16 | **Activity Logs page**: add `<PageHeader>` with config appropriate to audit log fields. Separate subphase pass |
 | SP2.P6.17 | **Mobile verification**: sticky header must not eat too much vertical space on small screens. Filter/sort dropdowns must not overflow viewport. Chips must wrap cleanly. Transfer accordion bar must be full-width and tappable |
 
-> ✅ **COMPLETE**. All infrastructure built and wired to Dispatcher and Review Queue pages. 
+> ✅ **COMPLETE** (commits `1009761`, `f94189b`). All infrastructure built and wired to Dispatcher and Review Queue pages. 
 > - `useListControls` and `PageHeader` created with sticky scroll, live search, and dynamic filter/sort.
 > - Sibling resolution implemented (`utils/siblingUtils.js`) for accurate job filtering.
 > - Transfer Management converted into a full-width accordion on the Dispatcher page.
@@ -511,7 +512,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 1. **`ReviewQueuePage.jsx`**: Replaced incorrect `formatJobCode` import from `serialUtils` with `formatTestCode` from `codeUtils`, and rendered `formatTestCode(inst.testCode)` in the job list item header.
 2. **`AssignmentHistory.jsx`**: Added `formatTestCode` and `formatMessageTestCodes` imports from `codeUtils`. Formatted `entry.testCode` via `formatTestCode(inst.testCode)` during history flattening, and wrapped `entry.note` with `formatMessageTestCodes(entry.note)` so embedded test code suffixes in reassignment notes are stripped before render.
 
-> ✅ **COMPLETE**. Verified clean build with `npm run build`.
+> ✅ **COMPLETE** (commit `852196d`). Verified clean build with `npm run build`.
 > Files changed: `frontend/src/pages/Head/ReviewQueuePage.jsx`, `frontend/src/components/AssignmentHistory.jsx`.
 
 ---
