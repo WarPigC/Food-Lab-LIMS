@@ -17,7 +17,7 @@ export const TOAST_VARIANTS = {
 
 export const ToastContext = createContext(null);
 
-function ToastCard({ toast, onExitComplete }) {
+function ToastCard({ toast, onExitComplete, onDismiss }) {
   const variant = TOAST_VARIANTS[toast.type] || TOAST_VARIANTS.success;
   const accentColor = variant.accentColor;
 
@@ -45,9 +45,31 @@ function ToastCard({ toast, onExitComplete }) {
       >
         {variant.icon}
       </div>
-      <span className="toast-message" title={toast.message}>
+      <span className="toast-message">
         {toast.message}
       </span>
+      <button
+        type="button"
+        onClick={() => onDismiss(toast.id)}
+        aria-label="Dismiss toast"
+        style={{
+          background: "none",
+          border: "none",
+          color: "rgba(255, 255, 255, 0.45)",
+          cursor: "pointer",
+          padding: "2px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          borderRadius: "4px",
+          marginLeft: "auto",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#ffffff")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255, 255, 255, 0.45)")}
+      >
+        <X size={14} />
+      </button>
       <div
         className="toast-progress-bar"
         style={{
@@ -59,7 +81,7 @@ function ToastCard({ toast, onExitComplete }) {
   );
 }
 
-function ToastContainer({ toasts, onExitComplete }) {
+function ToastContainer({ toasts, onExitComplete, onDismiss }) {
   if (typeof document === "undefined" || !document.body) return null;
 
   return ReactDOM.createPortal(
@@ -69,6 +91,7 @@ function ToastContainer({ toasts, onExitComplete }) {
           key={toast.id}
           toast={toast}
           onExitComplete={onExitComplete}
+          onDismiss={onDismiss}
         />
       ))}
     </div>,
@@ -136,7 +159,11 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast: removeToastImmediately }}>
       {children}
-      <ToastContainer toasts={toasts} onExitComplete={removeToastImmediately} />
+      <ToastContainer
+        toasts={toasts}
+        onExitComplete={removeToastImmediately}
+        onDismiss={startDismissal}
+      />
     </ToastContext.Provider>
   );
 }

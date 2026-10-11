@@ -29,6 +29,9 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
+  /* Layout dimensions */
+  --header-height: 70px;
+
   /* Fonts */
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -405,7 +408,7 @@ tr:hover {
 
 /* ── Header ── */
 .app-header {
-  height: 70px;
+  height: var(--header-height);
   background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   display: flex;
@@ -936,8 +939,12 @@ tr:hover {
     padding: 0.85rem;
   }
 
+  :root {
+    --header-height: 60px;
+  }
+
   .app-header {
-    height: 60px;
+    height: var(--header-height);
     padding: 0 0.75rem;
   }
 
@@ -1192,26 +1199,37 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 .toast-container {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 900;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 1050;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 0.5rem;
-  width: 320px;
+  width: 360px;
   max-width: calc(100vw - 2rem);
   pointer-events: none;
+}
+
+@media (max-width: 480px) {
+  .toast-container {
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    max-width: none;
+  }
 }
 
 .toast-card {
   position: relative;
   overflow: hidden;
-  background: rgba(18, 24, 36, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(18, 24, 36, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-  padding: 0 14px 0 18px;
-  height: 52px;
+  padding: 10px 12px 10px 16px;
+  min-height: 48px;
+  height: auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1234,12 +1252,12 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 .toast-message {
   font-size: 13px;
-  color: #d1d5db;
+  color: #e5e7eb;
   font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+  flex: 1;
 }
 
 .toast-progress-bar {
