@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, History, CheckCircle, ArrowRightLeft, RotateCcw } from 'lucide-react';
 import { formatDateTime } from '../utils/dateUtils';
+import { formatTestCode, formatMessageTestCodes } from '../utils/codeUtils';
 
 const DEPT_COLORS = {
   micro:    { bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA' },
@@ -28,7 +29,7 @@ export default function AssignmentHistory({ testInstances = [] }) {
       .flatMap(inst => (inst.reviewHistory || []).map(rh => ({
         ...rh,
         analystName: inst.assignedTo?.name,
-        testCode:    inst.testCode,
+        testCode:    formatTestCode(inst.testCode),
         department:  (inst.department || inst.createdBy?.department || '').toLowerCase(),
       })))
       .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -187,7 +188,7 @@ export default function AssignmentHistory({ testInstances = [] }) {
                         borderLeft: `3px solid ${cfg.color}`,
                         padding: '0.3rem 0.6rem', borderRadius: '0 4px 4px 0', lineHeight: 1.45,
                       }}>
-                        {entry.note}
+                        {formatMessageTestCodes(entry.note)}
                       </div>
                     )}
                   </div>

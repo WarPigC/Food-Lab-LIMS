@@ -245,7 +245,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P4 | F15 | Global Modal Daemon | ⬜ Upcoming |
 | SP2.P5 | F13 | Analyst Reassignment History Tracking | ✅ Done |
 | SP2.P6 | F2 | Head Pages, Search, Filter & Sort | ✅ Done |
-| SP2.P7 | F16 | Hide Test Code Suffixes in UI | ⬜ Upcoming |
+| SP2.P7 | F16 | Hide Test Code Suffixes in UI | ✅ Done |
 | SP2.P8 | F18 | Error Handling & Modal Overhaul | ⬜ Upcoming |
 | SP2.P9 | F19 | Head Monitor Tab V1 — Cancel, Reassign & Live Progress | ⬜ Upcoming |
 | SP2.P10 | F20 | Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot | ⬜ Upcoming |
@@ -436,6 +436,19 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 ---
 
+### SP2.P7: F16: Hide Test Code Suffixes in UI ✅
+
+**Scope**: Ensure clean job codes (`2609101742` for NABL, `2609101742-N` for Non-NABL) are displayed everywhere in the UI by stripping internal department and analyst suffixes (such as `-2a`, `-1b`, `-v2`) from `TestInstance.testCode`.
+
+**What was done**:
+1. **`ReviewQueuePage.jsx`**: Replaced incorrect `formatJobCode` import from `serialUtils` with `formatTestCode` from `codeUtils`, and rendered `formatTestCode(inst.testCode)` in the job list item header.
+2. **`AssignmentHistory.jsx`**: Added `formatTestCode` and `formatMessageTestCodes` imports from `codeUtils`. Formatted `entry.testCode` via `formatTestCode(inst.testCode)` during history flattening, and wrapped `entry.note` with `formatMessageTestCodes(entry.note)` so embedded test code suffixes in reassignment notes are stripped before render.
+
+> ✅ **COMPLETE**. Verified clean build with `npm run build`.
+> Files changed: `frontend/src/pages/Head/ReviewQueuePage.jsx`, `frontend/src/components/AssignmentHistory.jsx`.
+
+---
+
 ### SP2.P9 — F19: Head Monitor Tab V1 — Cancel, Reassign & Live Progress
 
 
@@ -522,6 +535,7 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP3.P13 | F6 | Job Grouping in Officer's Page |
 | SP3.P14 | F21 | OTP-Based Password Reset |
 | SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) |
+| SP3.P16 | F2-ext | PageHeader Integration — Admin Officer Job Distributor + Activity Logs |
 
 ---
 
@@ -741,6 +755,34 @@ Login screen
 | SP3.P15.6 | Add a **bulk assign bar** at the top of the expanded dispatch card: an `<AnalystPicker />` in standalone mode + an "Assign all unassigned" button. On click, sets all currently unassigned params to the selected analyst |
 | SP3.P15.7 | Ensure the submit/dispatch button validation still works — it should remain disabled until every param has an analyst assigned (existing logic, just wired to the new state) |
 | SP3.P15.8 | Verify mobile: chips readable at small size, bottom sheet doesn't obscure the param list, bulk assign bar stays accessible |
+
+---
+
+### SP3.P16 — F2-ext: PageHeader Integration — Admin Officer Job Distributor + Activity Logs
+
+**Files**: `frontend/src/pages/AdminOfficer/JobDistributorPage.jsx` (or equivalent), `frontend/src/pages/ActivityLogs.jsx` (or equivalent), `frontend/src/components/PageHeader.jsx`, `frontend/src/hooks/useListControls.js`
+
+**Why SP3**: These two pages were explicitly deferred from SP2.P6.15 and SP2.P6.16 during the SP2.P6 implementation. The `PageHeader` component and `useListControls` hook are already stable and production-ready from SP2.P6. This phase is purely a wiring pass — no new infrastructure needed.
+
+**Admin Officer Job Distributor config:**
+- Sort: date (`createdAt`), job code
+- Filter: NABL type (`nabl` / `non-nabl` / `hybrid`), date range, status
+- Search: job code, client name, sample name
+
+**Activity Logs config:**
+- Sort: date (`createdAt`), action type
+- Filter: action type (select from enum), role of actor, date range
+- Search: actor name, job code, description/detail field
+
+| Subphase | Task |
+|---|---|
+| SP3.P16.1 | Read `JobDistributorPage.jsx` (or whichever file renders the Admin Officer job list) — identify the current data shape, how jobs are fetched, and what fields are available for search/filter |
+| SP3.P16.2 | Wire `useListControls` to the Admin Officer job list. Config: `searchFields` (job code, client name, sample name), `sortOptions` (date, job code), `filterDefs` (NABL type select, status select, date range) |
+| SP3.P16.3 | Mount `<PageHeader>` at the top of the Admin Officer job distributor page with the config from SP3.P16.2. Verify sticky scroll, chip row, and Clear All work correctly |
+| SP3.P16.4 | Read the Activity Logs page — identify the data shape (action type enum values, actor role field names, description/detail field) |
+| SP3.P16.5 | Wire `useListControls` to the Activity Logs list. Config: `searchFields` (actor name, job code, detail), `sortOptions` (date, action type), `filterDefs` (action type select, actor role select, date range) |
+| SP3.P16.6 | Mount `<PageHeader>` on the Activity Logs page with the config from SP3.P16.5 |
+| SP3.P16.7 | Mobile verification on both pages: sticky header must not eat too much vertical space, filter chips must wrap cleanly, no viewport overflow on dropdowns |
 
 ---
 
