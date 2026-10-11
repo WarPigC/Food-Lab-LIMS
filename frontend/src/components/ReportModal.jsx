@@ -6,8 +6,10 @@ import { AuthContext } from '../context/AuthContext';
 import { formatDateTime } from '../utils/dateUtils';
 import ReportPreview from './ReportPreview';
 import Spinner from './Spinner';
+import { useToast } from '../hooks/useToast';
 
 export default function ReportModal({ job, onClose }) {
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   // Initialize reportType synchronously based on job data to prevent double-fetching
   const initialType = job.sample?.nabl_type === 'Nabl' ? 'nabl' : 'non_nabl';
@@ -85,7 +87,7 @@ export default function ReportModal({ job, onClose }) {
     if (!file) return;
 
     if (!file.name.endsWith('.docx')) {
-      alert('Only .docx files are allowed.');
+      toast.error('Only .docx files are allowed.');
       return;
     }
 
@@ -101,10 +103,11 @@ export default function ReportModal({ job, onClose }) {
           'Content-Type': 'multipart/form-data'
         }
       });
+      toast.success("Custom report uploaded successfully.");
       loadReport(); // Reload to fetch custom report
     } catch (err) {
       console.error('Upload failed', err);
-      alert('Upload failed: ' + (err.response?.data?.message || err.message));
+      toast.error('Upload failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setUploading(false);
       e.target.value = ''; // Reset input
@@ -120,10 +123,11 @@ export default function ReportModal({ job, onClose }) {
       await axios.post(`${API_URL}/api/export/report/${job._id}/revert?type=${reportType}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      toast.success("Reverted to auto-generated report.");
       loadReport(); // Reload to fetch auto report
     } catch (err) {
       console.error('Revert failed', err);
-      alert('Failed to revert: ' + (err.response?.data?.message || err.message));
+      toast.error('Failed to revert: ' + (err.response?.data?.message || err.message));
       setLoading(false);
     }
   };

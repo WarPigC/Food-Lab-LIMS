@@ -8,6 +8,7 @@ import { useSocket } from "../../context/SocketContext";
 import { AuthContext } from "../../context/AuthContext";
 import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from "../../utils/cache";
 import { formatDateTime } from "../../utils/dateUtils";
+import { useToast } from "../../hooks/useToast";
 
 export default function TransferManagement() {
   const [incomingTransfers, setIncomingTransfers] = useState([]);
@@ -17,7 +18,7 @@ export default function TransferManagement() {
   );
   const [transferLoading, setTransferLoading] = useState(false);
   const [transferConfirmData, setTransferConfirmData] = useState(null);
-  const [success, setSuccess] = useState("");
+  const toast = useToast();
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const { user } = useContext(AuthContext);
   
@@ -99,7 +100,7 @@ export default function TransferManagement() {
             },
           },
         );
-        setSuccess(
+        toast.success(
           "Sample hand-over recorded! The other department has been notified.",
         );
         setOutgoingJobs((prev) => prev.filter((j) => j._id !== id));
@@ -117,16 +118,15 @@ export default function TransferManagement() {
         // Immediately remove from UI for snappy experience
         setIncomingTransfers((prev) => prev.filter((t) => t._id !== id));
 
-        setSuccess(
+        toast.success(
           "Sample receipt confirmed! The job is now available in your dispatcher.",
         );
         invalidateCache(CACHE_KEYS.JOBS);
       }
-      setTimeout(() => setSuccess(""), 4000);
       fetchTransfers();
       setTransferConfirmData(null);
     } catch (err) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
         `Error ${type === "send" ? "sending" : "receiving"} transfer`,
       );

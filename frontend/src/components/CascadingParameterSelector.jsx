@@ -3,6 +3,7 @@ import Spinner from './Spinner';
 import { AlertCircle, Beaker, Search, X, Plus, Save, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import API_URL from '../utils/api';
+import { useToast } from '../hooks/useToast';
 
 const CascadingParameterSelector = ({ 
   label = "Parameters", 
@@ -16,6 +17,7 @@ const CascadingParameterSelector = ({
   externalSync = null, // Hybrid mode sync
   immutable = false
 }) => {
+  const toast = useToast();
   const [selectedGroups, setSelectedGroups] = useState(initialGroupMetadata?.group ? initialGroupMetadata.group.split(', ') : []);
   const [selectedSubGroups, setSelectedSubGroups] = useState(initialGroupMetadata?.subGroup ? initialGroupMetadata.subGroup.split(', ') : []);
   const [selectedProductCategory, setSelectedProductCategory] = useState(initialGroupMetadata?.productCategory || '');
@@ -247,7 +249,7 @@ const CascadingParameterSelector = ({
   const handleCreateParameter = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!newParamForm.name.trim()) {
-      alert("Parameter Name is required");
+      toast.error("Parameter Name is required");
       return;
     }
     try {
@@ -259,8 +261,9 @@ const CascadingParameterSelector = ({
       addParameter(res.data);
       setIsCreatingNew(false);
       setNewParamForm({ name: '', type: 'Micro', unit: '' });
+      toast.success("Parameter created successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || 'Error creating parameter');
+      toast.error(err.response?.data?.message || 'Error creating parameter');
     }
   };
 
@@ -273,8 +276,9 @@ const CascadingParameterSelector = ({
       });
       setGlobalParameters(prev => prev.filter(p => getParamId(p) !== paramId));
       setSelectedParams(prev => prev.filter(p => getParamId(p) !== paramId));
+      toast.success("Parameter removed from library.");
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting parameter');
+      toast.error(err.response?.data?.message || 'Error deleting parameter');
     }
   };
 
@@ -288,7 +292,7 @@ const CascadingParameterSelector = ({
       });
     } catch (err) {
       console.error(err);
-      alert('Failed to update type');
+      toast.error('Failed to update type');
     }
   };
 
@@ -322,7 +326,7 @@ const CascadingParameterSelector = ({
       // silent success for blur save
     } catch (err) {
       console.error('Error saving unit', err);
-      alert('Failed to save unit to database.');
+      toast.error('Failed to save unit to database.');
     }
   };
 

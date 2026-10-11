@@ -8,6 +8,7 @@ import Spinner from "../../components/Spinner";
 
 import { Play, User, Check, X, Search, Shield, Activity, Edit, Trash2, CheckCircle } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
+import { useToast } from "../../hooks/useToast";
 
 
 function UserSection({
@@ -184,8 +185,7 @@ export default function UsersPage() {
     branch: "Main Branch",
     password: "",
   });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const toast = useToast();
   const [usersLoading, setUsersLoading] = useState(
     () => !isCached(CACHE_KEYS.USERS),
   );
@@ -223,28 +223,27 @@ export default function UsersPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^\+?[\d\s-]{10,15}$/;
 
     if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address.");
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (!phoneRegex.test(formData.phone)) {
-      setError("Please enter a valid phone number (10-15 digits).");
+      toast.error("Please enter a valid phone number (10-15 digits).");
       return;
     }
     try {
       if (editUserId) {
         await axios.put(`${API_URL}/api/users/${editUserId}`, formData);
-        setSuccess("User updated successfully.");
+        toast.success("User updated successfully.");
       } else {
         const res = await axios.post(`${API_URL}/api/users`, formData);
-        setSuccess(
+        toast.success(
           `User created successfully. Temporary password is: ${res.data.temporaryPassword}`,
+          { duration: 15000 },
         );
       }
       setFormData({
@@ -261,7 +260,7 @@ export default function UsersPage() {
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || "Operation failed");
+      toast.error(err.response?.data?.message || "Operation failed");
     }
   };
 
@@ -277,18 +276,17 @@ export default function UsersPage() {
     });
     setEditUserId(u._id);
     setShowForm(true);
-    setError("");
-    setSuccess("");
   };
 
   const confirmDelete = async (id) => {
     try {
       await axios.delete(`${API_URL}/api/users/${id}`);
+      toast.success("User deleted successfully.");
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
     } catch (err) {
       console.error(err);
-      setError("Failed to delete user");
+      toast.error("Failed to delete user");
     }
   };
 
@@ -318,42 +316,6 @@ export default function UsersPage() {
           {showForm ? "Close Form" : "+ Create User"}
         </button>
       </div>
-
-      {error && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            color: "var(--color-danger)",
-            backgroundColor: "var(--color-danger-light)",
-            padding: "1rem",
-            borderRadius: "var(--radius-md)",
-          }}
-        >
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          style={{
-            position: "fixed",
-            top: "6rem",
-            right: "2rem",
-            zIndex: 1000,
-            color: "white",
-            backgroundColor: "var(--color-success)",
-            padding: "1rem 1.5rem",
-            borderRadius: "var(--radius-md)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            animation: "slideIn 0.3s ease-out",
-          }}
-        >
-          <CheckCircle size={20} />
-          <span style={{ fontWeight: 500 }}>{success}</span>
-        </div>
-      )}
 
       {showForm && (
         <div className="card" style={{ marginBottom: "2.5rem" }}>

@@ -5,13 +5,14 @@ import { Lock, Mail, ArrowRight, Activity, Eye, EyeOff, KeyRound, ArrowLeft } fr
 import axios from 'axios';
 import logo from '../assets/Acropolis20Logo.png';
 import API_URL from '../utils/api';
+import { useToast } from '../hooks/useToast';
 
 export default function Login() {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [requiresChange, setRequiresChange] = useState(false);
-  const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const { login, setUser } = useContext(AuthContext);
@@ -22,12 +23,10 @@ export default function Login() {
   const [otpEmail, setOtpEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
-  const [otpMessage, setOtpMessage] = useState('');
   const [otpCountdown, setOtpCountdown] = useState(0);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     try {
       const u = await login(email, password);
       if (u.requiresPasswordChange) {
@@ -37,9 +36,9 @@ export default function Login() {
       }
     } catch (err) {
       if (err.response) {
-        setError(err.response.data?.message || 'Invalid credentials');
+        toast.error(err.response.data?.message || 'Invalid credentials');
       } else {
-        setError('Network Error: Cannot connect to server');
+        toast.error('Network Error: Cannot connect to server');
       }
     }
   };
@@ -50,9 +49,10 @@ export default function Login() {
       await axios.put(`${API_URL}/api/auth/change-password`, { newPassword });
       const updatedUser = { ...JSON.parse(localStorage.getItem('user')), requiresPasswordChange: false };
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      toast.success("Password changed successfully.");
       redirectRole(updatedUser.role);
     } catch (err) {
-      setError('Failed to update password');
+      toast.error('Failed to update password');
     }
   };
 
@@ -83,16 +83,14 @@ export default function Login() {
 
   const handleRequestOtp = async (e) => {
     e.preventDefault();
-    setError('');
-    setOtpMessage('');
     setOtpLoading(true);
     try {
       const res = await axios.post(`${API_URL}/api/auth/request-otp`, { email: otpEmail });
-      setOtpMessage(res.data.message);
+      toast.success(res.data.message || 'OTP sent successfully.');
       setOtpMode('verify');
       startCountdown();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP.');
+      toast.error(err.response?.data?.message || 'Failed to send OTP.');
     } finally {
       setOtpLoading(false);
     }
@@ -100,7 +98,6 @@ export default function Login() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    setError('');
     setOtpLoading(true);
     try {
       const res = await axios.post(`${API_URL}/api/auth/verify-otp`, { email: otpEmail, otp: otpCode });
@@ -112,7 +109,7 @@ export default function Login() {
       setUser(userData);
       redirectRole(userData.role);
     } catch (err) {
-      setError(err.response?.data?.message || 'OTP verification failed.');
+      toast.error(err.response?.data?.message || 'OTP verification failed.');
     } finally {
       setOtpLoading(false);
     }
@@ -122,9 +119,7 @@ export default function Login() {
     setOtpMode(null);
     setOtpEmail('');
     setOtpCode('');
-    setOtpMessage('');
     setOtpCountdown(0);
-    setError('');
   };
 
   return (
@@ -142,18 +137,6 @@ export default function Login() {
             style={{ width: '260px', marginBottom: '0.5rem' }}
           />
         </div>
-
-        {error && (
-          <div style={{ backgroundColor: 'var(--color-danger-light)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', padding: '1rem', borderRadius: '14px', marginBottom: '1.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Activity size={16} /> {error}
-          </div>
-        )}
-
-        {otpMessage && !error && (
-          <div style={{ backgroundColor: '#dcfce7', border: '1px solid #86efac', color: '#166534', padding: '1rem', borderRadius: '14px', marginBottom: '1.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Mail size={16} /> {otpMessage}
-          </div>
-        )}
 
         {/* ── OTP Flow: Enter Email ── */}
         {otpMode === 'email' && (
@@ -192,7 +175,7 @@ export default function Login() {
         {otpMode === 'verify' && (
           <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-              <button type="button" onClick={() => { setOtpMode('email'); setOtpCode(''); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.25rem', display: 'flex' }}>
+              <button type="button" onClick={() => { setOtpMode('email'); setOtpCode(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.25rem', display: 'flex' }}>
                 <ArrowLeft size={20} />
               </button>
               <div>
@@ -233,7 +216,7 @@ export default function Login() {
             {otpCountdown === 0 && otpMode === 'verify' && (
               <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-danger)', fontWeight: 600 }}>
                 Code expired.{' '}
-                <button type="button" onClick={() => { setOtpMode('email'); setOtpCode(''); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', fontSize: '0.85rem' }}>
+                <button type="button" onClick={() => { setOtpMode('email'); setOtpCode(''); }} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', fontSize: '0.85rem' }}>
                   Resend OTP
                 </button>
               </div>
@@ -296,7 +279,7 @@ export default function Login() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                 <label style={{ fontWeight: 500, color: 'var(--color-text-main)', fontSize: '0.85rem' }}>Password</label>
-                <button type="button" onClick={() => { setOtpMode('email'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }}>Login via OTP</button>
+                <button type="button" onClick={() => { setOtpMode('email'); }} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }}>Login via OTP</button>
               </div>
               <div style={{ position: 'relative' }}>
                 <Lock size={18} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />

@@ -3,6 +3,7 @@ import axios from "axios";
 import { AlertCircle, Activity } from "lucide-react";
 import API_URL from "../../utils/api";
 import { validateJobCode } from "../../utils/serialUtils";
+import { useToast } from "../../hooks/useToast";
 
 export default function SerialSettings() {
   const [serialPreview, setSerialPreview] = useState("");
@@ -11,7 +12,7 @@ export default function SerialSettings() {
   const [serialOffsetError, setSerialOffsetError] = useState("");
   const [isUpdatingSerialOffset, setIsUpdatingSerialOffset] = useState(false);
   const [confirmSerialModal, setConfirmSerialModal] = useState(false);
-  const [statusModal, setStatusModal] = useState({ show: false, type: "", title: "", message: "" });
+  const toast = useToast();
 
   const fetchSerialData = async () => {
     try {
@@ -36,22 +37,13 @@ export default function SerialSettings() {
       });
       setSerialOffset("");
       fetchSerialData();
-      setStatusModal({
-        show: true,
-        type: "success",
-        title: "Success",
-        message: "Sample Serial updated successfully.",
-      });
+      toast.success("Sample Serial updated successfully.");
     } catch (err) {
       console.error(err);
-      setStatusModal({
-        show: true,
-        type: "error",
-        title: "Error",
-        message:
-          "Failed to update Sample Serial: " +
-          (err.response?.data?.message || err.message),
-      });
+      toast.error(
+        "Failed to update Sample Serial: " +
+        (err.response?.data?.message || err.message),
+      );
     } finally {
       setIsUpdatingSerialOffset(false);
     }
@@ -166,20 +158,6 @@ export default function SerialSettings() {
                 {isUpdatingSerialOffset ? "Updating..." : "Yes, Update Serial"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {statusModal.show && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: "400px", textAlign: "center" }}>
-            <h3 style={{ color: statusModal.type === "error" ? "var(--color-danger)" : "var(--color-primary)", marginBottom: "1rem" }}>
-              {statusModal.title}
-            </h3>
-            <p style={{ marginBottom: "1.5rem" }}>{statusModal.message}</p>
-            <button className="btn btn-primary" onClick={() => setStatusModal({ show: false, type: "", title: "", message: "" })}>
-              Close
-            </button>
           </div>
         </div>
       )}

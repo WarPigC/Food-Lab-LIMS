@@ -22,6 +22,7 @@ import Fuse from "fuse.js";
 import PageHeader from "../../components/PageHeader";
 import { useListControls } from "../../hooks/useListControls";
 import { jobCodeComparator } from "../../utils/siblingUtils";
+import { useToast } from "../../hooks/useToast";
 
 const isOverdue = (deadlineStr) => {
   if (!deadlineStr) return false;
@@ -40,7 +41,7 @@ export default function Dispatcher() {
   const [deadlineDates, setDeadlineDates] = useState({}); // jobId -> date string
   const [deadlineTimes, setDeadlineTimes] = useState({}); // jobId -> time string
   const [assignments, setAssignments] = useState({}); // `${jobId}-${paramId}` -> assistantId
-  const [success, setSuccess] = useState("");
+  const toast = useToast();
   const [dispatchLoading, setDispatchLoading] = useState(
     () => !isCached(CACHE_KEYS.JOBS_HEAD_ACTIVE),
   );
@@ -323,8 +324,8 @@ export default function Dispatcher() {
     const allAssigned = deptParams.every(
       (p) => assignments[`${job._id}-${p.parameterId._id}`],
     );
-    if (!allAssigned) return alert("Please assign all parameters to analysts");
-    if (!deadline) return alert("Please set a submission deadline");
+    if (!allAssigned) return toast.error("Please assign all parameters to analysts");
+    if (!deadline) return toast.error("Please set a submission deadline");
 
     setSubmittingJobId(job._id);
     try {
@@ -348,16 +349,15 @@ export default function Dispatcher() {
       // Immediately remove from UI for snappy experience
       setJobs((prev) => prev.filter((j) => j._id !== job._id));
 
-      setSuccess(`Job ${formatJobCode(job.jobCode)} dispatched successfully!`);
+      toast.success(`Job ${formatJobCode(job.jobCode)} dispatched successfully!`);
       setExpandedJobId(null);
-      setTimeout(() => setSuccess(""), 4000);
 
       // Refresh jobs list
       invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
       fetchJobs();
     } catch (err) {
       console.error(err);
-      alert("Error: " + (err.response?.data?.message || err.message));
+      toast.error("Error: " + (err.response?.data?.message || err.message));
     } finally {
       setSubmittingJobId(null);
     }
@@ -375,16 +375,15 @@ export default function Dispatcher() {
       });
 
       setJobs((prev) => prev.filter((j) => j._id !== returnModalData.jobId));
-      setSuccess(`Job returned to Admin Officer successfully.`);
+      toast.success("Job returned to Admin Officer successfully.");
       setReturnModalData(null);
       setReturnNote("");
-      setTimeout(() => setSuccess(""), 4000);
 
       invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
       fetchJobs();
     } catch (err) {
       console.error(err);
-      alert(
+      toast.error(
         "Error returning job: " + (err.response?.data?.message || err.message),
       );
     } finally {
@@ -413,8 +412,8 @@ export default function Dispatcher() {
   };
 
   const openBulkConfirmModal = () => {
-    if (!bulkAnalystId) return alert("Please select an analyst");
-    if (!bulkDeadlineDate || !bulkDeadlineTime) return alert("Please set a deadline");
+    if (!bulkAnalystId) return toast.error("Please select an analyst");
+    if (!bulkDeadlineDate || !bulkDeadlineTime) return toast.error("Please set a deadline");
     setIsBulkConfirmOpen(true);
   };
 
@@ -482,8 +481,7 @@ export default function Dispatcher() {
     }, 280);
 
     if (successCount > 0) {
-      setSuccess(`${successCount} job${successCount !== 1 ? "s" : ""} dispatched to ${analystName}`);
-      setTimeout(() => setSuccess(""), 4000);
+      toast.success(`${successCount} job${successCount !== 1 ? "s" : ""} dispatched to ${analystName}`);
       invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
       fetchJobs();
     }
@@ -495,20 +493,6 @@ export default function Dispatcher() {
   return (
     <div>
       <h1 style={{ marginBottom: "1.5rem" }}>Job Dispatcher</h1>
-      {success && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            color: "var(--color-success)",
-            backgroundColor: "var(--color-success-light)",
-            padding: "1rem",
-            borderRadius: "var(--radius-md)",
-            fontWeight: 500,
-          }}
-        >
-          {success}
-        </div>
-      )}
 
       {/* ── Sample Transfers Section ── */}
       <TransferManagement />
@@ -904,7 +888,7 @@ export default function Dispatcher() {
                                         invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
                                         fetchJobs();
                                       } catch (err) {
-                                        alert(
+                                        toast.error(
                                           err.response?.data?.message ||
                                           "Error approving job",
                                         );

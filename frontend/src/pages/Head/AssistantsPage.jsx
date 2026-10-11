@@ -8,6 +8,7 @@ import Spinner from "../../components/Spinner";
 
 import { Edit, Trash2, Play, Users, Check, X, Search, Shield, Activity } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
+import { useToast } from "../../hooks/useToast";
 
 export default function Assistants() {
   const [users, setUsers] = useState([]);
@@ -21,8 +22,7 @@ export default function Assistants() {
     phone: "",
     password: "",
   });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const toast = useToast();
   const [usersLoading, setUsersLoading] = useState(
     () => !isCached(CACHE_KEYS.USERS),
   );
@@ -56,24 +56,22 @@ export default function Assistants() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^\+?[\d\s-]{10,15}$/;
 
     if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address.");
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (!phoneRegex.test(formData.phone)) {
-      setError("Please enter a valid phone number (10-15 digits).");
+      toast.error("Please enter a valid phone number (10-15 digits).");
       return;
     }
     try {
       if (editUserId) {
         await axios.put(`${API_URL}/api/users/${editUserId}`, formData);
-        setSuccess("Assistant updated successfully.");
+        toast.success("Assistant updated successfully.");
       } else {
         const res = await axios.post(`${API_URL}/api/users`, {
           ...formData,
@@ -81,8 +79,9 @@ export default function Assistants() {
           department: user.department,
           branch: user.branch,
         });
-        setSuccess(
+        toast.success(
           `Assistant created successfully. Password: ${res.data.temporaryPassword}`,
+          { duration: 15000 },
         );
       }
       setFormData({ name: "", email: "", phone: "", password: "" });
@@ -91,7 +90,7 @@ export default function Assistants() {
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || "Operation failed");
+      toast.error(err.response?.data?.message || "Operation failed");
     }
   };
 
@@ -99,8 +98,6 @@ export default function Assistants() {
     setFormData({ name: u.name, email: u.email, phone: u.phone, password: "" });
     setEditUserId(u._id);
     setShowForm(true);
-    setError("");
-    setSuccess("");
   };
 
   const confirmDelete = (u) => setUserToDelete(u);
@@ -110,10 +107,11 @@ export default function Assistants() {
     try {
       await axios.delete(`${API_URL}/api/users/${userToDelete._id}`);
       setUserToDelete(null);
+      toast.success("Assistant deleted successfully.");
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to delete");
+      toast.error(err.response?.data?.message || "Failed to delete");
       setUserToDelete(null);
     }
   };
@@ -141,33 +139,6 @@ export default function Assistants() {
           {showForm ? "Close Form" : "+ Create Assistant"}
         </button>
       </div>
-
-      {error && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            color: "var(--color-danger)",
-            backgroundColor: "var(--color-danger-light)",
-            padding: "1rem",
-            borderRadius: "var(--radius-md)",
-          }}
-        >
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            color: "var(--color-success)",
-            backgroundColor: "var(--color-success-light)",
-            padding: "1rem",
-            borderRadius: "var(--radius-md)",
-          }}
-        >
-          {success}
-        </div>
-      )}
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem" }}>

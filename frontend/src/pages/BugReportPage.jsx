@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Bug, Lightbulb, Send, CheckCircle, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import API_URL from '../utils/api';
+import { useToast } from '../hooks/useToast';
 
 const TYPES = [
   { id: 'BUG', label: 'Bug Report', icon: <Bug size={32} />, color: 'var(--color-danger)', desc: 'Something is broken, crashing, or behaving unexpectedly.' },
@@ -22,6 +23,7 @@ const PAGES = [
 ];
 
 export default function BugReportPage() {
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   const [step, setStep] = useState('pick'); // 'pick', 'form', 'success'
   const [selectedType, setSelectedType] = useState(null);
@@ -29,14 +31,12 @@ export default function BugReportPage() {
   const [description, setDescription] = useState('');
   const [pageOrFeature, setPageOrFeature] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      setError('Please describe the issue before submitting.');
+      toast.error('Please describe the issue before submitting.');
       return;
     }
-    setError('');
     setIsSubmitting(true);
 
     try {
@@ -48,9 +48,10 @@ export default function BugReportPage() {
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
+      toast.success("Feedback submitted successfully!");
       setStep('success');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to submit. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -62,7 +63,6 @@ export default function BugReportPage() {
     setSeverity('MEDIUM');
     setDescription('');
     setPageOrFeature('');
-    setError('');
   };
 
   const typeData = TYPES.find(t => t.id === selectedType);
@@ -197,17 +197,6 @@ export default function BugReportPage() {
               }}
             />
           </div>
-
-          {error && (
-            <div style={{ 
-              marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
-              backgroundColor: 'rgba(231, 76, 60, 0.08)', border: '1px solid var(--color-danger)',
-              color: 'var(--color-danger)', fontSize: '0.85rem', fontWeight: 500,
-              display: 'flex', alignItems: 'center', gap: '0.5rem'
-            }}>
-              <AlertTriangle size={16} /> {error}
-            </div>
-          )}
 
           <button
             onClick={handleSubmit}
