@@ -117,7 +117,7 @@ export default function Header({ onToggleSidebar }) {
             position: 'absolute', top: '100%', right: 0, marginTop: '1rem',
             backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
-            width: '200px', zIndex: 100, overflow: 'hidden'
+            width: '200px', zIndex: 1000, overflow: 'hidden'
           }}>
             <button 
               onClick={() => { setUpdateType('email'); setShowUpdateModal(true); setShowProfileMenu(false); }}
