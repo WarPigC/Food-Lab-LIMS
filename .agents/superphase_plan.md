@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9 | ⬜ Active |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, F7, F3, F6, C2, C3, C4, C5, C6, F21 | Upcoming |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | Upcoming |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -336,6 +336,73 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 ---
 
+### SP2.P3: F8: Toast System Overhaul ✅
+
+**Goal**: Replace the scattered, inconsistent feedback pattern (`setSuccess`/`setError` local state strings, bare `alert()` calls, and manual `setTimeout` clears across 15 files) with a single, centrally managed toast system. Any part of the app can fire a toast with one line via a `useToast()` hook.
+
+**Design decisions locked (from /grill-me session):**
+- **Implementation**: Fully custom in-house system. No external library. `ToastContext` + `useToast` hook + `<ToastContainer>` renderer.
+- **Variants (shipped now)**: `success` and `error` only, the only two with confirmed, immediate use in the current 15 files. `warning`, `info`, and `loading` are deferred until a real use case exists.
+- **Variant extensibility**: Variants are defined in a single `TOAST_VARIANTS` config map (type key -> `{ icon, accentColor, defaultDuration }`). Adding a new variant in the future requires only one entry in that map, no changes to rendering logic, CSS keyframe logic, or the hook.
+- **Position**: Top-right. Rendered via a React Portal to `document.body` so it never sits inside a stacking-context-constrained parent. `z-index` sits above page content but below modals.
+- **Dismissal**: Auto-dismiss. Defaults: `success` = 4 s, `error` = 8 s. Each variant config entry owns its `defaultDuration`; callers can override via `opts.duration`.
+- **Manual close**: None. No X button. Timer handles it.
+- **Stacking**: Newest on top, capped at 3 visible. When a 4th arrives the oldest is immediately evicted.
+- **Animation**: Slide in from right on enter, slide out to right on exit. CSS keyframe animation, no JS animation library.
+- **Progress bar**: Yes. A thin colored bar at the bottom of each toast depletes over its lifetime. Driven by a CSS `animation` timed to match the toast duration, zero JS overhead.
+- **Visual style**: Dark glassmorphic card matching the existing design language. Dark translucent background, subtle border. Colored **left-accent stripe** per variant (green / red). Icon (Lucide) on the left, message text alongside.
+- **Migration scope**: Full migration in this phase, all 15 existing files replaced.
+
+**Files created:**
+- `frontend/src/context/ToastContext.jsx`
+- `frontend/src/hooks/useToast.js`
+
+**Files modified:**
+- `frontend/src/main.jsx` (wrapped with `<ToastProvider>`)
+- `frontend/src/index.css` (toast keyframes, custom properties, and card classes)
+- `frontend/src/pages/Head/DispatcherPage.jsx`
+- `frontend/src/pages/Head/ReviewQueuePage.jsx`
+- `frontend/src/pages/Head/AssistantsPage.jsx`
+- `frontend/src/pages/AdminDashboard.jsx`
+- `frontend/src/pages/AssistantDashboard.jsx`
+- `frontend/src/pages/AdminOfficer/JobsPage.jsx`
+- `frontend/src/pages/Head/TransferManagement.jsx`
+- `frontend/src/pages/Settings/SerialSettings.jsx`
+- `frontend/src/pages/Settings/GroupSettings.jsx`
+- `frontend/src/pages/DataSettings.jsx`
+- `frontend/src/components/CascadingParameterSelector.jsx`
+- `frontend/src/components/ReportModal.jsx`
+- `frontend/src/pages/BugReportPage.jsx`
+- `frontend/src/pages/AdminOfficer/UsersPage.jsx`
+- `frontend/src/pages/Login.jsx`
+
+---
+
+#### SP2.P3: Subphases Delivered
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P3.1 | **`ToastContext.jsx` config map and engine**: `TOAST_VARIANTS` map, state management, cap of 3 with auto-eviction, timer cleanup, portal rendering | ✅ Complete |
+| SP2.P3.2 | **`<ToastContainer>` renderer**: Portal to `document.body`, fixed top-right, z-index 900, `column-reverse` flex stacking | ✅ Complete |
+| SP2.P3.3 | **`<ToastCard>` sub-component**: Glassmorphic dark card, left accent stripe, outline Lucide icon, CSS progress bar, entrance/exit keyframe triggers | ✅ Complete |
+| SP2.P3.4 | **`index.css` keyframes and variables**: `--toast-accent-success`, `--toast-accent-error`, `@keyframes toast-slide-in`, `toast-slide-out`, `toast-progress` | ✅ Complete |
+| SP2.P3.5 | **`useToast.js` hook**: Lightweight hook returning `toast.success(msg, opts)` and `toast.error(msg, opts)` | ✅ Complete |
+| SP2.P3.6 | **`main.jsx` integration**: `<ToastProvider>` wrapped around `<App />` | ✅ Complete |
+| SP2.P3.7 | **Migration: `DispatcherPage.jsx`**: Replaced all `setSuccess`, `setTimeout`, `alert`, and banner JSX with `toast.*` | ✅ Complete |
+| SP2.P3.8 | **Migration: `ReviewQueuePage.jsx`**: Replaced all `setSuccess`, `alert`, and fixed banner JSX with `toast.*` | ✅ Complete |
+| SP2.P3.9 | **Migration: `AssistantsPage.jsx`**: Replaced `setError`, `setSuccess`, and banners with `toast.*` (15s duration on temporary passwords) | ✅ Complete |
+| SP2.P3.10 | **Migration: `AdminDashboard.jsx`**: Replaced `setError`, `setSuccess`, manual X dismiss, and banners with `toast.*` (15s duration on temporary passwords) | ✅ Complete |
+| SP2.P3.11 | **Migration: `AssistantDashboard.jsx`**: Replaced 5 `alert()` calls, draft/task `setSuccess`, and banner JSX with `toast.*` (retained multi-line `errorModalData` modal as intended) | ✅ Complete |
+| SP2.P3.12 | **Migration: `JobsPage.jsx` (Admin Officer)**: Replaced 12 `alert()` calls with `toast.error()` and added success toasts for job save/hold/cancel | ✅ Complete |
+| SP2.P3.13 | **Migration: `TransferManagement.jsx`, `SerialSettings.jsx`, `GroupSettings.jsx`, `DataSettings.jsx`**: Replaced dead success state, alerts, `statusModal`, and backup errors with `toast.*` | ✅ Complete |
+| SP2.P3.14 | **Migration: `CascadingParameterSelector.jsx`, `ReportModal.jsx`, `BugReportPage.jsx`, `UsersPage.jsx`, `Login.jsx`**: Migrated all remaining alerts and feedback to `toast.*` | ✅ Complete |
+| SP2.P3.15 | **Dead code sweep and build verification**: Verified 0 raw `alert()` calls, 0 `setSuccess` calls, and successful `npm run build` | ✅ Complete |
+| SP2.P3.16 | **Mobile and layout safety**: Container constrained to `max-width: calc(100vw - 2rem)`, positioned cleanly at top-right below modals | ✅ Complete |
+
+> ✅ Completed. Files created: `frontend/src/context/ToastContext.jsx`, `frontend/src/hooks/useToast.js`. Modified: `frontend/src/index.css`, `frontend/src/main.jsx`, and all 15 target files across the codebase. Zero raw alert() calls or local setSuccess state remaining. Clean production build verified.
+
+---
+
 ### SP2.P5 — F13: Analyst Reassignment History Tracking ✅
 
 **Files changed**: `frontend/src/components/AssignmentHistory.jsx` (created), `frontend/src/components/JobTimeline.jsx`, `frontend/src/components/GlobalJobHistory.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/src/pages/Head/DispatcherPage.jsx`
@@ -536,6 +603,7 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP3.P14 | F21 | OTP-Based Password Reset |
 | SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) |
 | SP3.P16 | F2-ext | PageHeader Integration — Admin Officer Job Distributor + Activity Logs |
+| SP3.P17 | B11 | History & Timeline Display Overhaul |
 
 ---
 
@@ -783,6 +851,98 @@ Login screen
 | SP3.P16.5 | Wire `useListControls` to the Activity Logs list. Config: `searchFields` (actor name, job code, detail), `sortOptions` (date, action type), `filterDefs` (action type select, actor role select, date range) |
 | SP3.P16.6 | Mount `<PageHeader>` on the Activity Logs page with the config from SP3.P16.5 |
 | SP3.P16.7 | Mobile verification on both pages: sticky header must not eat too much vertical space, filter chips must wrap cleanly, no viewport overflow on dropdowns |
+
+---
+
+### SP3.P17 — B11: History & Timeline Display Overhaul
+
+**Files**: `frontend/src/components/GlobalJobHistory.jsx`, `frontend/src/components/AssignmentHistory.jsx`, `backend/routes/tests/testResultRoutes.js`
+
+**Diagnosed from**: Production job `2610051840` audit analysis (`temp/job_2610051840_audit_analysis.md`). Confirmed by running `temp/simulate_ui_diff.js` against `prod_db`.
+
+**Background**: Two frontend history components reconstruct timelines from `job.history`, `testInstances`, and `testInstances[*].reviewHistory`. Structural assumptions in both components produce 5 distinct bugs when a job involves concurrent multi-analyst dispatch, in-place reassignments, or parameter merges.
+
+---
+
+#### Bug B11a — Phantom "Unknown User" Reassignment in GlobalJobHistory
+
+**Where**: `GlobalJobHistory.jsx`, lines 25–67.
+
+**Symptom**: When a HEAD dispatches a job to two analysts **simultaneously** (same timestamp), the second instance is incorrectly treated as a reassignment from analyst 1 to analyst 2. The trigger lookup finds no `REASSIGN` review entry (because it was a clean initial dispatch), so `by = null`, rendering `By: Unknown User`.
+
+**Fix**: Before pushing a `REASSIGNED_TO_ANALYST` event for `idx > 0`, check if the instance has a `parentInstanceId`. If `parentInstanceId` is `null` and no `REASSIGN`/`REASSIGN_MERGED` trigger was found in any prior sibling, the instance is part of the **initial concurrent dispatch** — not a reassignment. In that case, skip the event entirely (the `DISPATCHED` entry in `job.history` covers it).
+
+| Subphase | Task |
+|---|---|
+| SP3.P17.1 | In `GlobalJobHistory.jsx` lines 45–67: before pushing a `REASSIGNED_TO_ANALYST` event, add a guard: `if (!trigger && !inst.parentInstanceId) return;` — concurrent initial dispatches have no `parentInstanceId` and no triggering review entry |
+| SP3.P17.2 | Verify with job `2610051840`: the phantom event `from Nikita Sharma to Diksha Dwivedi by Unknown User` must no longer appear |
+
+---
+
+#### Bug B11b — Inverted Reassignment Recipient in AssignmentHistory
+
+**Where**: `AssignmentHistory.jsx`, lines 28–35 and 130–133.
+
+**Symptom**: A `REASSIGN` review entry is stored on the **source** instance (`2610051840-2b`, Diksha). The component reads `inst.assignedTo.name` (Diksha) and renders `Reassigned to Diksha Dwivedi` — the exact opposite of what happened (Diksha's work was reassigned *to* Devesh, not to herself).
+
+**Fix**: For a `REASSIGN` action, the display should read `Reassigned from ${analystName}` (indicating who lost the work) rather than `Reassigned to ${analystName}`. Or, if a target analyst is available, show both. For the stale note issue (see B11d), the root cause is separate.
+
+| Subphase | Task |
+|---|---|
+| SP3.P17.3 | In `AssignmentHistory.jsx` line 132: change the `REASSIGN` label from `Reassigned to ${analystName}` to `Reassigned away from ${analystName}`. Update `ACTION_CONFIG.REASSIGN.label` from `'Reassigned'` to `'Reassigned away from'` and adjust the `actionLine` interpolation accordingly |
+| SP3.P17.4 | Verify with job `2610051840`: the entry on `-2b` now reads `Reassigned away from Diksha Dwivedi` instead of `Reassigned to Diksha Dwivedi` |
+
+---
+
+#### Bug B11c — In-Place Reassignments Invisible in GlobalJobHistory
+
+**Where**: `GlobalJobHistory.jsx`, lines 25–80.
+
+**Symptom**: When HEAD returns a test to the **same analyst** for spec correction (in-place `REASSIGN` with no new `TestInstance`), `GlobalJobHistory.jsx` never shows it. The component only synthesises events from `inst.createdAt` of new sibling instances or `REASSIGN_MERGED` entries. A plain `REASSIGN` that goes back to the same analyst leaves no trace.
+
+**Fix**: After the existing sibling-instance loop, add a second pass: iterate every instance's `reviewHistory` and collect `REASSIGN` entries where no new sibling instance was created as a result (i.e., in-place rework). These should be emitted as `REASSIGNED_TO_ANALYST` events with `note: "returned for revision to ${inst.assignedTo.name}"`.
+
+| Subphase | Task |
+|---|---|
+| SP3.P17.5 | After the `sorted.forEach` loop in `GlobalJobHistory.jsx`, add a second loop over all instances: collect any `REASSIGN` entry from `inst.reviewHistory` whose `date` does NOT match the `createdAt` of any later sibling. Push a `REASSIGNED_TO_ANALYST` event with `by: rh.by`, `timestamp: rh.date`, `note: \"returned for revision to ${inst.assignedTo?.name}\"` |
+| SP3.P17.6 | Verify with job `2610051840`: the in-place return to Devesh at 08/10 11:23 (`pls enter correct specification`) must now appear as an event in the Global Job History Timeline |
+
+---
+
+#### Bug B11d — Duplicate Merge Logs and Stale Notes in AssignmentHistory
+
+**Where**: `AssignmentHistory.jsx` flatMap over `testInstances`.
+
+**Symptom**: When a parameter is merged from instance A to instance B:
+- Instance A gets a `REASSIGN` entry (its analyst appears as `Reassigned away from Nikita Sharma`) — correct after B11b fix.
+- Instance B gets a `REASSIGN_MERGED` entry — also correct.
+- However, the `note` on the `REASSIGN` entry of instance A was carried over from the *previous* review action (Devesh's spec correction note `"pls enter correct specification"`), creating a stale/misleading note display.
+
+**Root cause**: The backend does not clear or reset the `note` field when composing the merge review entry on the source instance. The stale note is a data integrity issue at write time, not a frontend rendering issue.
+
+| Subphase | Task |
+|---|---|
+| SP3.P17.7 | In `backend/routes/tests/testResultRoutes.js`, locate where `REASSIGN_MERGED` is pushed to the **source** instance's `reviewHistory`. Confirm the `note` field is explicitly set (e.g., `note: \"Parameters merged into [target]\"`) rather than forwarded from `req.body.note` |
+| SP3.P17.8 | If the note is forwarded from `req.body.note`, override it with a structured string: `` note: `${paramIds.length} parameter(s) transferred to ${targetTestCode}` `` |
+| SP3.P17.9 | Verify with a local test: after a merge, the source instance's `REASSIGN` entry in `reviewHistory` must NOT carry the note from any prior review action |
+
+---
+
+#### Bug B11e — Backend Audit Log Case Mismatch (Approve Always Logged as Reassign)
+
+**Where**: `backend/routes/tests/testResultRoutes.js`, line 425.
+
+**Symptom**: The route receives `action` as uppercase (`'APPROVE'` or `'REASSIGN'`). The audit call checks `action === 'approve'` (lowercase), which is always `false`, so every approval is logged in `SystemLog.message` as `"reassigned by HEAD"` instead of `"approved by HEAD"`.
+
+```diff
+- message: `Test ${instance.testCode} ${action === 'approve' ? 'approved' : 'reassigned'} by HEAD`,
++ message: `Test ${instance.testCode} ${action.toLowerCase() === 'approve' ? 'approved' : 'reassigned'} by HEAD`,
+```
+
+| Subphase | Task |
+|---|---|
+| SP3.P17.10 | In `testResultRoutes.js` line 425: change `action === 'approve'` to `action.toLowerCase() === 'approve'` in the audit message ternary |
+| SP3.P17.11 | Verify by approving a test locally and inspecting `SystemLog`: message must read `"approved by HEAD"`, not `"reassigned by HEAD"` |
 
 ---
 

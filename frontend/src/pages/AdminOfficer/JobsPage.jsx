@@ -16,6 +16,7 @@ import JobLogTable from "../../components/JobLogTable";
 import InfiniteScroll from "../../components/InfiniteScroll";
 import { useSocket } from "../../context/SocketContext";
 import CascadingParameterSelector from "../../components/CascadingParameterSelector";
+import { useToast } from "../../hooks/useToast";
 
 function buildJobCodePreview(serial, dateStr) {
   if (!serial) return "…";
@@ -43,6 +44,7 @@ function getISTDateString() {
 }
 
 export default function Jobs() {
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const socket = useSocket();
@@ -595,20 +597,20 @@ export default function Jobs() {
     }
     if (formData.nabl_mode === "hybrid") {
       if (nablParams.length === 0 && !nablPesticidePanel?.enabled) {
-        alert(
+        toast.error(
           "NABL job must have at least one Test Parameter or a Pesticide Panel.",
         );
         return;
       }
       if (nonNablParams.length === 0 && !nonNablPesticidePanel?.enabled) {
-        alert(
+        toast.error(
           "Non-NABL job must have at least one Test Parameter or a Pesticide Panel.",
         );
         return;
       }
       const missingNablUnit = nablParams.find((p) => !p.unit || !p.unit.trim());
       if (missingNablUnit) {
-        alert(
+        toast.error(
           `Please select a unit for NABL parameter "${missingNablUnit.name}"`,
         );
         return;
@@ -617,27 +619,27 @@ export default function Jobs() {
         (p) => !p.unit || !p.unit.trim(),
       );
       if (missingNonNablUnit) {
-        alert(
+        toast.error(
           `Please select a unit for Non-NABL parameter "${missingNonNablUnit.name}"`,
         );
         return;
       }
     } else {
       if (selectedParams.length === 0 && !pesticidePanel?.enabled) {
-        alert(
+        toast.error(
           "Please add at least one Test Parameter or a Pesticide Panel before submitting.",
         );
         return;
       }
       const missingUnit = selectedParams.find((p) => !p.unit || !p.unit.trim());
       if (missingUnit) {
-        alert(`Please select a unit for parameter "${missingUnit.name}"`);
+        toast.error(`Please select a unit for parameter "${missingUnit.name}"`);
         return;
       }
     }
 
     if (reopenParentId && !formData.reopenReason?.trim()) {
-      alert("Reason for reopening is required");
+      toast.error("Reason for reopening is required");
       return;
     }
 
@@ -651,7 +653,7 @@ export default function Jobs() {
       dateObj.getMonth() !== mInt - 1 ||
       dateObj.getDate() !== dInt
     ) {
-      alert("Please enter a strictly valid Received Date.");
+      toast.error("Please enter a strictly valid Received Date.");
       return;
     }
 
@@ -822,9 +824,10 @@ export default function Jobs() {
       invalidateCache(CACHE_KEYS.JOBS_ALL, CACHE_KEYS.STATS);
       await fetchJobs();
       fetchNextSerial();
+      toast.success(editingJobId ? "Job updated successfully!" : "Job created successfully!");
     } catch (err) {
       console.error(err);
-      alert(
+      toast.error(
         "Error saving job: " + (err.response?.data?.message || err.message),
       );
     } finally {
@@ -841,7 +844,7 @@ export default function Jobs() {
   const executeHoldJob = async () => {
     if (!holdConfirmJobId) return;
     if (holdReason.trim().length === 0) {
-      alert("Please provide a valid reason.");
+      toast.error("Please provide a valid reason.");
       return;
     }
     const targetJobId = holdConfirmJobId;
@@ -858,9 +861,10 @@ export default function Jobs() {
       );
       invalidateCache(CACHE_KEYS.JOBS_ALL, CACHE_KEYS.STATS);
       await fetchJobs();
+      toast.success("Job put on hold successfully.");
     } catch (err) {
       console.error(err);
-      alert(
+      toast.error(
         "Error holding job: " + (err.response?.data?.message || err.message),
       );
     } finally {
@@ -887,9 +891,10 @@ export default function Jobs() {
       );
       invalidateCache(CACHE_KEYS.JOBS_ALL, CACHE_KEYS.STATS);
       await fetchJobs();
+      toast.success("Job cancelled successfully.");
     } catch (err) {
       console.error(err);
-      alert(
+      toast.error(
         "Error cancelling job: " + (err.response?.data?.message || err.message),
       );
     } finally {

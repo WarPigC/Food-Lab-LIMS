@@ -19,6 +19,7 @@ import InfiniteScroll from "../../components/InfiniteScroll";
 import PageHeader from "../../components/PageHeader";
 import { useListControls } from "../../hooks/useListControls";
 import { testCodeRoot } from "../../utils/siblingUtils";
+import { useToast } from "../../hooks/useToast";
 
 export default function ReviewQueue() {
   const { user } = useContext(AuthContext);
@@ -26,7 +27,7 @@ export default function ReviewQueue() {
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [reassignNote, setReassignNote] = useState("");
   const [showReassignForm, setShowReassignForm] = useState(null); // instance._id when reassign mode is active
-  const [success, setSuccess] = useState("");
+  const toast = useToast();
   const [reviewLoading, setReviewLoading] = useState(
     () => !isCached(CACHE_KEYS.INSTANCES),
   );
@@ -129,13 +130,13 @@ export default function ReviewQueue() {
       await axios.put(`${API_URL}/api/tests/instances/${id}/review`, {
         action: "APPROVE",
       });
-      setSuccess("Approved and Completed. Report Generated.");
+      toast.success("Approved and Completed. Report Generated.");
       invalidateCache(CACHE_KEYS.INSTANCES, CACHE_KEYS.JOBS, CACHE_KEYS.STATS);
       fetchReviewItems();
       setSelectedInstance(null);
-      setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
       console.error(err);
+      toast.error(err.response?.data?.message || "Failed to approve test instance");
     } finally {
       setSubmittingReviewId(null);
     }
@@ -216,7 +217,7 @@ export default function ReviewQueue() {
     });
 
     if (selected.length === 0) {
-      return alert("Please select at least one parameter to reassign.");
+      return toast.error("Please select at least one parameter to reassign.");
     }
 
     setSubmittingReviewId(id);
@@ -226,14 +227,14 @@ export default function ReviewQueue() {
         note: reassignNote,
         selectedParams: selected,
       });
-      setSuccess(`Sent ${selected.length} parameter(s) for retest.`);
+      toast.success(`Sent ${selected.length} parameter(s) for retest.`);
       exitReassignMode();
       invalidateCache(CACHE_KEYS.INSTANCES, CACHE_KEYS.JOBS, CACHE_KEYS.STATS);
       fetchReviewItems();
       setSelectedInstance(null);
-      setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
       console.error(err);
+      toast.error(err.response?.data?.message || "Failed to reassign parameters");
     } finally {
       setSubmittingReviewId(null);
     }
@@ -353,29 +354,6 @@ export default function ReviewQueue() {
         <ClipboardCheck size={28} style={{ color: "var(--color-primary)" }} />{" "}
         Review Queue
       </h1>
-
-      {success && (
-        <div
-          style={{
-            position: "fixed",
-            top: "6rem",
-            right: "2rem",
-            zIndex: 1000,
-            color: "white",
-            backgroundColor: "var(--color-success)",
-            padding: "1rem 1.5rem",
-            borderRadius: "var(--radius-md)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            animation: "slideIn 0.3s ease-out",
-          }}
-        >
-          <CheckCircle size={20} />
-          <span style={{ fontWeight: 500 }}>{success}</span>
-        </div>
-      )}
 
       <PageHeader
         config={reviewSortConfig}

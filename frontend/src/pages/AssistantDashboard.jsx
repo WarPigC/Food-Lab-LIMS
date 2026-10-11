@@ -8,6 +8,7 @@ import { useSocket } from '../context/SocketContext';
 import API_URL from '../utils/api';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { formatTestCode } from '../utils/codeUtils';
+import { useToast } from '../hooks/useToast';
 
 
 
@@ -23,7 +24,7 @@ export default function AssistantDashboard() {
   const [testingPeriod, setTestingPeriod] = useState({ startDate: '', endDate: '' });
   const [testMethods, setTestMethods] = useState([]);
   const [units, setUnits] = useState([]);
-  const [success, setSuccess] = useState('');
+  const toast = useToast();
   const [loading, setLoading] = useState(() => !isCached(CACHE_KEYS.MY_TASKS));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -90,7 +91,7 @@ export default function AssistantDashboard() {
       fetchTestMethods();
       return res.data;
     } catch (err) {
-      alert(err.response?.data?.message || 'Error adding test method');
+      toast.error(err.response?.data?.message || 'Error adding test method');
       return null;
     }
   };
@@ -103,7 +104,7 @@ export default function AssistantDashboard() {
       });
       fetchTestMethods();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error updating test method');
+      toast.error(err.response?.data?.message || 'Error updating test method');
     }
   };
 
@@ -115,7 +116,7 @@ export default function AssistantDashboard() {
       });
       fetchTestMethods();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting test method');
+      toast.error(err.response?.data?.message || 'Error deleting test method');
     }
   };
 
@@ -295,10 +296,9 @@ export default function AssistantDashboard() {
       await axios.put(`${API_URL}/api/tests/instances/${activeTask._id}/save-progress`, {
         results: updated
       });
-      setSuccess(`Parameter "${updated[index].name}" saved!`);
+      toast.success(`Parameter "${updated[index].name}" saved!`);
       invalidateCache(CACHE_KEYS.MY_TASKS);
       fetchTasks();
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error(err);
       updated[index].isSaved = false;
@@ -360,10 +360,9 @@ export default function AssistantDashboard() {
           endDate: testingPeriod.endDate || null
         }
       });
-      setSuccess(`Progress for ${formatJobCode(activeTask.testCode)} saved! You can continue later.`);
+      toast.success(`Progress for ${formatJobCode(activeTask.testCode)} saved! You can continue later.`);
       invalidateCache(CACHE_KEYS.MY_TASKS);
       fetchTasks();
-      setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       console.error(err);
       setErrorModalData(err.response?.data?.message || 'Error saving draft');
@@ -420,11 +419,10 @@ export default function AssistantDashboard() {
         }
       });
       setTasks(prev => prev.filter(t => t._id !== activeTask._id));
-      setSuccess(`Task ${formatJobCode(activeTask.testCode)} submitted for review!`);
+      toast.success(`Task ${formatJobCode(activeTask.testCode)} submitted for review!`);
       invalidateCache(CACHE_KEYS.MY_TASKS);
       closeTask();
       fetchTasks();
-      setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
       console.error(err);
       setErrorModalData(err.response?.data?.message || 'An error occurred while submitting the task.');
@@ -457,20 +455,6 @@ export default function AssistantDashboard() {
       <h1 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <Clock size={28} style={{ color: 'var(--color-primary)' }} /> Task Queue
       </h1>
-
-      {success && (
-        <div style={{ 
-          position: 'fixed', top: '6rem', right: '2rem', zIndex: 1000,
-          color: 'white', backgroundColor: 'var(--color-success)', 
-          padding: '1rem 1.5rem', borderRadius: 'var(--radius-md)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          display: 'flex', alignItems: 'center', gap: '0.75rem',
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          <Check size={20} />
-          <span style={{ fontWeight: 500 }}>{success}</span>
-        </div>
-      )}
 
       {activeTask ? (
         <div className="card" style={{ marginBottom: '2rem', borderTop: `4px solid ${isReassigned(activeTask) ? 'var(--color-danger)' : 'var(--color-primary)'}` }}>
@@ -995,7 +979,7 @@ const UnitDropdown = ({ value, onChange, units, onRefresh, inputStyle }) => {
       });
       onRefresh();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting unit');
+      toast.error(err.response?.data?.message || 'Error deleting unit');
     }
   };
 
@@ -1012,7 +996,7 @@ const UnitDropdown = ({ value, onChange, units, onRefresh, inputStyle }) => {
       setNewUnitText('');
       onRefresh();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error creating unit');
+      toast.error(err.response?.data?.message || 'Error creating unit');
     }
     setIsSavingNew(false);
   };

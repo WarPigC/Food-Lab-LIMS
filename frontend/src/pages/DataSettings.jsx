@@ -5,10 +5,12 @@ import SerialSettings from "./Settings/SerialSettings";
 import { formatDateTime } from "../utils/dateUtils";
 import API_URL from "../utils/api";
 import axios from "axios";
+import { useToast } from "../hooks/useToast";
 
 const BACKUP_STORAGE_KEY = "ftl_last_backup_timestamp";
 
 export default function DataSettings() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState("groups");
 
   // Backup state machine: 'idle' | 'fetching' | 'animating' | 'done'
@@ -87,7 +89,7 @@ export default function DataSettings() {
       filenameRef.current = match ? match[1] : "FTL_LIMS_backup.json";
       blobRef.current = new Blob([response.data]);
 
-      // Update lastBackupAt — from DB-stamped header, persisted into user object
+      // Update lastBackupAt, from DB-stamped header, persisted into user object
       const backupTs = response.headers["x-backup-timestamp"] || new Date().toISOString();
       setLastBackup(backupTs);
       // Persist into the stored user object so it survives re-login reads
@@ -99,11 +101,11 @@ export default function DataSettings() {
       // Legacy key for backward compat
       localStorage.setItem(BACKUP_STORAGE_KEY, backupTs);
 
-      // Data is ready — start the aesthetic progress animation
+      // Data is ready, start the aesthetic progress animation
       setBackupPhase("animating");
     } catch (err) {
       console.error("Backup failed:", err);
-      alert("Backup failed. Please try again.");
+      toast.error("Backup failed. Please try again.");
       setBackupPhase("idle");
       setProgress(0);
     }
@@ -129,7 +131,7 @@ export default function DataSettings() {
         <Database size={28} style={{ color: "var(--color-primary)" }} /> Data Settings
       </h1>
 
-      {/* Tabs — backup button pushed to the right */}
+      {/* Tabs, backup button pushed to the right */}
       <div
         style={{
           display: "flex",

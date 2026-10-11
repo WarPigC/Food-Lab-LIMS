@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import API_URL from "../../utils/api";
+import { useToast } from "../../hooks/useToast";
 import { AuthContext } from "../../context/AuthContext";
 import {
   Database,
@@ -19,12 +20,12 @@ import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from "../../uti
 import InfiniteScroll from "../../components/InfiniteScroll";
 
 export default function GroupSettings() {
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   const [data, setData] = useState([]);
   const [globalParameters, setGlobalParameters] = useState([]);
   const [loading, setLoading] = useState(() => !isCached(CACHE_KEYS.GROUPS));
   const [paramsLoading, setParamsLoading] = useState(() => !isCached(CACHE_KEYS.GLOBAL_PARAMS));
-  const [error, setError] = useState("");
 
   // Sample Serial State
   // Validates a 10-digit job code in YYMMDD#### format
@@ -35,18 +36,12 @@ export default function GroupSettings() {
     const mm = parseInt(val.slice(2, 4), 10);
     const dd = parseInt(val.slice(4, 6), 10);
     const seq = val.slice(6);
-    if (yy < 20 || yy > 99) return "Year prefix looks invalid (expected 20–99).";
+    if (yy < 20 || yy > 99) return "Year prefix looks invalid (expected 20-99).";
     if (mm < 1 || mm > 12) return "Month must be between 01 and 12.";
     if (dd < 1 || dd > 31) return "Day must be between 01 and 31.";
     if (seq === "0000") return "Counter suffix cannot be 0000.";
     return ""; // valid
   };
-  const [statusModal, setStatusModal] = useState({
-    show: false,
-    type: "",
-    title: "",
-    message: "",
-  });
 
   // Selection state
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -108,7 +103,7 @@ export default function GroupSettings() {
       ]);
     } catch (err) {
       console.error(err);
-      setError("Failed to load data");
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -135,9 +130,6 @@ export default function GroupSettings() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        if (statusModal.show) {
-          setStatusModal({ show: false, type: "", title: "", message: "" });
-        }
         if (isAddingGroup) setIsAddingGroup(false);
         if (isAddingSubgroup) setIsAddingSubgroup(false);
         if (isAddingParam) setIsAddingParam(false);
@@ -147,7 +139,6 @@ export default function GroupSettings() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    statusModal.show,
     isAddingGroup,
     isAddingSubgroup,
     isAddingParam,
@@ -176,8 +167,9 @@ export default function GroupSettings() {
       setIsAddingGroup(false);
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Group created successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error adding group");
+      toast.error(err.response?.data?.message || "Error adding group");
     }
   };
 
@@ -199,8 +191,9 @@ export default function GroupSettings() {
       if (selectedGroup === oldName) setSelectedGroup(newName);
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Group renamed successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error renaming group");
+      toast.error(err.response?.data?.message || "Error renaming group");
     }
   };
 
@@ -225,8 +218,9 @@ export default function GroupSettings() {
       }
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Group deleted successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error deleting group");
+      toast.error(err.response?.data?.message || "Error deleting group");
     }
   };
 
@@ -249,8 +243,9 @@ export default function GroupSettings() {
       setIsAddingSubgroup(false);
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Subgroup created successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error adding subgroup");
+      toast.error(err.response?.data?.message || "Error adding subgroup");
     }
   };
 
@@ -261,7 +256,7 @@ export default function GroupSettings() {
     }
     // Cannot edit special pesticide panels this way right now
     if (doc.isPesticidePanel) {
-      alert("Cannot rename Pesticide Panel subgroups directly.");
+      toast.error("Cannot rename Pesticide Panel subgroups directly.");
       setEditingSubgroupId(null);
       return;
     }
@@ -278,8 +273,9 @@ export default function GroupSettings() {
       setEditingSubgroupId(null);
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Subgroup renamed successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error renaming subgroup");
+      toast.error(err.response?.data?.message || "Error renaming subgroup");
     }
   };
 
@@ -298,8 +294,9 @@ export default function GroupSettings() {
       if (selectedSubgroup?._id === doc._id) setSelectedSubgroup(null);
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Subgroup deleted successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error deleting subgroup");
+      toast.error(err.response?.data?.message || "Error deleting subgroup");
     }
   };
 
@@ -325,8 +322,9 @@ export default function GroupSettings() {
       setNewCategory("");
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Category added successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error adding category");
+      toast.error(err.response?.data?.message || "Error adding category");
     }
   };
 
@@ -346,8 +344,9 @@ export default function GroupSettings() {
       );
       invalidateCache(CACHE_KEYS.GROUPS);
       fetchData();
+      toast.success("Category removed successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error removing category");
+      toast.error(err.response?.data?.message || "Error removing category");
     }
   };
 
@@ -362,8 +361,9 @@ export default function GroupSettings() {
       setIsAddingParam(false);
       invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);
       fetchData();
+      toast.success("Parameter added successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error adding parameter");
+      toast.error(err.response?.data?.message || "Error adding parameter");
     }
   };
 
@@ -381,8 +381,9 @@ export default function GroupSettings() {
       });
       invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);
       fetchData();
+      toast.success("Parameter deleted successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error deleting parameter");
+      toast.error(err.response?.data?.message || "Error deleting parameter");
     }
   };
 
@@ -398,8 +399,9 @@ export default function GroupSettings() {
       );
       invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);
       fetchData();
+      toast.success("Parameter updated successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Error updating parameter");
+      toast.error(err.response?.data?.message || "Error updating parameter");
     }
   };
 
@@ -1468,101 +1470,6 @@ export default function GroupSettings() {
       {/* ── CUSTOM CONFIRMATION MODALS ── */}
 
       
-
-
-      {/* ── CUSTOM STATUS MODAL ── */}
-      {statusModal.show && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "450px",
-              padding: "2rem",
-              animation: "slideUp 0.3s ease",
-              borderTop: `4px solid ${statusModal.type === "error" ? "var(--color-danger)" : "var(--color-success)"}`,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                marginBottom: "1.5rem",
-                color:
-                  statusModal.type === "error"
-                    ? "var(--color-danger)"
-                    : "var(--color-success)",
-              }}
-            >
-              {statusModal.type === "error" ? (
-                <AlertCircle size={32} />
-              ) : (
-                <Check size={32} />
-              )}
-              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
-                {statusModal.title}
-              </h2>
-            </div>
-
-            <p
-              style={{
-                margin: "0 0 1.5rem 0",
-                color: "var(--color-text-main)",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {statusModal.message}
-            </p>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                className="btn"
-                onClick={() =>
-                  setStatusModal({
-                    show: false,
-                    type: "",
-                    title: "",
-                    message: "",
-                  })
-                }
-                style={{
-                  border: `1px solid ${statusModal.type === "error" ? "var(--color-danger)" : "var(--color-success)"}`,
-                  color:
-                    statusModal.type === "error"
-                      ? "var(--color-danger)"
-                      : "var(--color-success)",
-                  padding: "0.6rem 2rem",
-                  backgroundColor: "transparent",
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

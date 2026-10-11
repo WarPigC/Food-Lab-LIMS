@@ -3,6 +3,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Trash2, Edit, FileText, Search, ChevronDown, ChevronRight, Activity, Users as UsersIcon, Settings, Clock, CheckCircle, X } from 'lucide-react';
+import { useToast } from '../hooks/useToast';
 
 import JobLogTable from '../components/JobLogTable';
 import { AuthContext } from '../context/AuthContext';
@@ -259,8 +260,7 @@ function UsersPage() {
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', password: '', role: 'ADMIN_OFFICER'
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const toast = useToast();
   const [usersLoading, setUsersLoading] = useState(() => !isCached(CACHE_KEYS.USERS));
 
   const fetchUsers = async () => {
@@ -293,48 +293,41 @@ function UsersPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); setSuccess('');
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^\+?[\d\s-]{10,15}$/;
 
     if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address.");
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (!phoneRegex.test(formData.phone)) {
-      setError("Please enter a valid phone number (10-15 digits).");
+      toast.error("Please enter a valid phone number (10-15 digits).");
       return;
     }
     try {
       const res = await axios.post(`${API_URL}/api/users`, formData);
-      setSuccess(`User created successfully. Temporary password is: ${res.data.temporaryPassword}`);
+      toast.success(
+        `User created successfully. Temporary password is: ${res.data.temporaryPassword}`,
+        { duration: 15000 }
+      );
       setFormData({ name: '', email: '', phone: '', password: '', role: 'ADMIN_OFFICER' });
       setShowForm(false);
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
-
-      // Auto-dismiss after 15 seconds so they have time to copy the password
-      setTimeout(() => {
-        setSuccess('');
-      }, 15000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Operation failed');
+      toast.error(err.response?.data?.message || 'Operation failed');
     }
   };
 
   const handleDeleteUser = async (id) => {
     try {
       await axios.delete(`${API_URL}/api/users/${id}`);
-      setSuccess('User successfully removed');
+      toast.success('User successfully removed');
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
-
-      setTimeout(() => {
-        setSuccess('');
-      }, 5000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete user');
+      toast.error(err.response?.data?.message || 'Failed to delete user');
     }
   };
 
@@ -350,30 +343,6 @@ function UsersPage() {
           {showForm ? 'Close Form' : '+ Create User'}
         </button>
       </div>
-
-      {error && <div style={{ marginBottom: '1rem', color: 'var(--color-danger)', backgroundColor: 'var(--color-danger-light)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>{error}</div>}
-      {success && (
-        <div style={{
-          position: 'fixed', top: '6rem', right: '2rem', zIndex: 1000,
-          color: 'white', backgroundColor: 'var(--color-success)',
-          padding: '1rem 1.5rem', borderRadius: 'var(--radius-md)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          display: 'flex', alignItems: 'center', gap: '1rem',
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <CheckCircle size={20} />
-            <span style={{ fontWeight: 500 }}>{success}</span>
-          </div>
-          <button
-            onClick={() => setSuccess('')}
-            style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0.2rem', display: 'flex' }}
-            title="Dismiss"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      )}
 
       {showForm && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
