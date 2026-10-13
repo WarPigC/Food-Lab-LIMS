@@ -9,6 +9,7 @@ import Spinner from "../../components/Spinner";
 import { Play, User, Check, X, Search, Shield, Activity, Edit, Trash2, CheckCircle } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
 
 
 function UserSection({
@@ -17,10 +18,21 @@ function UserSection({
   isLoading,
   onEdit,
   onDelete,
-  userToDelete,
-  setUserToDelete,
-  onConfirmDelete,
 }) {
+  const modal = useModal();
+
+  const handleDelete = async (u) => {
+    const confirmed = await modal.confirm({
+      title: "Delete User",
+      body: `Are you sure you want to delete ${u.name} (${u.role})? They will lose access immediately.`,
+      variant: "danger",
+      confirmLabel: "Delete User",
+    });
+    if (confirmed) {
+      onDelete(u._id);
+    }
+  };
+
   return (
     <div style={{ marginBottom: "2.5rem" }}>
       <h3
@@ -87,78 +99,41 @@ function UserSection({
                     </td>
                     <td>{u.department || "N/A"}</td>
                     <td>
-                      {userToDelete && userToDelete._id === u._id ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "0.5rem",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: "0.8rem",
-                              color: "var(--color-danger)",
-                            }}
-                          >
-                            Sure?
-                          </span>
-                          <button
-                            onClick={async () => {
-                              await onConfirmDelete(u._id);
-                              setUserToDelete(null);
-                            }}
-                            className="btn-danger"
-                            style={{
-                              padding: "0.2rem 0.6rem",
-                              fontSize: "0.8rem",
-                              borderRadius: "4px",
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setUserToDelete(null)}
-                            style={{
-                              padding: "0.2rem 0.6rem",
-                              fontSize: "0.8rem",
-                              borderRadius: "4px",
-                              border: "1px solid var(--color-border)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => onEdit(u)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--color-primary)",
-                              cursor: "pointer",
-                              marginRight: "1rem",
-                            }}
-                          >
-                            <Edit size={18} />
-                          </button>
-                          <button
-                            onClick={() => setUserToDelete(u)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--color-danger)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={() => onEdit(u)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--color-primary)",
+                          cursor: "pointer",
+                          marginRight: "0.5rem",
+                          minWidth: "44px",
+                          minHeight: "44px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title="Edit User"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--color-danger)",
+                          cursor: "pointer",
+                          minWidth: "44px",
+                          minHeight: "44px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title="Delete User"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -175,7 +150,6 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editUserId, setEditUserId] = useState(null);
-  const [userToDelete, setUserToDelete] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -474,9 +448,7 @@ export default function UsersPage() {
         users={headUsers}
         isLoading={usersLoading}
         onEdit={handleEdit}
-        onConfirmDelete={confirmDelete}
-        userToDelete={userToDelete}
-        setUserToDelete={setUserToDelete}
+        onDelete={confirmDelete}
       />
 
       <UserSection
@@ -484,9 +456,7 @@ export default function UsersPage() {
         users={assistantUsers}
         isLoading={usersLoading}
         onEdit={handleEdit}
-        onConfirmDelete={confirmDelete}
-        userToDelete={userToDelete}
-        setUserToDelete={setUserToDelete}
+        onDelete={confirmDelete}
       />
     </div>
   );

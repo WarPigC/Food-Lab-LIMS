@@ -16,13 +16,113 @@ import { AuthContext } from "../../context/AuthContext";
 import { formatJobCode } from "../../utils/serialUtils";
 import { formatDate } from "../../utils/dateUtils";
 import InfiniteScroll from "../../components/InfiniteScroll";
-import JobDetailsModal from "../../components/JobDetailsModal";
 import AssignmentHistory from "../../components/AssignmentHistory";
 import Fuse from "fuse.js";
 import PageHeader from "../../components/PageHeader";
 import { useListControls } from "../../hooks/useListControls";
 import { jobCodeComparator } from "../../utils/siblingUtils";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
+
+import { Info, ClipboardList, ShieldCheck } from "lucide-react";
+
+function JobEssentialDetails({ job }) {
+  if (!job) return null;
+
+  const sectionStyle = {
+    padding: "1rem",
+    backgroundColor: "var(--color-background)",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--color-border)",
+    marginBottom: "0.85rem",
+  };
+  const headingStyle = {
+    fontSize: "0.88rem",
+    fontWeight: 700,
+    marginBottom: "0.75rem",
+    display: "flex",
+    alignItems: "center",
+    gap: "0.4rem",
+    color: "var(--color-primary)",
+  };
+  const gridStyle = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+    gap: "0.65rem",
+    fontSize: "0.85rem",
+  };
+  const field = (label, value) => (
+    <div>
+      <span style={{ color: "var(--color-text-muted)", display: "block", fontSize: "0.75rem" }}>{label}</span>
+      <span style={{ wordBreak: "break-word" }}>{value || "N/A"}</span>
+    </div>
+  );
+  const fieldFull = (label, value) => (
+    <div style={{ gridColumn: "1 / -1" }}>
+      <span style={{ color: "var(--color-text-muted)", display: "block", fontSize: "0.75rem" }}>{label}</span>
+      <span style={{ wordBreak: "break-word" }}>{value || "N/A"}</span>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Customer Details */}
+      <div style={sectionStyle}>
+        <div style={headingStyle}><Info size={14} /> Customer Details</div>
+        <div style={gridStyle}>
+          {field("Name", job.customer?.customer_name || job.clientName)}
+          {field("Contact Person", job.customer?.contact_person)}
+          {field("Email", job.customer?.email)}
+          {field("Mobile", job.customer?.mobile_number)}
+          {fieldFull("Address", job.customer?.customer_address)}
+          {fieldFull("Reference No.", job.customer?.customer_reference_no)}
+        </div>
+      </div>
+
+      {/* Sample Details */}
+      <div style={sectionStyle}>
+        <div style={headingStyle}><ClipboardList size={14} /> Sample Details</div>
+        <div style={gridStyle}>
+          {field("Sample Name", job.sample?.sample_name)}
+          {field("Sample ID", job.sample?.sample_id)}
+          {field(
+            "Quantity",
+            job.sample?.sample_quantity
+              ? `${job.sample.sample_quantity}${job.sample.sample_count ? ` (${job.sample.sample_count} count)` : ""}`
+              : null
+          )}
+          <div>
+            <span style={{ color: "var(--color-text-muted)", display: "block", fontSize: "0.75rem" }}>Accreditation</span>
+            <span className={`badge ${job.sample?.nabl_type === "Nabl" ? "badge-success" : "badge-secondary"}`}>
+              {job.sample?.nabl_type || "N/A"}
+            </span>
+          </div>
+          {job.sample?.ulr_no && fieldFull("ULR Number", job.sample.ulr_no)}
+          {fieldFull("Description", job.sample?.sample_description)}
+          {field("Received Date", job.sample?.received_date ? formatDate(job.sample.received_date) : null)}
+          {field("Received Mode", job.sample?.received_mode)}
+          {field("Condition on Receipt", job.sample?.condition_on_receipt)}
+          {field("Packing Details", job.sample?.packing_details)}
+          {field("Marking / Seal", job.sample?.marking_seal)}
+          {field("Sample Source", job.sample?.sample_source)}
+        </div>
+      </div>
+
+      {/* Compliance & Notes */}
+      <div style={{ ...sectionStyle, marginBottom: 0 }}>
+        <div style={headingStyle}><ShieldCheck size={14} /> Compliance &amp; Notes</div>
+        <div style={gridStyle}>
+          {field("Statement of Conformity", job.compliance?.statement_of_conformity)}
+          {field("Decision Rule", job.compliance?.decision_rule)}
+          {fieldFull("Accreditation Scope", job.compliance?.accreditation_scope)}
+          {fieldFull("Special Handling", job.compliance?.special_handling_instructions)}
+          {fieldFull("Disclaimer / Notes", job.compliance?.disclaimer_notes)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 const isOverdue = (deadlineStr) => {
   if (!deadlineStr) return false;
@@ -54,8 +154,8 @@ export default function Dispatcher() {
   const [bulkAnalystId, setBulkAnalystId] = useState("");
   const [bulkDeadlineDate, setBulkDeadlineDate] = useState("");
   const [bulkDeadlineTime, setBulkDeadlineTime] = useState("");
-  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
   const [isBulkDispatching, setIsBulkDispatching] = useState(false);
+  const modal = useModal();
 
   // Format deadline for display in confirm modal (no external dep)
   const formatBulkDeadline = (date, time) => {
@@ -76,10 +176,7 @@ export default function Dispatcher() {
   };
 
   // Return Job State
-  const [returnModalData, setReturnModalData] = useState(null); // { jobId: string, dept: string }
-  const [returnNote, setReturnNote] = useState("");
   const [isReturning, setIsReturning] = useState(false);
-  const [detailsJob, setDetailsJob] = useState(null);
 
   // --- Search: full-dataset for Fuse ---
   const [allJobs, setAllJobs] = useState([]);
@@ -363,21 +460,26 @@ export default function Dispatcher() {
     }
   };
 
-  const handleReturn = async (e) => {
-    e.preventDefault();
-    if (!returnModalData || !returnNote.trim()) return;
+  const handleInitiateReturn = async (jobId, dept) => {
+    const reason = await modal.input({
+      title: "Return Job to Admin Officer",
+      body: "Please provide a clear reason for returning this job. The Admin Officer will see this note.",
+      placeholder: "e.g. Missing required test parameter, incorrect volume stated...",
+      required: true,
+      confirmLabel: "Return Job",
+      cancelLabel: "Cancel",
+    });
+    if (!reason) return;
 
     setIsReturning(true);
     try {
-      await axios.post(`${API_URL}/api/jobs/${returnModalData.jobId}/return`, {
-        department: returnModalData.dept,
-        note: returnNote,
+      await axios.post(`${API_URL}/api/jobs/${jobId}/return`, {
+        department: dept,
+        note: reason,
       });
 
-      setJobs((prev) => prev.filter((j) => j._id !== returnModalData.jobId));
+      setJobs((prev) => prev.filter((j) => j._id !== jobId));
       toast.success("Job returned to Admin Officer successfully.");
-      setReturnModalData(null);
-      setReturnNote("");
 
       invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
       fetchJobs();
@@ -411,10 +513,95 @@ export default function Dispatcher() {
     });
   };
 
-  const openBulkConfirmModal = () => {
+  const openBulkConfirmModal = async () => {
     if (!bulkAnalystId) return toast.error("Please select an analyst");
     if (!bulkDeadlineDate || !bulkDeadlineTime) return toast.error("Please set a deadline");
-    setIsBulkConfirmOpen(true);
+
+    const analyst = assistants.find((a) => a._id === bulkAnalystId);
+    const selectedJobsList = jobs.filter((j) => selectedJobIds.has(j._id));
+
+    const detailPanel = (
+      <div>
+        <div
+          style={{
+            backgroundColor: "var(--color-surface)",
+            borderRadius: "var(--radius-md)",
+            padding: "0.85rem",
+            marginBottom: "1rem",
+            border: "1px solid var(--color-border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.4rem",
+            fontSize: "0.88rem",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--color-text-muted)" }}>Analyst:</span>
+            <span style={{ fontWeight: 600 }}>{analyst?.name || "Selected Analyst"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--color-text-muted)" }}>Deadline:</span>
+            <span style={{ fontWeight: 600 }}>{formatBulkDeadline(bulkDeadlineDate, bulkDeadlineTime)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--color-text-muted)" }}>Total Jobs:</span>
+            <span style={{ fontWeight: 600 }}>{selectedJobIds.size}</span>
+          </div>
+        </div>
+
+        <div style={{ fontWeight: 600, marginBottom: "0.5rem", fontSize: "0.85rem" }}>
+          Selected Jobs ({selectedJobsList.length}):
+        </div>
+        <ul
+          style={{
+            listStyleType: "none",
+            padding: 0,
+            margin: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.35rem",
+            maxHeight: "150px",
+            overflowY: "auto",
+          }}
+        >
+          {selectedJobsList.map((j) => (
+            <li
+              key={j._id}
+              style={{
+                padding: "0.45rem 0.65rem",
+                backgroundColor: "var(--color-surface)",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--color-border)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontSize: "0.82rem",
+              }}
+            >
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                {formatJobCode(j.jobCode)}
+              </span>
+              <span style={{ color: "var(--color-text-muted)" }}>
+                {j.clientName || j.customer?.customer_name || "Client"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+
+    const confirmed = await modal.confirm({
+      title: "Confirm Bulk Dispatch",
+      body: "The following jobs will be dispatched to the selected analyst with the given deadline.",
+      variant: "default",
+      confirmLabel: "Confirm Dispatch",
+      cancelLabel: "Cancel",
+      detail: detailPanel,
+    });
+
+    if (confirmed) {
+      handleBulkDispatch();
+    }
   };
 
   const handleBulkDispatch = async () => {
@@ -425,7 +612,6 @@ export default function Dispatcher() {
     let successCount = 0;
 
     setIsBulkDispatching(true);
-    setIsBulkConfirmOpen(false);
 
     const bulkMeta = {
       bulkId,
@@ -574,7 +760,7 @@ export default function Dispatcher() {
                   transition: "border-color 0.2s",
                 }}
               >
-                {/* Card Header — always visible */}
+                {/* Card Header: always visible */}
                 <div
                   onClick={() => toggleExpand(job._id)}
                   style={{
@@ -672,7 +858,13 @@ export default function Dispatcher() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDetailsJob(job);
+                        modal.confirm({
+                          title: `Job Details: ${formatJobCode(job.jobCode)}`,
+                          body: <JobEssentialDetails job={job} />,
+                          confirmLabel: "Close",
+                          cancelLabel: null,
+                          wide: true,
+                        });
                       }}
                       className="btn btn-secondary"
                       style={{
@@ -911,13 +1103,7 @@ export default function Dispatcher() {
                                     )}
                                   </button>
                                   <button
-                                    onClick={() => {
-                                      setReturnModalData({
-                                        jobId: job._id,
-                                        dept: dKey,
-                                      });
-                                      setReturnNote("");
-                                    }}
+                                    onClick={() => handleInitiateReturn(job._id, dKey)}
                                     className="btn btn-secondary"
                                     style={{
                                       padding: "0.6rem 1.5rem",
@@ -966,13 +1152,7 @@ export default function Dispatcher() {
                                   job unlocks.
                                 </p>
                                 <button
-                                  onClick={() => {
-                                    setReturnModalData({
-                                      jobId: job._id,
-                                      dept: dKey,
-                                    });
-                                    setReturnNote("");
-                                  }}
+                                  onClick={() => handleInitiateReturn(job._id, dKey)}
                                   className="btn btn-secondary"
                                   style={{
                                     padding: "0.6rem 1.5rem",
@@ -1249,13 +1429,7 @@ export default function Dispatcher() {
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            setReturnModalData({
-                                              jobId: job._id,
-                                              dept: dKey,
-                                            });
-                                            setReturnNote("");
-                                          }}
+                                          onClick={() => handleInitiateReturn(job._id, dKey)}
                                           className="btn btn-secondary"
                                           style={{
                                             padding: "0.6rem 1.5rem",
@@ -1283,130 +1457,6 @@ export default function Dispatcher() {
             );
           })}
         </div>
-      )}
-
-      {/* Return to Officer Modal */}
-      {returnModalData && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "500px",
-              padding: "2rem",
-              animation: "slideUp 0.3s ease",
-              borderTop: "4px solid #EF4444",
-            }}
-          >
-            <h2
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: "#B45309",
-                margin: "0 0 1rem 0",
-                fontSize: "1.25rem",
-              }}
-            >
-              <RotateCcw size={20} /> Return Job to Admin Officer
-            </h2>
-            <p
-              style={{
-                fontSize: "0.9rem",
-                color: "var(--color-text-muted)",
-                marginBottom: "1.5rem",
-                lineHeight: 1.5,
-              }}
-            >
-              Please provide a clear reason for returning this job. The Admin
-              Officer will see this note.
-            </p>
-            <form onSubmit={handleReturn}>
-              <div style={{ marginBottom: "1.5rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontWeight: 600,
-                    marginBottom: "0.5rem",
-                    fontSize: "0.9rem",
-                  }}
-                >
-                  Reason for Return{" "}
-                  <span style={{ color: "var(--color-danger)" }}>*</span>
-                </label>
-                <textarea
-                  value={returnNote}
-                  onChange={(e) => setReturnNote(e.target.value)}
-                  placeholder="e.g. Missing required test parameter, incorrect volume stated, etc."
-                  rows="4"
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--color-border)",
-                    resize: "vertical",
-                  }}
-                ></textarea>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "1rem",
-                  justifyContent: "flex-end",
-                  marginTop: "1.5rem",
-                }}
-              >
-                <button
-                  type="button"
-                  className="btn"
-                  style={{
-                    border: "1px solid var(--color-border)",
-                    padding: "0.6rem 1.5rem",
-                  }}
-                  onClick={() => setReturnModalData(null)}
-                  disabled={isReturning}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    backgroundColor: "#EF4444",
-                    border: "none",
-                    padding: "0.6rem 1.5rem",
-                  }}
-                  disabled={isReturning || !returnNote.trim()}
-                >
-                  {isReturning ? (
-                    <Spinner size="sm" color="#fff" />
-                  ) : (
-                    "Return Job"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {detailsJob && (
-        <JobDetailsModal job={detailsJob} onClose={() => setDetailsJob(null)} />
       )}
 
       {/* ── Bulk Action Bar ── */}
@@ -1545,133 +1595,6 @@ export default function Dispatcher() {
                 }}
               >
                 <X size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Bulk Confirm Modal ── */}
-      {isBulkConfirmOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-            padding: "1rem",
-          }}
-          onClick={() => setIsBulkConfirmOpen(false)}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "500px",
-              padding: "2rem",
-              animation: "slideUp 0.3s ease",
-              borderTop: "4px solid var(--color-primary)",
-              maxHeight: "90vh",
-              overflowY: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: "var(--color-primary)",
-                margin: "0 0 0.5rem 0",
-                fontSize: "1.25rem",
-              }}
-            >
-              <Play size={20} fill="var(--color-primary)" /> Confirm Bulk Dispatch
-            </h2>
-            <p
-              style={{
-                fontSize: "0.9rem",
-                color: "var(--color-text-muted)",
-                marginBottom: "1.5rem",
-                lineHeight: 1.5,
-              }}
-            >
-              The following jobs will be dispatched to the selected analyst with the given deadline.
-            </p>
-
-            {/* Summary */}
-            <div style={{
-              backgroundColor: "var(--color-background)",
-              borderRadius: "var(--radius-md)",
-              padding: "1rem",
-              marginBottom: "1.25rem",
-              border: "1px solid var(--color-border)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>Analyst</span>
-                <span style={{ fontWeight: 600 }}>{assistants.find(a => a._id === bulkAnalystId)?.name}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>Deadline</span>
-                <span style={{ fontWeight: 600 }}>{formatBulkDeadline(bulkDeadlineDate, bulkDeadlineTime)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>Total Jobs</span>
-                <span style={{ fontWeight: 600 }}>{selectedJobIds.size}</span>
-              </div>
-            </div>
-
-            {/* Job list */}
-            <p style={{ fontWeight: 600, marginBottom: "0.75rem", fontSize: "0.9rem" }}>Selected Jobs:</p>
-            <ul style={{ listStyleType: "none", padding: 0, margin: "0 0 1.5rem 0", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-              {jobs
-                .filter((j) => selectedJobIds.has(j._id))
-                .map((j) => (
-                  <li key={j._id} style={{
-                    padding: "0.6rem 0.75rem",
-                    backgroundColor: "var(--color-background)",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--color-border)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.9rem" }}>{formatJobCode(j.jobCode)}</span>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.85rem" }}>{j.clientName}</span>
-                  </li>
-                ))}
-            </ul>
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                className="btn"
-                style={{ border: "1px solid var(--color-border)", padding: "0.6rem 1.5rem" }}
-                onClick={() => setIsBulkConfirmOpen(false)}
-                disabled={isBulkDispatching}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleBulkDispatch}
-                disabled={isBulkDispatching}
-                style={{ padding: "0.6rem 1.5rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
-              >
-                {isBulkDispatching
-                  ? <Spinner size="sm" color="#fff" />
-                  : <><Play size={15} fill="white" /> Confirm Dispatch</>}
               </button>
             </div>
           </div>

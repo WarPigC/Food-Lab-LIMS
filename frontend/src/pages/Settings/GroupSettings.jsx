@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import API_URL from "../../utils/api";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
 import { AuthContext } from "../../context/AuthContext";
 import {
   Database,
@@ -21,6 +22,7 @@ import InfiniteScroll from "../../components/InfiniteScroll";
 
 export default function GroupSettings() {
   const toast = useToast();
+  const modal = useModal();
   const { user } = useContext(AuthContext);
   const [data, setData] = useState([]);
   const [globalParameters, setGlobalParameters] = useState([]);
@@ -198,12 +200,13 @@ export default function GroupSettings() {
   };
 
   const handleDeleteGroup = async (name) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete the entire group "${name}" and all its subgroups?`,
-      )
-    )
-      return;
+    const confirmed = await modal.confirm({
+      title: "Delete Group",
+      body: `Are you sure you want to delete the entire group "${name}" and all of its subgroups? This action cannot be undone.`,
+      variant: "danger",
+      confirmLabel: "Delete Group",
+    });
+    if (!confirmed) return;
     try {
       const token = localStorage.getItem("token");
       await axios.delete(
@@ -280,12 +283,13 @@ export default function GroupSettings() {
   };
 
   const handleDeleteSubgroup = async (doc) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete the subgroup "${doc.subGroup}"?`,
-      )
-    )
-      return;
+    const confirmed = await modal.confirm({
+      title: "Delete Subgroup",
+      body: `Are you sure you want to delete the subgroup "${doc.subGroup}"? This action cannot be undone.`,
+      variant: "danger",
+      confirmLabel: "Delete Subgroup",
+    });
+    if (!confirmed) return;
     try {
       const token = localStorage.getItem("token");
       await axios.delete(`${API_URL}/api/data-settings/subgroups/${doc._id}`, {
@@ -368,12 +372,13 @@ export default function GroupSettings() {
   };
 
   const handleRemoveGlobalParameter = async (paramId) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this parameter from the global library?",
-      )
-    )
-      return;
+    const confirmed = await modal.confirm({
+      title: "Delete Parameter",
+      body: "Are you sure you want to delete this parameter from the global library? This action cannot be undone.",
+      variant: "danger",
+      confirmLabel: "Delete Parameter",
+    });
+    if (!confirmed) return;
     try {
       const token = localStorage.getItem("token");
       await axios.delete(`${API_URL}/api/parameters/${paramId}`, {
@@ -1466,10 +1471,6 @@ export default function GroupSettings() {
           </div>
         </div>
       )}
-
-      {/* ── CUSTOM CONFIRMATION MODALS ── */}
-
-      
     </div>
   );
 }

@@ -9,8 +9,7 @@ import API_URL from '../utils/api';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { formatTestCode } from '../utils/codeUtils';
 import { useToast } from '../hooks/useToast';
-
-
+import { useModal } from '../hooks/useModal';
 
 const isOverdue = (deadlineStr) => {
   if (!deadlineStr) return false;
@@ -25,10 +24,9 @@ export default function AssistantDashboard() {
   const [testMethods, setTestMethods] = useState([]);
   const [units, setUnits] = useState([]);
   const toast = useToast();
+  const modal = useModal();
   const [loading, setLoading] = useState(() => !isCached(CACHE_KEYS.MY_TASKS));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [errorModalData, setErrorModalData] = useState(null); // string for error message
 
   const [showAddMethod, setShowAddMethod] = useState(false);
   const [newMethodText, setNewMethodText] = useState('');
@@ -109,7 +107,13 @@ export default function AssistantDashboard() {
   };
 
   const handleDeleteTestMethod = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this test method?')) return;
+    const confirmed = await modal.confirm({
+      title: 'Delete Test Method',
+      body: 'Are you sure you want to delete this test method? This action cannot be undone.',
+      variant: 'danger',
+      confirmLabel: 'Delete Method',
+    });
+    if (!confirmed) return;
     try {
       await axios.delete(`${API_URL}/api/test-methods/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -157,17 +161,10 @@ export default function AssistantDashboard() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        setShowConfirmModal(false);
-        setErrorModalData(null);
         setShowAddMethod(false);
       }
       
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        if (showConfirmModal) {
-          executeSubmit();
-          return;
-        }
-        
         const activeForm = document.querySelector('form:focus-within');
         if (activeForm) {
           const submitEvent = new Event('submit', { cancelable: true, bubbles: true });
@@ -178,7 +175,7 @@ export default function AssistantDashboard() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showConfirmModal, errorModalData, showAddMethod]);
+  }, [showAddMethod]);
 
   const formatDateTimeLocal = (dateString) => {
     if (!dateString) return '';
@@ -277,13 +274,13 @@ export default function AssistantDashboard() {
     const testMethod = resultsData[index].testMethod;
 
     if (!val || val.trim() === '' || !testMethod || testMethod.trim() === '') {
-      setErrorModalData(`Please enter both a value and a test method for "${resultsData[index].name}"`);
+      modal.error(`Please enter both a value and a test method for "${resultsData[index].name}"`);
       return;
     }
     
     const numericVal = parseFloat(val);
     if (!isNaN(numericVal) && numericVal < 0) {
-      setErrorModalData(`Value for "${resultsData[index].name}" cannot be negative`);
+      modal.error(`Value for "${resultsData[index].name}" cannot be negative`);
       return;
     }
 
@@ -303,7 +300,7 @@ export default function AssistantDashboard() {
       console.error(err);
       updated[index].isSaved = false;
       setResultsData(updated);
-      setErrorModalData(err.response?.data?.message || 'Error saving parameter');
+      modal.error(err.response?.data?.message || 'Error saving parameter');
     } finally {
       setIsSubmitting(false);
     }
@@ -334,7 +331,7 @@ export default function AssistantDashboard() {
       if (negativeParams.length > 0) {
         issues.push(`Negative values: ${negativeParams.map(p => p.name).join(', ')}`);
       }
-      setErrorModalData(`Some parameters have issues and won't be saved:\n\n${issues.join('\n')}\n\nAll other valid parameters will be saved.`);
+      modal.error(`Some parameters have issues and won't be saved:\n\n${issues.join('\n')}\n\nAll other valid parameters will be saved.`);
     }
 
     if (isSubmitting) return;
@@ -365,13 +362,13 @@ export default function AssistantDashboard() {
       fetchTasks();
     } catch (err) {
       console.error(err);
-      setErrorModalData(err.response?.data?.message || 'Error saving draft');
+      modal.error(err.response?.data?.message || 'Error saving draft');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handlePreSubmit = (e) => {
+  const handlePreSubmit = async (e) => {
     e.preventDefault();
     const hasRetestOnly = activeTask?.retestOnly && activeTask.retestOnly.length > 0;
     const editableParams = hasRetestOnly 
@@ -380,7 +377,7 @@ export default function AssistantDashboard() {
 
     const unsavedParams = editableParams.filter(r => !r.isSaved);
     if (unsavedParams.length > 0) {
-      setErrorModalData(`Please save all parameters before submitting. \n\nUnsaved fields: ${unsavedParams.map(p => p.name).join(', ')}`);
+      modal.error(`Please save all parameters before submitting. \n\nUnsaved fields: ${unsavedParams.map(p => p.name).join(', ')}`);
       return;
     }
 
@@ -393,20 +390,28 @@ export default function AssistantDashboard() {
     });
 
     if (invalidParams.length > 0) {
-      setErrorModalData(`Some parameters have invalid or empty values. \n\nInvalid fields: ${invalidParams.map(p => p.name).join(', ')}`);
+      modal.error(`Some parameters have invalid or empty values. \n\nInvalid fields: ${invalidParams.map(p => p.name).join(', ')}`);
       return;
     }
 
     if (!testingPeriod.startDate || !testingPeriod.endDate) {
-      setErrorModalData("Please provide both start and end dates for the testing period.");
+      modal.error("Please provide both start and end dates for the testing period.");
       return;
     }
 
-    setShowConfirmModal(true);
+    const confirmed = await modal.confirm({
+      title: 'Submit Analysis',
+      body: `Are you sure you want to submit the results for Test ${formatJobCode(activeTask?.testCode)}?`,
+      variant: 'default',
+      confirmLabel: 'Confirm Submission',
+      cancelLabel: 'Review Again',
+    });
+    if (confirmed) {
+      executeSubmit();
+    }
   };
 
   const executeSubmit = async () => {
-    setShowConfirmModal(false);
     if (isSubmitting) return;
     setIsSubmitting(true);
 
@@ -425,7 +430,7 @@ export default function AssistantDashboard() {
       fetchTasks();
     } catch (err) {
       console.error(err);
-      setErrorModalData(err.response?.data?.message || 'An error occurred while submitting the task.');
+      modal.error(err.response?.data?.message || 'An error occurred while submitting the task.');
     } finally {
       setIsSubmitting(false);
     }
@@ -480,7 +485,7 @@ export default function AssistantDashboard() {
                 <AlertTriangle size={20} style={{ color: 'var(--color-danger)', marginTop: '2px', flexShrink: 0 }} />
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--color-danger)', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
-                    Reassigned by {latestNote.role} — please correct and resubmit
+                    Reassigned by {latestNote.role}: please correct and resubmit
                   </div>
                   {latestNote.note && (
                     <div style={{ fontSize: '0.85rem', color: 'var(--color-text-main)' }}>"{latestNote.note}"</div>
@@ -693,78 +698,7 @@ export default function AssistantDashboard() {
 
 
 
-      {/* ── CUSTOM CONFIRMATION MODAL ── */}
-      {showConfirmModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, backdropFilter: 'blur(4px)'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '2rem', animation: 'slideUp 0.3s ease', borderTop: '4px solid var(--color-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', color: 'var(--color-primary)' }}>
-              <Check size={32} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Submit Analysis</h2>
-            </div>
-            
-            <p style={{ margin: '0 0 1.5rem 0', color: 'var(--color-text-main)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-              Are you sure you want to submit the results for <strong>Test {formatJobCode(activeTask?.testCode)}</strong>?
-            </p>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button 
-                type="button"
-                className="btn" 
-                onClick={() => setShowConfirmModal(false)}
-                style={{ border: '1px solid var(--color-primary)', color: 'var(--color-primary)', padding: '0.6rem 2rem', backgroundColor: 'transparent' }}
-                disabled={isSubmitting}
-              >
-                Review Again
-              </button>
-              <button 
-                type="button"
-                className="btn btn-primary" 
-                onClick={executeSubmit}
-                title="Confirm Submission (Ctrl + Enter)"
-                style={{ padding: '0.6rem 2rem' }}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? <Spinner size="sm" message="Submitting..." color="#fff" /> : 'Confirm Submission'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CUSTOM ERROR MODAL ── */}
-      {errorModalData && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, backdropFilter: 'blur(4px)'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '2rem', animation: 'slideUp 0.3s ease', borderTop: '4px solid var(--color-danger)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', color: 'var(--color-danger)' }}>
-              <AlertTriangle size={32} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Validation Error</h2>
-            </div>
-            
-            <p style={{ margin: '0 0 1.5rem 0', color: 'var(--color-text-main)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-              {errorModalData}
-            </p>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button 
-                type="button"
-                className="btn" 
-                onClick={() => setErrorModalData(null)}
-                style={{ border: '1px solid var(--color-danger)', color: 'var(--color-danger)', padding: '0.6rem 2rem', backgroundColor: 'transparent' }}
-              >
-                Go Back & Fix
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Task Drawer / Main Content ends */}
     </div>
   );
 }
@@ -935,8 +869,9 @@ const TestMethodDropdown = ({ value, onChange, testMethods, onUpdate, onDelete, 
   );
 };
 
-// UnitDropdown Component — DB-backed unit picker with add/delete
+// UnitDropdown Component: DB-backed unit picker with add/delete
 const UnitDropdown = ({ value, onChange, units, onRefresh, inputStyle }) => {
+  const modal = useModal();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState(value || '');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -972,7 +907,13 @@ const UnitDropdown = ({ value, onChange, units, onRefresh, inputStyle }) => {
   };
 
   const handleDeleteUnit = async (id) => {
-    if (!window.confirm('Delete this unit from the shared list?')) return;
+    const confirmed = await modal.confirm({
+      title: 'Delete Unit',
+      body: 'Are you sure you want to delete this unit from the shared list?',
+      variant: 'danger',
+      confirmLabel: 'Delete Unit',
+    });
+    if (!confirmed) return;
     try {
       await axios.delete(`${API_URL}/api/units/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -1026,7 +967,7 @@ const UnitDropdown = ({ value, onChange, units, onRefresh, inputStyle }) => {
           maxHeight: '220px', display: 'flex', flexDirection: 'column',
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
         }}>
-          {/* Add Unit — pinned at top */}
+          {/* Add Unit: pinned at top */}
           {!isCreatingNew ? (
             <div
               onMouseDown={(e) => { e.preventDefault(); setIsCreatingNew(true); }}

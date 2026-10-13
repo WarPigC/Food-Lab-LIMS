@@ -242,7 +242,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P1 | F14 | Cross-Analyst Reassign Duplication Bug | ✅ Done |
 | SP2.P2 | B1 | ULR Preview Label Fix (Concurrent Jobs) | ✅ Done |
 | SP2.P3 | F8 | Toast System Overhaul | ✅ Done |
-| SP2.P4 | F15 | Global Modal Daemon | ⬜ Upcoming |
+| SP2.P4 | F15 | Global Modal Daemon | ✅ Done |
 | SP2.P5 | F13 | Analyst Reassignment History Tracking | ✅ Done |
 | SP2.P6 | F2 | Head Pages, Search, Filter & Sort | ✅ Done |
 | SP2.P7 | F16 | Hide Test Code Suffixes in UI | ✅ Done |
@@ -401,6 +401,67 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 | SP2.P3.16 | **Mobile and layout safety**: Container constrained to `max-width: calc(100vw - 2rem)`, positioned cleanly at bottom-right with safe-area padding | ✅ Complete |
 
 > ✅ Completed (commits `f7a5e72`, `02bf5e9`). Files created: `frontend/src/context/ToastContext.jsx`, `frontend/src/hooks/useToast.js`. Modified: `frontend/src/index.css`, `frontend/src/main.jsx`, `frontend/src/components/Header.jsx`, and all 15 target files across the codebase. Manual dismiss X button added; bottom-right placement configured with mobile safe-area padding; toast messages wrap cleanly. Zero raw alert() calls or local setSuccess state remaining. Clean production build verified.
+
+---
+
+### SP2.P4: F15: Global Modal Daemon ✅
+
+**Goal**: Replace every scattered, inline modal implementation across the app with a single centrally-managed modal system. The daemon acts as the sole authority for rendering modals; any component anywhere fires one and forgets the layout concerns. The migration is also a quality pass: modals are clearer, more informative, and mobile-friendly.
+
+**Design decisions locked (from /grill-me session):**
+- **Implementation**: In-house modal engine via `ModalContext` + `useModal` hook + portal to `document.body`.
+- **Modal types shipped**: `confirm`, `error`, `input`.
+- **Confirm variants**: `default` (primary blue, Check icon), `danger` (red, Trash2 icon), and `warning` (orange, AlertTriangle icon).
+- **Detail support**: Optional `detail` ReactNode rendered in a styled panel below the body (used for diff panels and summary lists).
+- **Dismissal & keyboard**: Escape key closes all modals; Ctrl+Enter confirms; backdrop click closes `default`/`warning`/`input` modals, while destructive `danger` confirms require an explicit button click.
+- **Queue engine**: Queue-based (`useCallback`, `useRef` for resolvers, 150ms next-modal delay) ensuring sequential modal display without overlap.
+- **Mobile responsiveness**: Mobile-first touch targets (min 44px height), stacked buttons on small screens (`flex-direction: column-reverse`), scrollable cards up to 90vh.
+- **Scope boundary**: Clean separation from SP2.P8 (no Axios interceptor error binding or contextual recovery actions in P4).
+
+**Files created:**
+- `frontend/src/context/ModalContext.jsx`
+- `frontend/src/hooks/useModal.js`
+
+**Files deleted:**
+- `frontend/src/components/JobDetailsModal.jsx` (absorbed into daemon via `JobEssentialDetails`)
+
+**Files modified:**
+- `frontend/src/main.jsx` (wrapped with `<ModalProvider>`)
+- `frontend/src/index.css` (modal overlay backdrop-filter, `.modal-card`, animations, and mobile responsive rules)
+- `frontend/src/pages/AdminDashboard.jsx` (staff deletion confirm)
+- `frontend/src/components/CascadingParameterSelector.jsx` (delete parameter from library confirm)
+- `frontend/src/pages/Settings/GroupSettings.jsx` (delete group, subgroup, and parameter confirms)
+- `frontend/src/components/ReportModal.jsx` (revert to auto-generated report confirm)
+- `frontend/src/pages/Settings/SerialSettings.jsx` (confirm serial update)
+- `frontend/src/pages/Head/TransferManagement.jsx` (hand over sample and confirm receipt)
+- `frontend/src/pages/AssistantDashboard.jsx` (submit analysis confirm, delete method/unit, all 9 validation error modals)
+- `frontend/src/pages/AdminOfficer/JobsPage.jsx` (clear draft confirm, cancel job confirm, hold job input modal, job create/save/update diff confirm with `<ParamDiffPanel>`)
+- `frontend/src/pages/Head/DispatcherPage.jsx` (bulk dispatch confirm with detail summary, return to officer input modal across 3 trigger sites, view details absorbed)
+
+---
+
+#### SP2.P4: Subphases Delivered
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P4.1 | **`ModalContext.jsx` queue engine**: Queue state, promise resolution via `resolversRef`, sequential queue transitions, portal mounting to `document.body` | ✅ Complete |
+| SP2.P4.2 | **`ModalContext.jsx` `<ConfirmModalView>`**: Card styling, variant accent borders (`default`, `danger`, `warning`), icon per variant, title, body, optional `detail` panel, Escape listener, safe backdrop dismiss logic | ✅ Complete |
+| SP2.P4.3 | **`ModalContext.jsx` `<ErrorModalView>`**: Danger-styled card, `AlertTriangle` icon, title, pre-wrap multiline body, contextual dismiss button | ✅ Complete |
+| SP2.P4.4 | **`ModalContext.jsx` `<InputModalView>`**: Single-line and multiline textarea support, required validation guard, Enter/Ctrl+Enter submission, Escape cancellation | ✅ Complete |
+| SP2.P4.5 | **`index.css`**: `@keyframes modalSlideUp`, `.modal-overlay`, `.modal-card`, `.modal-detail-panel`, `.modal-input-field`, `.modal-footer`, mobile responsive overrides | ✅ Complete |
+| SP2.P4.6 | **`useModal.js`**: Lightweight hook exporting `modal.confirm()`, `modal.error()`, `modal.input()`, and `modal.close()` | ✅ Complete |
+| SP2.P4.7 | **`main.jsx`**: Wrapped `<App />` with `<ModalProvider>` inside `<ToastProvider>` | ✅ Complete |
+| SP2.P4.8 | **Migrate `window.confirm` calls**: Replaced all 9 `window.confirm` calls across `AssistantDashboard`, `AdminDashboard`, `CascadingParameterSelector`, `GroupSettings`, and `ReportModal` | ✅ Complete |
+| SP2.P4.9 | **Migrate inline confirm modals (simple)**: `AssistantDashboard` (Submit Analysis), `DispatcherPage` (bulk dispatch confirm), `JobsPage` (Hold Job, Cancel Job), `SerialSettings` (confirm serial update), `TransferManagement` (hand over, receive) | ✅ Complete |
+| SP2.P4.10 | **Migrate inline confirm modal (complex)**: `JobsPage` job create/edit/save with pre-computed `hasParamChanges`, added/removed param lists, warning variant, and `<ParamDiffPanel>` as `detail` prop | ✅ Complete |
+| SP2.P4.11 | **Migrate inline error modal**: `AssistantDashboard` `errorModalData` validation errors migrated to `modal.error()` | ✅ Complete |
+| SP2.P4.12 | **Migrate inline input modal**: `DispatcherPage` Return to Officer note input modal (across 3 trigger sites) | ✅ Complete |
+| SP2.P4.13 | **Absorb `JobDetailsModal.jsx`**: Replaced standalone modal component with daemon `<JobEssentialDetails>` detail view and removed deleted file | ✅ Complete |
+| SP2.P4.14 | **Dead code sweep**: Verified 0 raw `window.confirm()` calls, 0 inline modal overlay JSX blocks in migrated files, 0 orphaned modal states | ✅ Complete |
+| SP2.P4.15 | **Quality pass on modal copy**: Reviewed all modal titles, text copy, button labels, and placeholders across all migrated files | ✅ Complete |
+| SP2.P4.16 | **Build verification & mobile safety**: Clean `npm run build` verified; touch targets >= 44px on mobile; zero em-dashes preserved | ✅ Complete |
+
+> ✅ Completed. Files created: `frontend/src/context/ModalContext.jsx`, `frontend/src/hooks/useModal.js`. Deleted: `frontend/src/components/JobDetailsModal.jsx`. Modified: `frontend/src/main.jsx`, `frontend/src/index.css`, and 9 migrated component/page files across the codebase. Zero raw window.confirm() or alert() calls remaining. Clean production build verified.
 
 ---
 
