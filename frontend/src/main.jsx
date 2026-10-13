@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext'
 
 import { SocketProvider } from './context/SocketContext'
 import { ToastProvider } from './context/ToastContext'
+import { ModalProvider } from './context/ModalContext'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -14,7 +15,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <SocketProvider>
           <ToastProvider>
-            <App />
+            <ModalProvider>
+              <App />
+            </ModalProvider>
           </ToastProvider>
         </SocketProvider>
       </AuthProvider>

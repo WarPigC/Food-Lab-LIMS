@@ -4,6 +4,7 @@ import { AlertCircle, Activity } from "lucide-react";
 import API_URL from "../../utils/api";
 import { validateJobCode } from "../../utils/serialUtils";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
 
 export default function SerialSettings() {
   const [serialPreview, setSerialPreview] = useState("");
@@ -11,8 +12,8 @@ export default function SerialSettings() {
   const [serialOffset, setSerialOffset] = useState("");
   const [serialOffsetError, setSerialOffsetError] = useState("");
   const [isUpdatingSerialOffset, setIsUpdatingSerialOffset] = useState(false);
-  const [confirmSerialModal, setConfirmSerialModal] = useState(false);
   const toast = useToast();
+  const modal = useModal();
 
   const fetchSerialData = async () => {
     try {
@@ -30,7 +31,6 @@ export default function SerialSettings() {
 
   const executeSerialUpdate = async () => {
     setIsUpdatingSerialOffset(true);
-    setConfirmSerialModal(false);
     try {
       await axios.put(`${API_URL}/api/jobs/sample-serial-offset`, {
         offset: serialOffset,
@@ -49,9 +49,18 @@ export default function SerialSettings() {
     }
   };
 
-  const handleUpdateSerialOffset = () => {
+  const handleUpdateSerialOffset = async () => {
     if (!serialOffset || !!serialOffsetError || serialOffset.length !== 10) return;
-    setConfirmSerialModal(true);
+    const confirmed = await modal.confirm({
+      title: "Confirm Serial Update",
+      body: `Are you sure you want to set the current Job Serial Number to ${serialOffset}?\n\nThe very next job created will be ${serialOffset}. This cannot be undone and may cause sequence gaps if used incorrectly.`,
+      variant: "danger",
+      confirmLabel: "Yes, Update Serial",
+      cancelLabel: "Cancel",
+    });
+    if (confirmed) {
+      executeSerialUpdate();
+    }
   };
 
   return (
@@ -136,31 +145,6 @@ export default function SerialSettings() {
           </div>
         </div>
       </div>
-
-      {confirmSerialModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: "450px" }}>
-            <h3 style={{ margin: "0 0 1rem 0", color: "var(--color-danger)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <AlertCircle size={20} /> Confirm Serial Update
-            </h3>
-            <p>
-              Are you sure you want to set the current Job Serial Number to{" "}
-              <strong style={{ fontFamily: "monospace" }}>{serialOffset}</strong>?
-            </p>
-            <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)" }}>
-              The very next job created will be <strong>{serialOffset}</strong>. This cannot be undone and may cause sequence gaps if used incorrectly.
-            </p>
-            <div className="form-actions" style={{ marginTop: "2rem" }}>
-              <button className="btn btn-secondary" onClick={() => setConfirmSerialModal(false)}>
-                Cancel
-              </button>
-              <button className="btn btn-danger" onClick={executeSerialUpdate} disabled={isUpdatingSerialOffset}>
-                {isUpdatingSerialOffset ? "Updating..." : "Yes, Update Serial"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

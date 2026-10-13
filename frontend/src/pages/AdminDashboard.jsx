@@ -4,6 +4,7 @@ import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Trash2, Edit, FileText, Search, ChevronDown, ChevronRight, Activity, Users as UsersIcon, Settings, Clock, CheckCircle, X } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { useModal } from '../hooks/useModal';
 
 import JobLogTable from '../components/JobLogTable';
 import { AuthContext } from '../context/AuthContext';
@@ -170,6 +171,7 @@ function Dashboard() {
 }
 
 function StaffTable({ users, isLoading, emptyMessage, onDelete }) {
+  const modal = useModal();
   if (isLoading && users.length === 0) {
     return <Spinner message={emptyMessage.replace('No ', 'Loading ').replace(' found', '...')} />;
   }
@@ -200,12 +202,28 @@ function StaffTable({ users, isLoading, emptyMessage, onDelete }) {
               <td>{u.department || 'All'}</td>
               <td>
                 <button
-                  onClick={() => {
-                    if (window.confirm(`Are you sure you want to delete ${u.name}?`)) {
+                  onClick={async () => {
+                    const confirmed = await modal.confirm({
+                      title: 'Delete User',
+                      body: `Are you sure you want to delete ${u.name} (${u.role})? They will lose access immediately.`,
+                      variant: 'danger',
+                      confirmLabel: 'Delete User',
+                    });
+                    if (confirmed) {
                       onDelete(u._id);
                     }
                   }}
-                  style={{ padding: '0.25rem 0.5rem', background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--color-danger)',
+                    cursor: 'pointer',
+                    minWidth: '44px',
+                    minHeight: '44px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                   title="Delete User"
                 >
                   <Trash2 size={16} />

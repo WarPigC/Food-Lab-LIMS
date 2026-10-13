@@ -7,9 +7,11 @@ import { formatDateTime } from '../utils/dateUtils';
 import ReportPreview from './ReportPreview';
 import Spinner from './Spinner';
 import { useToast } from '../hooks/useToast';
+import { useModal } from '../hooks/useModal';
 
 export default function ReportModal({ job, onClose }) {
   const toast = useToast();
+  const modal = useModal();
   const { user } = useContext(AuthContext);
   // Initialize reportType synchronously based on job data to prevent double-fetching
   const initialType = job.sample?.nabl_type === 'Nabl' ? 'nabl' : 'non_nabl';
@@ -115,7 +117,13 @@ export default function ReportModal({ job, onClose }) {
   };
 
   const handleRevert = async () => {
-    if (!window.confirm('Are you sure you want to revert to the auto-generated report? This will permanently delete the custom uploaded report.')) return;
+    const confirmed = await modal.confirm({
+      title: 'Revert to Auto-Generated Report',
+      body: 'Are you sure you want to revert to the auto-generated report? This will permanently delete the custom uploaded report.',
+      variant: 'danger',
+      confirmLabel: 'Revert Report',
+    });
+    if (!confirmed) return;
 
     setLoading(true);
     try {

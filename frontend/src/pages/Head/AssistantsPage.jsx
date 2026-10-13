@@ -9,12 +9,13 @@ import Spinner from "../../components/Spinner";
 import { Edit, Trash2, Play, Users, Check, X, Search, Shield, Activity } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
 
 export default function Assistants() {
+  const modal = useModal();
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editUserId, setEditUserId] = useState(null);
-  const [userToDelete, setUserToDelete] = useState(null);
   const { user } = useContext(AuthContext); // to get department/branch
   const [formData, setFormData] = useState({
     name: "",
@@ -100,19 +101,22 @@ export default function Assistants() {
     setShowForm(true);
   };
 
-  const confirmDelete = (u) => setUserToDelete(u);
+  const handleDelete = async (u) => {
+    const confirmed = await modal.confirm({
+      title: "Delete User",
+      body: `Are you sure you want to delete ${u.name} (${u.role})? They will lose access immediately.`,
+      variant: "danger",
+      confirmLabel: "Delete User",
+    });
+    if (!confirmed) return;
 
-  const handleDelete = async () => {
-    if (!userToDelete) return;
     try {
-      await axios.delete(`${API_URL}/api/users/${userToDelete._id}`);
-      setUserToDelete(null);
+      await axios.delete(`${API_URL}/api/users/${u._id}`);
       toast.success("Assistant deleted successfully.");
       invalidateCache(CACHE_KEYS.USERS);
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete");
-      setUserToDelete(null);
     }
   };
 
@@ -284,69 +288,41 @@ export default function Assistants() {
                       <span className="badge badge-success">{u.role}</span>
                     </td>
                     <td>
-                      {userToDelete && userToDelete._id === u._id ? (
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
-                          <span
-                            style={{
-                              fontSize: "0.8rem",
-                              color: "var(--color-danger)",
-                            }}
-                          >
-                            Sure?
-                          </span>
-                          <button
-                            onClick={handleDelete}
-                            className="btn-danger"
-                            style={{
-                              padding: "0.2rem 0.6rem",
-                              fontSize: "0.8rem",
-                              borderRadius: "4px",
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setUserToDelete(null)}
-                            style={{
-                              padding: "0.2rem 0.6rem",
-                              fontSize: "0.8rem",
-                              borderRadius: "4px",
-                              border: "1px solid var(--color-border)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleEdit(u)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--color-primary)",
-                              cursor: "pointer",
-                              marginRight: "1rem",
-                            }}
-                          >
-                            <Edit size={18} />
-                          </button>
-                          <button
-                            onClick={() => confirmDelete(u)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "var(--color-danger)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={() => handleEdit(u)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--color-primary)",
+                          cursor: "pointer",
+                          marginRight: "0.5rem",
+                          minWidth: "44px",
+                          minHeight: "44px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title="Edit User"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--color-danger)",
+                          cursor: "pointer",
+                          minWidth: "44px",
+                          minHeight: "44px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title="Delete User"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </td>
                   </tr>
                 ))
