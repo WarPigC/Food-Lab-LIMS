@@ -427,8 +427,10 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 **Files modified:**
 - `frontend/src/main.jsx` (wrapped with `<ModalProvider>`)
-- `frontend/src/index.css` (modal overlay backdrop-filter, `.modal-card`, animations, and mobile responsive rules)
-- `frontend/src/pages/AdminDashboard.jsx` (staff deletion confirm)
+- `frontend/src/index.css` (modal overlay backdrop-filter, `.modal-card`, `.modal-card--wide`, animations, and mobile responsive rules)
+- `frontend/src/pages/AdminDashboard.jsx` (staff deletion confirm standardized to Delete User modal with 44px tap targets)
+- `frontend/src/pages/AdminOfficer/UsersPage.jsx` (migrated inline delete user confirm to modal daemon with 44px tap targets)
+- `frontend/src/pages/Head/AssistantsPage.jsx` (migrated inline delete user confirm to modal daemon with 44px tap targets)
 - `frontend/src/components/CascadingParameterSelector.jsx` (delete parameter from library confirm)
 - `frontend/src/pages/Settings/GroupSettings.jsx` (delete group, subgroup, and parameter confirms)
 - `frontend/src/components/ReportModal.jsx` (revert to auto-generated report confirm)
@@ -436,7 +438,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 - `frontend/src/pages/Head/TransferManagement.jsx` (hand over sample and confirm receipt)
 - `frontend/src/pages/AssistantDashboard.jsx` (submit analysis confirm, delete method/unit, all 9 validation error modals)
 - `frontend/src/pages/AdminOfficer/JobsPage.jsx` (clear draft confirm, cancel job confirm, hold job input modal, job create/save/update diff confirm with `<ParamDiffPanel>`)
-- `frontend/src/pages/Head/DispatcherPage.jsx` (bulk dispatch confirm with detail summary, return to officer input modal across 3 trigger sites, view details absorbed)
+- `frontend/src/pages/Head/DispatcherPage.jsx` (bulk dispatch confirm with detail summary, return to officer input modal across 3 trigger sites, full 3-section job details absorbed with wide modal card)
 
 ---
 
@@ -460,8 +462,10 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 | SP2.P4.14 | **Dead code sweep**: Verified 0 raw `window.confirm()` calls, 0 inline modal overlay JSX blocks in migrated files, 0 orphaned modal states | ✅ Complete |
 | SP2.P4.15 | **Quality pass on modal copy**: Reviewed all modal titles, text copy, button labels, and placeholders across all migrated files | ✅ Complete |
 | SP2.P4.16 | **Build verification & mobile safety**: Clean `npm run build` verified; touch targets >= 44px on mobile; zero em-dashes preserved | ✅ Complete |
+| SP2.P4.17 | **User management inline delete migration**: Migrated inline "Sure? Yes / No" delete confirmations across `AdminOfficer/UsersPage.jsx`, `Head/AssistantsPage.jsx`, and `AdminDashboard.jsx` to `modal.confirm()` with danger variant and 44px tap targets | ✅ Complete |
+| SP2.P4.18 | **Content-heavy modal support (`wide: true`)**: Added `.modal-card--wide` max-width 660px support in `ModalContext.jsx` and `index.css` for 3-section job details | ✅ Complete |
 
-> ✅ Completed. Files created: `frontend/src/context/ModalContext.jsx`, `frontend/src/hooks/useModal.js`. Deleted: `frontend/src/components/JobDetailsModal.jsx`. Modified: `frontend/src/main.jsx`, `frontend/src/index.css`, and 9 migrated component/page files across the codebase. Zero raw window.confirm() or alert() calls remaining. Clean production build verified.
+> ✅ Completed (commit `bfb34c8`). Files created: `frontend/src/context/ModalContext.jsx`, `frontend/src/hooks/useModal.js`. Deleted: `frontend/src/components/JobDetailsModal.jsx`. Modified: `frontend/src/main.jsx`, `frontend/src/index.css`, and 11 migrated component/page files across the codebase. Zero raw window.confirm(), alert(), or inline deletion confirmation patterns remaining. Clean production build verified.
 
 ---
 
