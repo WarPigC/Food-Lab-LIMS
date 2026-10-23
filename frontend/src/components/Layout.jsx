@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import CommandPalette from './CommandPalette';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -23,7 +22,6 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
-      <CommandPalette />
     </div>
   );
 }
