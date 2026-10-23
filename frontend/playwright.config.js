@@ -26,14 +26,9 @@ export default defineConfig({
     },
   ],
 
-  /*
-   * If you prefer Playwright to automatically start Vite when not already running,
-   * uncomment the block below:
-   *
-   * webServer: {
-   *   command: 'npm run dev',
-   *   url: 'http://localhost:5173',
-   *   reuseExistingServer: true,
-   * },
-   */
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
+  },
 });
