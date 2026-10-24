@@ -381,6 +381,11 @@ const buildResultsTable = (rowsData, hasSpec, startIdx, repeatHeader = null) => 
 };
 
 const generateReport = async (job, reportType) => {
+  if (job.specialProfiles?.waterIso10500) {
+    const { generateWaterIso10500Report } = require('./waterIsoReportGenerator');
+    return await generateWaterIso10500Report(job, reportType);
+  }
+
   const isNabl = reportType === 'nabl';
   const { testReportNo, registrationNo, isAmended, baseReportNo } = deriveReportFields(job.jobCode);
 
@@ -623,4 +628,16 @@ const generateReport = async (job, reportType) => {
   return await Packer.toBuffer(doc);
 };
 
-module.exports = { generateReport };
+module.exports = {
+  generateReport,
+  createCell,
+  createImageCell,
+  deriveReportFields,
+  buildHeaderTable,
+  buildSampleInfoTable,
+  formatDate,
+  PAGE_WIDTH_DXA,
+  BORDERS_ALL,
+  BORDERS_NONE,
+  TABLE_BORDERS_NONE,
+};
