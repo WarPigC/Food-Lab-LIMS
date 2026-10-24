@@ -17,6 +17,7 @@ import InfiniteScroll from "../../components/InfiniteScroll";
 import { useSocket } from "../../context/SocketContext";
 import CascadingParameterSelector from "../../components/CascadingParameterSelector";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
 
 function buildJobCodePreview(serial, dateStr) {
   if (!serial) return "…";
@@ -125,14 +126,11 @@ export default function Jobs() {
   const [ulrValidation, setUlrValidation] = useState({ valid: null, error: null, fullUlr: null });
   const [recentUlrs, setRecentUlrs] = useState([]);
 
-  // Fix 2: Shared group data — fetched once, passed to all CascadingParameterSelector instances
+  // Fix 2: Shared group data, fetched once, passed to all CascadingParameterSelector instances
   const [allGroupData, setAllGroupData] = useState(null);
 
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [deleteConfirmJobId, setDeleteConfirmJobId] = useState(null);
-  const [holdConfirmJobId, setHoldConfirmJobId] = useState(null);
+  const modal = useModal();
   const [loadingJobId, setLoadingJobId] = useState(null);
-  const [holdReason, setHoldReason] = useState("");
   const [heads, setHeads] = useState([]);
   const [assignedMicroHead, setAssignedMicroHead] = useState("");
   const [assignedChemicalHead, setAssignedChemicalHead] = useState("");
@@ -190,11 +188,17 @@ export default function Jobs() {
     editingJobId,
   ]);
 
-  const clearDraft = () => {
-    if (
-      window.confirm("Are you sure you want to completely clear this draft?")
-    ) {
-      sessionStorage.removeItem("DRAFT_JOB_FORM");
+  const clearDraft = async () => {
+    const confirmed = await modal.confirm({
+      title: "Clear Job Draft",
+      body: "Are you sure you want to completely clear this draft? All unsaved inputs in this form will be lost.",
+      variant: "danger",
+      confirmLabel: "Clear Draft",
+      cancelLabel: "Cancel",
+    });
+    if (!confirmed) return;
+
+    sessionStorage.removeItem("DRAFT_JOB_FORM");
       sessionStorage.removeItem("DRAFT_JOB_SELECTED_PARAMS");
       sessionStorage.removeItem("DRAFT_JOB_METADATA");
       sessionStorage.removeItem("DRAFT_JOB_PESTICIDE");
@@ -219,7 +223,6 @@ export default function Jobs() {
       setCustomUlrNumber('');
       setUlrValidation({ valid: null, error: null, fullUlr: null });
       setSelectorResetKey(k => k + 1);
-    }
   };
 
   const validationTimer = useRef(null);
@@ -375,21 +378,7 @@ export default function Jobs() {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setShowConfirmModal(false);
-        setDeleteConfirmJobId(null);
-      }
-
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        if (showConfirmModal) {
-          executeSubmit();
-          return;
-        }
-        if (deleteConfirmJobId) {
-          executeCancelJob();
-          return;
-        }
-
         const activeForm = document.querySelector("form:focus-within");
         if (activeForm) {
           const submitEvent = new Event("submit", {
@@ -403,7 +392,7 @@ export default function Jobs() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showConfirmModal, deleteConfirmJobId]);
+  }, []);
 
   // Handle incoming Reopen request from JobLogTable
   useEffect(() => {
@@ -589,7 +578,7 @@ export default function Jobs() {
     }, 280);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!e.currentTarget.checkValidity()) {
       e.currentTarget.reportValidity();
@@ -657,15 +646,87 @@ export default function Jobs() {
       return;
     }
 
-    // If all valid, show confirmation modal
-    setShowConfirmModal(true);
+    // Compute parameter diff for confirmation modal
+    let addedParams = [];
+    let removedParams = [];
+    let hasParamChanges = false;
+
+    if (editingJobId && originalEditParams) {
+      const currentIds = new Set(selectedParams.map(p => (p._id || p.parameterId)?.toString()).filter(Boolean));
+      const originalIds = new Set(originalEditParams);
+      addedParams = selectedParams.filter(p => {
+        const id = (p._id || p.parameterId)?.toString();
+        return id && !originalIds.has(id);
+      });
+      removedParams = originalEditParams
+        .filter(id => !currentIds.has(id))
+        .map(id => {
+          const editingJob = jobs.find(j => j._id === editingJobId);
+          const orig = editingJob?.parameters?.find(p => (p._id || p.parameterId)?.toString() === id);
+          return orig || { name: 'Unknown parameter', parameterId: id };
+        });
+      hasParamChanges = addedParams.length > 0 || removedParams.length > 0;
+    }
+
+    const modalTitle = hasParamChanges
+      ? "Parameter Modification"
+      : editingJobId
+      ? "Confirm Changes"
+      : "Confirm Job Creation";
+
+    const modalBody = editingJobId
+      ? `You are about to save changes to the sample job for ${formData.customer_name}.`
+      : `You are about to log and distribute a new sample job for ${formData.customer_name}.\n\nThis will generate job codes and notify the relevant department heads immediately.`;
+
+    const detailPanel = hasParamChanges ? (
+      <div
+        style={{
+          padding: "0.85rem",
+          borderRadius: "var(--radius-md)",
+          backgroundColor: "rgba(245, 158, 11, 0.08)",
+          border: "1px solid rgba(245, 158, 11, 0.25)",
+        }}
+      >
+        <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-warning)", marginBottom: "0.6rem" }}>
+          The following parameters will be modified:
+        </div>
+        {addedParams.length > 0 && (
+          <div style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
+            <span style={{ color: "#16a34a", fontWeight: 600 }}>+ Added: </span>
+            {addedParams.map(p => p.name).join(", ")}
+          </div>
+        )}
+        {removedParams.length > 0 && (
+          <div style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
+            <span style={{ color: "var(--color-danger)", fontWeight: 600 }}>− Removed: </span>
+            {removedParams.map(p => p.name).join(", ")}
+          </div>
+        )}
+        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
+          This will update active test assignments. Completed work by analysts will be rolled back for review.
+          {removedParams.length > 0 && " Any custom reports will be auto-reverted."}
+        </div>
+      </div>
+    ) : null;
+
+    const confirmed = await modal.confirm({
+      title: modalTitle,
+      body: modalBody,
+      variant: hasParamChanges ? "warning" : "default",
+      confirmLabel: "Confirm & Dispatch",
+      cancelLabel: "Review Form",
+      detail: detailPanel,
+    });
+
+    if (confirmed) {
+      executeSubmit();
+    }
   };
 
   const executeSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     if (editingJobId) setLoadingJobId(editingJobId);
-    setShowConfirmModal(false);
 
     try {
       const { received_date_dd, received_date_mm, received_date_yyyy } =
@@ -836,25 +897,22 @@ export default function Jobs() {
     }
   };
 
-  const handleHoldJob = (jobId) => {
-    setHoldConfirmJobId(jobId);
-    setHoldReason("");
-  };
+  const handleHoldJob = async (jobId) => {
+    const reason = await modal.input({
+      title: "Hold Job",
+      body: "Please specify why this job is being placed on hold. This reason will be logged and visible to supervisors.",
+      placeholder: "Why is this job being placed on hold?",
+      required: true,
+      confirmLabel: "Hold Job",
+      cancelLabel: "Cancel",
+    });
+    if (!reason) return;
 
-  const executeHoldJob = async () => {
-    if (!holdConfirmJobId) return;
-    if (holdReason.trim().length === 0) {
-      toast.error("Please provide a valid reason.");
-      return;
-    }
-    const targetJobId = holdConfirmJobId;
-    setHoldConfirmJobId(null);
-    setHoldReason("");
-    setLoadingJobId(targetJobId);
+    setLoadingJobId(jobId);
     try {
       await axios.put(
-        `${API_URL}/api/jobs/${targetJobId}/hold`,
-        { holdReason },
+        `${API_URL}/api/jobs/${jobId}/hold`,
+        { holdReason: reason },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         },
@@ -872,18 +930,20 @@ export default function Jobs() {
     }
   };
 
-  const handleDeleteJob = (jobId) => {
-    setDeleteConfirmJobId(jobId);
-  };
+  const handleDeleteJob = async (jobId) => {
+    const confirmed = await modal.confirm({
+      title: "Confirm Cancellation",
+      body: "Are you sure you want to cancel this job?\n\nThe job code will be permanently bound to this cancelled job and the serial number sequence will be maintained.",
+      variant: "danger",
+      confirmLabel: "Cancel Job",
+      cancelLabel: "No, Keep it",
+    });
+    if (!confirmed) return;
 
-  const executeCancelJob = async () => {
-    if (!deleteConfirmJobId) return;
-    const targetJobId = deleteConfirmJobId;
-    setDeleteConfirmJobId(null);
-    setLoadingJobId(targetJobId);
+    setLoadingJobId(jobId);
     try {
       await axios.put(
-        `${API_URL}/api/jobs/${targetJobId}/cancel`,
+        `${API_URL}/api/jobs/${jobId}/cancel`,
         {},
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -945,7 +1005,7 @@ export default function Jobs() {
                   setAssignedChemicalHead("");
                 });
               } else {
-                // Open — pre-select first heads
+                // Open: pre-select first heads
                 const micro = heads.filter((h) => h.department === "Micro");
                 if (micro.length > 0) setAssignedMicroHead(micro[0]._id);
                 const chemical = heads.filter((h) => h.department === "Chemical");
@@ -2715,383 +2775,6 @@ export default function Jobs() {
           onLoadMoreData={loadMoreJobs}
         />
       </div>
-
-      {/* ── CUSTOM CONFIRMATION MODAL (SUBMIT) ── */}
-      {showConfirmModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "500px",
-              padding: "2rem",
-              animation: "slideUp 0.3s ease",
-              borderTop: editingJobId && originalEditParams && (() => {
-                const currentIds = new Set(selectedParams.map(p => (p._id || p.parameterId)?.toString()).filter(Boolean));
-                const originalIds = new Set(originalEditParams);
-                return [...currentIds].some(id => !originalIds.has(id)) || [...originalIds].some(id => !currentIds.has(id));
-              })() ? "4px solid var(--color-warning)" : "4px solid var(--color-primary)",
-            }}
-          >
-            {/* Compute param diff for modal display */}
-            {(() => {
-              let addedParams = [];
-              let removedParams = [];
-              let hasParamChanges = false;
-
-              if (editingJobId && originalEditParams) {
-                const currentIds = new Set(selectedParams.map(p => (p._id || p.parameterId)?.toString()).filter(Boolean));
-                const originalIds = new Set(originalEditParams);
-                addedParams = selectedParams.filter(p => {
-                  const id = (p._id || p.parameterId)?.toString();
-                  return id && !originalIds.has(id);
-                });
-                const currentParamMap = Object.fromEntries(
-                  selectedParams.map(p => [(p._id || p.parameterId)?.toString(), p])
-                );
-                removedParams = originalEditParams
-                  .filter(id => !currentIds.has(id))
-                  .map(id => {
-                    const editingJob = jobs.find(j => j._id === editingJobId);
-                    const orig = editingJob?.parameters?.find(p => (p._id || p.parameterId)?.toString() === id);
-                    return orig || { name: 'Unknown parameter', parameterId: id };
-                  });
-                hasParamChanges = addedParams.length > 0 || removedParams.length > 0;
-              }
-
-              return (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "1rem",
-                      marginBottom: "1.5rem",
-                      color: hasParamChanges ? "var(--color-warning)" : "var(--color-primary)",
-                    }}
-                  >
-                    {hasParamChanges ? <AlertTriangle size={32} /> : <Activity size={32} />}
-                    <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
-                      {hasParamChanges ? "Parameter Modification" : editingJobId ? "Confirm Changes" : "Confirm Job Creation"}
-                    </h2>
-                  </div>
-
-                  <p
-                    style={{
-                      margin: "0 0 1rem 0",
-                      color: "var(--color-text-main)",
-                      lineHeight: 1.6,
-                      whiteSpace: "pre-wrap",
-                    }}
-                  >
-                    {editingJobId
-                      ? `You are about to save changes to the sample job for ${formData.customer_name}.`
-                      : `You are about to log and distribute a new sample job for ${formData.customer_name}.\n\nThis will generate job codes and notify the relevant department heads immediately.`}
-                  </p>
-
-                  {hasParamChanges && (
-                    <div
-                      style={{
-                        marginBottom: "1.5rem",
-                        padding: "1rem",
-                        borderRadius: "var(--radius-md)",
-                        backgroundColor: "rgba(245, 158, 11, 0.08)",
-                        border: "1px solid rgba(245, 158, 11, 0.25)",
-                      }}
-                    >
-                      <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-warning)", marginBottom: "0.6rem" }}>
-                        The following parameters will be modified:
-                      </div>
-                      {addedParams.length > 0 && (
-                        <div style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
-                          <span style={{ color: "#16a34a", fontWeight: 600 }}>+ Added: </span>
-                          {addedParams.map(p => p.name).join(", ")}
-                        </div>
-                      )}
-                      {removedParams.length > 0 && (
-                        <div style={{ marginBottom: "0.4rem", fontSize: "0.85rem" }}>
-                          <span style={{ color: "var(--color-danger)", fontWeight: 600 }}>− Removed: </span>
-                          {removedParams.map(p => p.name).join(", ")}
-                        </div>
-                      )}
-                      <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
-                        This will update active test assignments. Completed work by analysts will be rolled back for review.
-                        {removedParams.length > 0 && " Any custom reports will be auto-reverted."}
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                className="btn"
-                onClick={() => setShowConfirmModal(false)}
-                style={{
-                  border: "1px solid var(--color-primary)",
-                  color: "var(--color-primary)",
-                  padding: "0.6rem 2rem",
-                  backgroundColor: "transparent",
-                }}
-              >
-                Review Form
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={executeSubmit}
-                title="Confirm & Dispatch (Ctrl + Enter)"
-                style={{ padding: "0.6rem 2rem" }}
-              >
-                Confirm & Dispatch
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CUSTOM CONFIRMATION MODAL (CANCEL JOB) ── */}
-      {deleteConfirmJobId && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "450px",
-              padding: "2rem",
-              animation: "slideUp 0.3s ease",
-              borderTop: "4px solid var(--color-warning)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                marginBottom: "1.5rem",
-                color: "var(--color-warning)",
-              }}
-            >
-              <AlertTriangle size={32} />
-              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
-                Confirm Cancellation
-              </h2>
-            </div>
-
-            <p
-              style={{
-                margin: "0 0 1.5rem 0",
-                color: "var(--color-text-main)",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              Are you sure you want to cancel this job?
-              <br />
-              <br />
-              <strong style={{ color: "var(--color-warning)" }}>
-                The job code will be permanently bound to this cancelled job and
-                the serial number sequence will be maintained.
-              </strong>
-            </p>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                className="btn"
-                onClick={() => setDeleteConfirmJobId(null)}
-                style={{
-                  border: "1px solid var(--color-warning)",
-                  color: "var(--color-warning)",
-                  padding: "0.6rem 2rem",
-                  backgroundColor: "transparent",
-                }}
-              >
-                No, Keep it
-              </button>
-              <button
-                className="btn"
-                onClick={executeCancelJob}
-                style={{
-                  padding: "0.6rem 2rem",
-                  backgroundColor: "var(--color-warning)",
-                  color: "white",
-                  border: "none",
-                }}
-              >
-                Cancel Job
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CUSTOM CONFIRMATION MODAL (HOLD JOB) ── */}
-      {holdConfirmJobId && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-            animation: "fadeIn 0.2s ease",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "var(--color-surface)",
-              padding: "2rem",
-              borderRadius: "16px",
-              width: "400px",
-              maxWidth: "90%",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
-              border: "1px solid var(--color-border)",
-              animation: "slideUp 0.3s ease",
-            }}
-          >
-            <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-              <div
-                style={{
-                  width: "50px",
-                  height: "50px",
-                  backgroundColor: "rgba(245, 158, 11, 0.1)",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 1rem",
-                }}
-              >
-                <PauseCircle size={28} color="#F59E0B" />
-              </div>
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "1.25rem",
-                  fontWeight: "600",
-                  color: "var(--color-text-main)",
-                }}
-              >
-                Hold job
-              </h3>
-            </div>
-
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: "500", color: "var(--color-text-main)" }}>
-                Hold Reason <span style={{ color: "var(--color-danger)" }}>*</span>
-              </label>
-              <textarea
-                value={holdReason}
-                onChange={(e) => setHoldReason(e.target.value)}
-                placeholder="Why is this job being placed on hold?"
-                style={{
-                  width: "100%",
-                  minHeight: "80px",
-                  padding: "0.75rem",
-                  borderRadius: "8px",
-                  border: "1px solid var(--color-border)",
-                  backgroundColor: "var(--color-surface)",
-                  color: "var(--color-text-main)",
-                  resize: "vertical",
-                  fontSize: "0.95rem"
-                }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "1rem", marginTop: "2rem" }}>
-              <button
-                onClick={() => {
-                  setHoldConfirmJobId(null);
-                  setHoldReason("");
-                }}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  backgroundColor: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "8px",
-                  color: "var(--color-text-main)",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseOver={(e) =>
-                  (e.target.style.backgroundColor = "var(--color-border)")
-                }
-                onMouseOut={(e) =>
-                  (e.target.style.backgroundColor = "var(--color-surface)")
-                }
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeHoldJob}
-                disabled={holdReason.trim().length === 0}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  backgroundColor: "#F59E0B",
-                  border: "none",
-                  borderRadius: "8px",
-                  color: "#fff",
-                  fontWeight: "600",
-                  cursor: holdReason.trim().length === 0 ? "not-allowed" : "pointer",
-                  transition: "all 0.2s ease",
-                  opacity: holdReason.trim().length === 0 ? 0.6 : 1,
-                }}
-              >
-                Confirm Hold
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-};
+}
