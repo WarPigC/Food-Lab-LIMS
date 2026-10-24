@@ -16,6 +16,7 @@ import JobLogTable from "../../components/JobLogTable";
 import InfiniteScroll from "../../components/InfiniteScroll";
 import { useSocket } from "../../context/SocketContext";
 import CascadingParameterSelector from "../../components/CascadingParameterSelector";
+import SpecialProfilesSection from "../../components/SpecialProfilesSection";
 import { useToast } from "../../hooks/useToast";
 import { useModal } from "../../hooks/useModal";
 
@@ -89,6 +90,16 @@ export default function Jobs() {
   const [pesticidePanel, setPesticidePanel] = useState(() => {
     const saved = sessionStorage.getItem("DRAFT_JOB_PESTICIDE");
     return saved ? JSON.parse(saved) : { enabled: false, panelType: null };
+  });
+  const [specialProfiles, setSpecialProfiles] = useState(() => {
+    const saved = sessionStorage.getItem("DRAFT_JOB_SPECIAL_PROFILES");
+    return saved
+      ? JSON.parse(saved)
+      : {
+          waterIso10500: false,
+          pesticides: false,
+          fattyAcids: { enabled: false, variant: null },
+        };
   });
 
   const [nablParams, setNablParams] = useState(() => {
@@ -173,11 +184,16 @@ export default function Jobs() {
       "DRAFT_JOB_NON_NABL_PESTICIDE",
       JSON.stringify(nonNablPesticidePanel),
     );
+    sessionStorage.setItem(
+      "DRAFT_JOB_SPECIAL_PROFILES",
+      JSON.stringify(specialProfiles),
+    );
   }, [
     formData,
     selectedParams,
     groupMetadata,
     pesticidePanel,
+    specialProfiles,
     nablParams,
     nablGroupMetadata,
     nablPesticidePanel,
@@ -208,10 +224,16 @@ export default function Jobs() {
       sessionStorage.removeItem("DRAFT_JOB_NON_NABL_PARAMS");
       sessionStorage.removeItem("DRAFT_JOB_NON_NABL_METADATA");
       sessionStorage.removeItem("DRAFT_JOB_NON_NABL_PESTICIDE");
+      sessionStorage.removeItem("DRAFT_JOB_SPECIAL_PROFILES");
       setFormData({ ...BLANK_FORM, reopenReason: "" });
       setSelectedParams([]);
       setGroupMetadata(null);
       setPesticidePanel({ enabled: false, panelType: null });
+      setSpecialProfiles({
+        waterIso10500: false,
+        pesticides: false,
+        fattyAcids: { enabled: false, variant: null },
+      });
       setNablParams([]);
       setNablGroupMetadata(null);
       setNablPesticidePanel({ enabled: false, panelType: null });
@@ -494,6 +516,11 @@ export default function Jobs() {
     setShowSpecifications(!!j.showSpecifications);
     setGroupMetadata(j.groupMetadata || null);
     setPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
+    setSpecialProfiles(j.specialProfiles || {
+      waterIso10500: false,
+      pesticides: false,
+      fattyAcids: { enabled: false, variant: null },
+    });
 
 
     if (j.siblingJobId) {
@@ -584,16 +611,28 @@ export default function Jobs() {
       e.currentTarget.reportValidity();
       return;
     }
+    const hasSpecial = Boolean(
+      specialProfiles?.waterIso10500 ||
+      specialProfiles?.pesticides ||
+      specialProfiles?.fattyAcids?.enabled
+    );
+
+    // Fatty acid variant validation
+    if (specialProfiles?.fattyAcids?.enabled && !specialProfiles?.fattyAcids?.variant) {
+      toast.error("Please select a variant for Fatty Acid Profile (Compiled or Full).");
+      return;
+    }
+
     if (formData.nabl_mode === "hybrid") {
-      if (nablParams.length === 0 && !nablPesticidePanel?.enabled) {
+      if (nablParams.length === 0 && !nablPesticidePanel?.enabled && !hasSpecial) {
         toast.error(
-          "NABL job must have at least one Test Parameter or a Pesticide Panel.",
+          "NABL job must have at least one Test Parameter or a Special Profile.",
         );
         return;
       }
-      if (nonNablParams.length === 0 && !nonNablPesticidePanel?.enabled) {
+      if (nonNablParams.length === 0 && !nonNablPesticidePanel?.enabled && !hasSpecial) {
         toast.error(
-          "Non-NABL job must have at least one Test Parameter or a Pesticide Panel.",
+          "Non-NABL job must have at least one Test Parameter or a Special Profile.",
         );
         return;
       }
@@ -614,9 +653,9 @@ export default function Jobs() {
         return;
       }
     } else {
-      if (selectedParams.length === 0 && !pesticidePanel?.enabled) {
+      if (selectedParams.length === 0 && !pesticidePanel?.enabled && !hasSpecial) {
         toast.error(
-          "Please add at least one Test Parameter or a Pesticide Panel before submitting.",
+          "Please add at least one Test Parameter or a Special Profile before submitting.",
         );
         return;
       }
@@ -811,6 +850,9 @@ export default function Jobs() {
         nonNablParameters: nonNablParametersData,
         groupMetadata,
         pesticidePanel,
+        specialProfiles,
+        nablSpecialProfiles: specialProfiles,
+        nonNablSpecialProfiles: specialProfiles,
         nablGroupMetadata,
         nablPesticidePanel,
         nonNablGroupMetadata,
@@ -871,6 +913,12 @@ export default function Jobs() {
         setShowSpecifications(false);
         setGroupMetadata(null);
         setPesticidePanel({ enabled: false, panelType: null });
+        setSpecialProfiles({
+          waterIso10500: false,
+          pesticides: false,
+          fattyAcids: { enabled: false, variant: null },
+        });
+        sessionStorage.removeItem("DRAFT_JOB_SPECIAL_PROFILES");
         setNablParams([]);
         setNablShowSpecifications(false);
         setNablGroupMetadata(null);
@@ -2330,7 +2378,45 @@ export default function Jobs() {
                             width: "100%",
                           }}
                         >
-                          {formData.nabl_mode === "hybrid" ? (
+                          <SpecialProfilesSection
+                            specialProfiles={specialProfiles}
+                            disabled={!!editingJobId && isJobFullyComplete}
+                            onChange={(newProfiles) => {
+                              setSpecialProfiles(newProfiles);
+                              if (newProfiles.waterIso10500) {
+                                setSelectedParams([]);
+                                setGroupMetadata(null);
+                                setNablParams([]);
+                                setNablGroupMetadata(null);
+                                setNonNablParams([]);
+                                setNonNablGroupMetadata(null);
+                              }
+                            }}
+                          />
+
+                          {specialProfiles?.waterIso10500 ? (
+                            <div
+                              style={{
+                                padding: "1rem 1.25rem",
+                                borderRadius: "8px",
+                                backgroundColor: "rgba(52, 152, 219, 0.08)",
+                                border: "1px solid rgba(52, 152, 219, 0.2)",
+                                color: "var(--color-text-main)",
+                                fontSize: "0.9rem",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.75rem",
+                              }}
+                            >
+                              <Shield size={20} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
+                              <div>
+                                <strong>Water ISO 10500:2012 Standard Profile is active.</strong>
+                                <p style={{ margin: "0.2rem 0 0", fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+                                  All 102 required parameters from IS 10500:2012 will be automatically included in this job.
+                                </p>
+                              </div>
+                            </div>
+                          ) : formData.nabl_mode === "hybrid" ? (
                             <>
                               <CascadingParameterSelector
                                 key={`nabl-${selectorResetKey}`}
