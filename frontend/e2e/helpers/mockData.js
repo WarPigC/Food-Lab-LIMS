@@ -236,3 +236,99 @@ export const mockTestMethods = [
 ];
 
 export const mockUnits = ['cfu/g', 'cfu/ml', 'mg KOH/g', 'mg/kg', '%', 'N/A'];
+
+export const mockSpecialProfiles = [
+  {
+    key: 'waterIso10500',
+    label: 'Water ISO 10500:2012',
+    description: 'Exclusive drinking water standard profile with dual-column requirement limits.',
+    isExclusive: true,
+    parameterCount: 2,
+    parameters: [
+      {
+        name: 'General Parameters',
+        unit: '',
+        testMethod: '',
+        requirement: '',
+        permissibleLimit: '',
+        isCategoryHeader: true,
+      },
+      {
+        name: 'Colour',
+        unit: 'Hazen',
+        testMethod: 'IS 3025 (Part 4)',
+        requirement: '5 Max',
+        permissibleLimit: '15 Max',
+        isCategoryHeader: false,
+      },
+    ],
+  },
+  {
+    key: 'pesticides',
+    label: 'Food Pesticides Residues',
+    description: 'GC-MS/MS and LC-MS/MS pesticide panels.',
+    isExclusive: false,
+    variants: [
+      {
+        key: 'GCMSMS',
+        label: 'GC-MS/MS Panel',
+        parameterCount: 1,
+        parameters: [
+          {
+            name: 'Aldrin',
+            unit: 'mg/kg',
+            testMethod: 'AOAC 2007.01',
+            specification: '0.01 Max',
+          },
+        ],
+      },
+      {
+        key: 'LCMSMS',
+        label: 'LC-MS/MS Panel',
+        parameterCount: 1,
+        parameters: [
+          {
+            name: 'Carbaryl',
+            unit: 'mg/kg',
+            testMethod: 'AOAC 2007.01',
+            specification: '0.05 Max',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'fattyAcids',
+    label: 'Fatty Acid Profile',
+    description: 'Fatty acid composition analysis.',
+    isExclusive: false,
+    variants: [
+      {
+        key: 'compiled',
+        label: 'Compiled (4 Parameters)',
+        parameterCount: 1,
+        parameters: [
+          {
+            name: 'Total Saturated Fatty Acids',
+            unit: '%',
+            testMethod: 'AOAC 996.06',
+            specification: 'Report',
+          },
+        ],
+      },
+      {
+        key: 'full',
+        label: 'Full Profile (37 Parameters)',
+        parameterCount: 1,
+        parameters: [
+          {
+            name: 'Lauric Acid (C12:0)',
+            unit: '%',
+            testMethod: 'AOAC 996.06',
+            specification: 'Report',
+          },
+        ],
+      },
+    ],
+  },
+];

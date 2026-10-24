@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Database, Settings, Hash, Download, ShieldCheck, Clock, CheckCircle } from "lucide-react";
+import { Database, Settings, Hash, Download, ShieldCheck, Clock, CheckCircle, Sliders } from "lucide-react";
 import GroupSettings from "./Settings/GroupSettings";
 import SerialSettings from "./Settings/SerialSettings";
+import SpecialProfileSettings from "./Settings/SpecialProfileSettings";
 import { formatDateTime } from "../utils/dateUtils";
 import API_URL from "../utils/api";
 import axios from "axios";
@@ -151,6 +152,13 @@ export default function DataSettings() {
           <Settings size={18} /> Parameter Groups
         </button>
         <button
+          className={`btn ${activeTab === "profiles" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("profiles")}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+        >
+          <Sliders size={18} /> Special Profiles
+        </button>
+        <button
           className={`btn ${activeTab === "serial" ? "btn-primary" : "btn-secondary"}`}
           onClick={() => setActiveTab("serial")}
           style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
@@ -183,6 +191,7 @@ export default function DataSettings() {
       </div>
 
       {activeTab === "groups" && <GroupSettings />}
+      {activeTab === "profiles" && <SpecialProfileSettings />}
       {activeTab === "serial" && <SerialSettings />}
       {activeTab === "backup" && (
         <div
