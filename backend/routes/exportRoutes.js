@@ -30,19 +30,27 @@ const getPopulatedJob = async (jobId) => {
 
 const attachResultsToJob = async (job) => {
   const jobObj = job.toObject();
-  // Only pull results from active instances — REOPENED/CANCELLED are frozen snapshots
+  // Only pull results from active instances; REOPENED/CANCELLED are frozen snapshots
   const instances = await TestInstance.find({
     jobId: job._id,
     status: { $in: ['PENDING', 'PENDING_HEAD_REVIEW', 'COMPLETED'] }
-  }).sort({ version: -1 });
+  })
+    .populate('assignedTo', 'name')
+    .sort({ version: -1 });
+
+  // Extract assigned analyst name
+  const primaryInstance = instances.find(i => i.assignedTo);
+  if (primaryInstance && primaryInstance.assignedTo) {
+    jobObj.assignedAnalyst = primaryInstance.assignedTo.name || null;
+  }
   
   // Create a map of parameterId -> result for quick lookup
   const resultMap = {};
   instances.forEach(inst => {
-    inst.results.forEach(r => {
-      const pid = r.parameterId.toString();
+    (inst.results || []).forEach(r => {
+      const pid = r.parameterId ? r.parameterId.toString() : (r.name ? r.name.toString() : '');
       // Only store the first (latest version) result per parameter
-      if (!resultMap[pid]) {
+      if (pid && !resultMap[pid]) {
         resultMap[pid] = {
           value: r.value,
           testMethod: r.testMethod,
@@ -56,8 +64,8 @@ const attachResultsToJob = async (job) => {
   const mergeResults = (params) => {
     if (!params) return [];
     return params.map(p => {
-      const pId = p.parameterId ? p.parameterId._id.toString() : null;
-      const resData = pId ? resultMap[pId] : null;
+      const pId = p.parameterId ? (p.parameterId._id ? p.parameterId._id.toString() : p.parameterId.toString()) : (p._id ? p._id.toString() : null);
+      const resData = (pId && resultMap[pId]) || (p.name && resultMap[p.name]);
       return {
         ...p,
         value: resData?.value || '',
@@ -70,10 +78,32 @@ const attachResultsToJob = async (job) => {
 
   jobObj.parameters = mergeResults(jobObj.parameters);
 
-  // NOTE: We intentionally do NOT append orphaned TestInstance results here.
-  // job.parameters is the single source of truth for which parameters appear
-  // in the report. If a parameter was removed via modification, its orphaned
-  // result in the TestInstance is excluded by design.
+  // Append panel parameters (e.g. unbundled Pesticides GC-MS/MS and LC-MS/MS) from active TestInstances
+  const existingNames = new Set((jobObj.parameters || []).map(p => (p.name || '').trim().toLowerCase()));
+  const panelParams = [];
+  instances.forEach(inst => {
+    (inst.results || []).forEach(r => {
+      const norm = (r.name || '').trim().toLowerCase();
+      if (norm && !existingNames.has(norm)) {
+        existingNames.add(norm);
+        panelParams.push({
+          parameterId: r.parameterId,
+          name: r.name,
+          type: r.type || 'Chemical',
+          unit: r.unit || '-',
+          specification: r.specification || '',
+          value: r.value || '',
+          testMethod: r.testMethod || '',
+          isPanel: Boolean(r.isPanel),
+          panelName: r.panelName || null
+        });
+      }
+    });
+  });
+
+  if (panelParams.length > 0) {
+    jobObj.parameters = [...(jobObj.parameters || []), ...panelParams];
+  }
 
   // Merge testingPeriod from TestInstances (earliest start, latest end)
   let mergedStart = null;
