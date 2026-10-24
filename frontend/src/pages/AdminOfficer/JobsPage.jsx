@@ -540,9 +540,9 @@ export default function Jobs() {
       return params.map((p) => {
         // If populated, parameterId is an object. Extract it cleanly.
         const id =
-          p.parameterId && p.parameterId._id
+          (p.parameterId && typeof p.parameterId === "object" && p.parameterId._id)
             ? p.parameterId._id
-            : p.parameterId;
+            : (p.parameterId || p._id || p.name);
         return {
           _id: id,
           parameterId: id,

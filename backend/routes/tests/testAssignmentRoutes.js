@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const TestInstance = require('../../models/TestInstance');
 const Job = require('../../models/Job');
@@ -96,7 +97,7 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
       // This ensures analysts always see the current spec even if Data Settings were updated
       // after the job was created (job.parameters[].specification may be stale).
       const nonPanelIds = assignments
-        .filter(a => !a.isPanel && a.parameterId)
+        .filter(a => !a.isPanel && a.parameterId && mongoose.Types.ObjectId.isValid(a.parameterId))
         .map(a => a.parameterId);
       const liveParams = await Parameter.find(
         { _id: { $in: nonPanelIds } },

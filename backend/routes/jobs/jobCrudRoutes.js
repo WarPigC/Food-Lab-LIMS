@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Job = require('../../models/Job');
 const TestInstance = require('../../models/TestInstance');
@@ -153,12 +154,16 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
     // Helper to resolve parameter snapshotting from Special Profiles
     const resolveProfileParameters = async (incomingParams, profiles) => {
-      let params = [...(incomingParams || [])];
+      let params = (incomingParams || []).map(p => ({
+        ...p,
+        parameterId: p.parameterId || new mongoose.Types.ObjectId()
+      }));
       if (profiles?.waterIso10500) {
         const profile = await SpecialProfile.findOne({ key: 'waterIso10500' });
         const profileParams = (profile?.parameters || [])
           .filter(p => !p.isCategoryHeader)
           .map(p => ({
+            parameterId: new mongoose.Types.ObjectId(),
             name: p.name,
             unit: p.unit,
             type: 'Chemical',
@@ -170,6 +175,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         const profile = await SpecialProfile.findOne({ key: 'fattyAcids' });
         const variant = profile?.variants?.find(v => v.key === profiles.fattyAcids.variant);
         const faParams = (variant?.parameters || []).map(p => ({
+          parameterId: new mongoose.Types.ObjectId(),
           name: p.name,
           unit: p.unit,
           type: 'Chemical',
@@ -552,7 +558,10 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       }
 
       // Now update job.parameters
-      job.parameters = parameters;
+      job.parameters = (parameters || []).map(p => ({
+        ...p,
+        parameterId: p.parameterId || new mongoose.Types.ObjectId()
+      }));
       if (groupMetadata) job.groupMetadata = groupMetadata;
       const activeSpecial = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined);
       if (activeSpecial) job.specialProfiles = activeSpecial;
