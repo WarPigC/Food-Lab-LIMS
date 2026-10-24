@@ -17,8 +17,23 @@ export default function SpecialProfilesSection({
   onChange,
   disabled = false,
   onExclusivityChange,
+  hideWaterIso = false,
+  disabledProfiles = {},
+  disabledReason = '',
+  idPrefix = 'default',
+  title = 'Special Profiles & Panels',
 }) {
   const isWaterExclusive = Boolean(specialProfiles?.waterIso10500);
+
+  const isPesticidesDisabled =
+    disabled ||
+    isWaterExclusive ||
+    Boolean(disabledProfiles?.pesticides);
+
+  const isFattyAcidsDisabled =
+    disabled ||
+    isWaterExclusive ||
+    Boolean(disabledProfiles?.fattyAcids);
 
   const handleWaterToggle = (e) => {
     const checked = e.target.checked;
@@ -73,18 +88,15 @@ export default function SpecialProfilesSection({
   return (
     <div
       style={{
-        marginBottom: '1.5rem',
-        padding: '1.25rem',
-        borderRadius: '8px',
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
+        marginBottom: '1rem',
+        padding: '0.25rem 0',
       }}
     >
-      <div style={{ marginBottom: '1rem' }}>
+      <div style={{ marginBottom: '0.75rem' }}>
         <h4
           style={{
             margin: 0,
-            fontSize: '1.05rem',
+            fontSize: '1rem',
             fontWeight: 700,
             color: 'var(--color-text-main)',
             display: 'flex',
@@ -92,13 +104,13 @@ export default function SpecialProfilesSection({
             gap: '0.5rem',
           }}
         >
-          <FlaskConical size={20} style={{ color: 'var(--color-primary)' }} />
-          Special Profiles & Panels
+          <FlaskConical size={18} style={{ color: 'var(--color-primary)' }} />
+          {title}
         </h4>
         <p
           style={{
-            margin: '0.25rem 0 0',
-            fontSize: '0.85rem',
+            margin: '0.2rem 0 0',
+            fontSize: '0.82rem',
             color: 'var(--color-text-muted)',
           }}
         >
@@ -111,121 +123,130 @@ export default function SpecialProfilesSection({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: '1rem',
+          gap: '0.85rem',
+          alignItems: 'start',
         }}
       >
-        {/* Card 1: Water ISO 10500:2012 (Exclusive) */}
-        <label
-          htmlFor="special-profile-water"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '1rem',
-            borderRadius: '8px',
-            border: isWaterExclusive
-              ? '2px solid var(--color-primary)'
-              : '1px solid var(--color-border)',
-            backgroundColor: isWaterExclusive
-              ? 'var(--color-surface-hover)'
-              : 'var(--color-surface)',
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease',
-            position: 'relative',
-            opacity: disabled ? 0.6 : 1,
-            minHeight: '44px',
-          }}
-        >
-          <div
+        {/* Card 1: Water ISO 10500:2012 (Exclusive, hidden in hybrid mode) */}
+        {!hideWaterIso && (
+          <label
+            htmlFor={`special-profile-water-${idPrefix}`}
             style={{
               display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.75rem',
+              flexDirection: 'column',
+              padding: '0.9rem 1rem',
+              borderRadius: '8px',
+              border: isWaterExclusive
+                ? '2px solid var(--color-primary)'
+                : '2px solid var(--color-border)',
+              backgroundColor: isWaterExclusive
+                ? 'rgba(44, 62, 80, 0.04)'
+                : 'var(--color-surface)',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+              boxShadow: isWaterExclusive ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+              position: 'relative',
+              opacity: disabled ? 0.6 : 1,
+              boxSizing: 'border-box',
             }}
           >
-            <input
-              id="special-profile-water"
-              type="checkbox"
-              checked={isWaterExclusive}
-              disabled={disabled}
-              onChange={handleWaterToggle}
+            <div
               style={{
-                marginTop: '0.25rem',
-                width: '18px',
-                height: '18px',
-                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.75rem',
               }}
-            />
-            <div style={{ flex: 1 }}>
-              <div
+            >
+              <input
+                id={`special-profile-water-${idPrefix}`}
+                type="checkbox"
+                checked={isWaterExclusive}
+                disabled={disabled}
+                onChange={handleWaterToggle}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.5rem',
-                  marginBottom: '0.25rem',
+                  marginTop: '0.2rem',
+                  width: '18px',
+                  height: '18px',
+                  minWidth: '18px',
+                  maxWidth: '18px',
+                  flexShrink: 0,
+                  cursor: 'pointer',
                 }}
-              >
-                <span
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
                   style={{
-                    fontWeight: 600,
-                    fontSize: '0.95rem',
-                    color: isWaterExclusive
-                      ? 'var(--color-primary)'
-                      : 'var(--color-text-main)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.4rem',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    marginBottom: '0.25rem',
                   }}
                 >
-                  <Droplet size={16} /> Water ISO 10500:2012
-                </span>
-                <span
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      fontSize: '0.92rem',
+                      color: isWaterExclusive
+                        ? 'var(--color-primary)'
+                        : 'var(--color-text-main)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <Droplet size={16} /> Water ISO 10500:2012
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '4px',
+                      backgroundColor: '#fef3c7',
+                      color: '#92400e',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.4px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Exclusive
+                  </span>
+                </div>
+                <p
                   style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    padding: '0.15rem 0.45rem',
-                    borderRadius: '4px',
-                    backgroundColor: '#fef3c7',
-                    color: '#92400e',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
+                    margin: 0,
+                    fontSize: '0.78rem',
+                    color: 'var(--color-text-muted)',
+                    lineHeight: 1.35,
                   }}
                 >
-                  Exclusive
-                </span>
+                  Complete standard drinking water profile (102 parameters). Disables standard group selection.
+                </p>
               </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '0.8rem',
-                  color: 'var(--color-text-muted)',
-                  lineHeight: 1.4,
-                }}
-              >
-                Complete standard drinking water profile (102 parameters). Disables standard group selection.
-              </p>
             </div>
-          </div>
-        </label>
+          </label>
+        )}
 
         {/* Card 2: Food Pesticides Residues */}
         <label
-          htmlFor="special-profile-pesticides"
+          htmlFor={`special-profile-pesticides-${idPrefix}`}
           style={{
             display: 'flex',
             flexDirection: 'column',
-            padding: '1rem',
+            padding: '0.9rem 1rem',
             borderRadius: '8px',
             border: specialProfiles?.pesticides
               ? '2px solid var(--color-primary)'
-              : '1px solid var(--color-border)',
+              : '2px solid var(--color-border)',
             backgroundColor: specialProfiles?.pesticides
-              ? 'var(--color-surface-hover)'
+              ? 'rgba(44, 62, 80, 0.04)'
               : 'var(--color-surface)',
-            cursor: disabled || isWaterExclusive ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s ease',
-            opacity: disabled || isWaterExclusive ? 0.45 : 1,
-            minHeight: '44px',
+            cursor: isPesticidesDisabled ? 'not-allowed' : 'pointer',
+            transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+            boxShadow: specialProfiles?.pesticides ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+            opacity: isPesticidesDisabled ? 0.45 : 1,
+            boxSizing: 'border-box',
           }}
         >
           <div
@@ -236,19 +257,22 @@ export default function SpecialProfilesSection({
             }}
           >
             <input
-              id="special-profile-pesticides"
+              id={`special-profile-pesticides-${idPrefix}`}
               type="checkbox"
               checked={Boolean(specialProfiles?.pesticides)}
-              disabled={disabled || isWaterExclusive}
+              disabled={isPesticidesDisabled}
               onChange={handlePesticidesToggle}
               style={{
-                marginTop: '0.25rem',
+                marginTop: '0.2rem',
                 width: '18px',
                 height: '18px',
+                minWidth: '18px',
+                maxWidth: '18px',
+                flexShrink: 0,
                 cursor: 'pointer',
               }}
             />
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
                   display: 'flex',
@@ -261,7 +285,7 @@ export default function SpecialProfilesSection({
                 <span
                   style={{
                     fontWeight: 600,
-                    fontSize: '0.95rem',
+                    fontSize: '0.92rem',
                     color: specialProfiles?.pesticides
                       ? 'var(--color-primary)'
                       : 'var(--color-text-main)',
@@ -272,25 +296,42 @@ export default function SpecialProfilesSection({
                 >
                   <Bug size={16} /> Food Pesticides
                 </span>
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    padding: '0.15rem 0.45rem',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(52, 152, 219, 0.12)',
-                    color: 'var(--color-primary)',
-                  }}
-                >
-                  2 Panels
-                </span>
+                {disabledProfiles?.pesticides ? (
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(230, 126, 34, 0.12)',
+                      color: '#d35400',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {disabledReason || 'Selected on other side'}
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(52, 152, 219, 0.12)',
+                      color: 'var(--color-primary)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    2 Panels
+                  </span>
+                )}
               </div>
               <p
                 style={{
                   margin: 0,
-                  fontSize: '0.8rem',
+                  fontSize: '0.78rem',
                   color: 'var(--color-text-muted)',
-                  lineHeight: 1.4,
+                  lineHeight: 1.35,
                 }}
               >
                 Includes GC-MS/MS (55 pesticides) and LC-MS/MS (164 pesticides) multi-residue panels.
@@ -304,43 +345,47 @@ export default function SpecialProfilesSection({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            padding: '1rem',
+            padding: '0.9rem 1rem',
             borderRadius: '8px',
             border: specialProfiles?.fattyAcids?.enabled
               ? '2px solid var(--color-primary)'
-              : '1px solid var(--color-border)',
+              : '2px solid var(--color-border)',
             backgroundColor: specialProfiles?.fattyAcids?.enabled
-              ? 'var(--color-surface-hover)'
+              ? 'rgba(44, 62, 80, 0.04)'
               : 'var(--color-surface)',
-            transition: 'all 0.15s ease',
-            opacity: disabled || isWaterExclusive ? 0.45 : 1,
-            minHeight: '44px',
+            transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+            boxShadow: specialProfiles?.fattyAcids?.enabled ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+            opacity: isFattyAcidsDisabled ? 0.45 : 1,
+            boxSizing: 'border-box',
           }}
         >
           <label
-            htmlFor="special-profile-fatty-acids"
+            htmlFor={`special-profile-fatty-acids-${idPrefix}`}
             style={{
               display: 'flex',
               alignItems: 'flex-start',
               gap: '0.75rem',
-              cursor: disabled || isWaterExclusive ? 'not-allowed' : 'pointer',
-              marginBottom: specialProfiles?.fattyAcids?.enabled ? '0.75rem' : 0,
+              cursor: isFattyAcidsDisabled ? 'not-allowed' : 'pointer',
+              marginBottom: 0,
             }}
           >
             <input
-              id="special-profile-fatty-acids"
+              id={`special-profile-fatty-acids-${idPrefix}`}
               type="checkbox"
               checked={Boolean(specialProfiles?.fattyAcids?.enabled)}
-              disabled={disabled || isWaterExclusive}
+              disabled={isFattyAcidsDisabled}
               onChange={handleFattyAcidsToggle}
               style={{
-                marginTop: '0.25rem',
+                marginTop: '0.2rem',
                 width: '18px',
                 height: '18px',
+                minWidth: '18px',
+                maxWidth: '18px',
+                flexShrink: 0,
                 cursor: 'pointer',
               }}
             />
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
                   display: 'flex',
@@ -353,7 +398,7 @@ export default function SpecialProfilesSection({
                 <span
                   style={{
                     fontWeight: 600,
-                    fontSize: '0.95rem',
+                    fontSize: '0.92rem',
                     color: specialProfiles?.fattyAcids?.enabled
                       ? 'var(--color-primary)'
                       : 'var(--color-text-main)',
@@ -364,13 +409,28 @@ export default function SpecialProfilesSection({
                 >
                   <FlaskConical size={16} /> Fatty Acid Profile
                 </span>
+                {disabledProfiles?.fattyAcids && (
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(230, 126, 34, 0.12)',
+                      color: '#d35400',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {disabledReason || 'Selected on other side'}
+                  </span>
+                )}
               </div>
               <p
                 style={{
                   margin: 0,
-                  fontSize: '0.8rem',
+                  fontSize: '0.78rem',
                   color: 'var(--color-text-muted)',
-                  lineHeight: 1.4,
+                  lineHeight: 1.35,
                 }}
               >
                 Fatty acid composition profile; select compiled or full 37 parameters below.
@@ -382,7 +442,8 @@ export default function SpecialProfilesSection({
           {specialProfiles?.fattyAcids?.enabled && !isWaterExclusive && (
             <div
               style={{
-                paddingTop: '0.5rem',
+                marginTop: '0.75rem',
+                paddingTop: '0.65rem',
                 borderTop: '1px solid var(--color-border)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -392,24 +453,40 @@ export default function SpecialProfilesSection({
               <label
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
+                  alignItems: 'flex-start',
+                  gap: '0.6rem',
                   fontSize: '0.82rem',
                   color: 'var(--color-text-main)',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  minHeight: '32px',
+                  cursor: disabled || isFattyAcidsDisabled ? 'not-allowed' : 'pointer',
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  backgroundColor:
+                    specialProfiles.fattyAcids?.variant === 'compiled'
+                      ? 'rgba(52, 152, 219, 0.08)'
+                      : 'transparent',
+                  transition: 'background-color 0.15s ease',
+                  margin: 0,
                 }}
               >
                 <input
                   type="radio"
-                  name="fattyAcidVariant"
+                  name={`fattyAcidVariant-${idPrefix}`}
                   value="compiled"
                   checked={specialProfiles.fattyAcids?.variant === 'compiled'}
-                  disabled={disabled}
+                  disabled={disabled || isFattyAcidsDisabled}
                   onChange={() => handleFattyAcidVariantChange('compiled')}
-                  style={{ cursor: 'pointer' }}
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    minWidth: '16px',
+                    maxWidth: '16px',
+                    flexShrink: 0,
+                    margin: '0.15rem 0 0 0',
+                    padding: 0,
+                    cursor: 'pointer',
+                  }}
                 />
-                <span>
+                <span style={{ lineHeight: 1.35 }}>
                   <strong>Compiled</strong> (4 parameters: Saturated, Mono, Poly, Trans)
                 </span>
               </label>
@@ -417,24 +494,40 @@ export default function SpecialProfilesSection({
               <label
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
+                  alignItems: 'flex-start',
+                  gap: '0.6rem',
                   fontSize: '0.82rem',
                   color: 'var(--color-text-main)',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  minHeight: '32px',
+                  cursor: disabled || isFattyAcidsDisabled ? 'not-allowed' : 'pointer',
+                  padding: '0.35rem 0.5rem',
+                  borderRadius: '6px',
+                  backgroundColor:
+                    specialProfiles.fattyAcids?.variant === 'full'
+                      ? 'rgba(52, 152, 219, 0.08)'
+                      : 'transparent',
+                  transition: 'background-color 0.15s ease',
+                  margin: 0,
                 }}
               >
                 <input
                   type="radio"
-                  name="fattyAcidVariant"
+                  name={`fattyAcidVariant-${idPrefix}`}
                   value="full"
                   checked={specialProfiles.fattyAcids?.variant === 'full'}
-                  disabled={disabled}
+                  disabled={disabled || isFattyAcidsDisabled}
                   onChange={() => handleFattyAcidVariantChange('full')}
-                  style={{ cursor: 'pointer' }}
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    minWidth: '16px',
+                    maxWidth: '16px',
+                    flexShrink: 0,
+                    margin: '0.15rem 0 0 0',
+                    padding: 0,
+                    cursor: 'pointer',
+                  }}
                 />
-                <span>
+                <span style={{ lineHeight: 1.35 }}>
                   <strong>Full Profile</strong> (37 parameters)
                 </span>
               </label>

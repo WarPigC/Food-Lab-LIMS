@@ -101,6 +101,26 @@ export default function Jobs() {
           fattyAcids: { enabled: false, variant: null },
         };
   });
+  const [nablSpecialProfiles, setNablSpecialProfiles] = useState(() => {
+    const saved = sessionStorage.getItem("DRAFT_JOB_NABL_SPECIAL_PROFILES");
+    return saved
+      ? JSON.parse(saved)
+      : {
+          waterIso10500: false,
+          pesticides: false,
+          fattyAcids: { enabled: false, variant: null },
+        };
+  });
+  const [nonNablSpecialProfiles, setNonNablSpecialProfiles] = useState(() => {
+    const saved = sessionStorage.getItem("DRAFT_JOB_NON_NABL_SPECIAL_PROFILES");
+    return saved
+      ? JSON.parse(saved)
+      : {
+          waterIso10500: false,
+          pesticides: false,
+          fattyAcids: { enabled: false, variant: null },
+        };
+  });
 
   const [nablParams, setNablParams] = useState(() => {
     const saved = sessionStorage.getItem("DRAFT_JOB_NABL_PARAMS");
@@ -188,12 +208,22 @@ export default function Jobs() {
       "DRAFT_JOB_SPECIAL_PROFILES",
       JSON.stringify(specialProfiles),
     );
+    sessionStorage.setItem(
+      "DRAFT_JOB_NABL_SPECIAL_PROFILES",
+      JSON.stringify(nablSpecialProfiles),
+    );
+    sessionStorage.setItem(
+      "DRAFT_JOB_NON_NABL_SPECIAL_PROFILES",
+      JSON.stringify(nonNablSpecialProfiles),
+    );
   }, [
     formData,
     selectedParams,
     groupMetadata,
     pesticidePanel,
     specialProfiles,
+    nablSpecialProfiles,
+    nonNablSpecialProfiles,
     nablParams,
     nablGroupMetadata,
     nablPesticidePanel,
@@ -215,36 +245,48 @@ export default function Jobs() {
     if (!confirmed) return;
 
     sessionStorage.removeItem("DRAFT_JOB_FORM");
-      sessionStorage.removeItem("DRAFT_JOB_SELECTED_PARAMS");
-      sessionStorage.removeItem("DRAFT_JOB_METADATA");
-      sessionStorage.removeItem("DRAFT_JOB_PESTICIDE");
-      sessionStorage.removeItem("DRAFT_JOB_NABL_PARAMS");
-      sessionStorage.removeItem("DRAFT_JOB_NABL_METADATA");
-      sessionStorage.removeItem("DRAFT_JOB_NABL_PESTICIDE");
-      sessionStorage.removeItem("DRAFT_JOB_NON_NABL_PARAMS");
-      sessionStorage.removeItem("DRAFT_JOB_NON_NABL_METADATA");
-      sessionStorage.removeItem("DRAFT_JOB_NON_NABL_PESTICIDE");
-      sessionStorage.removeItem("DRAFT_JOB_SPECIAL_PROFILES");
-      setFormData({ ...BLANK_FORM, reopenReason: "" });
-      setSelectedParams([]);
-      setGroupMetadata(null);
-      setPesticidePanel({ enabled: false, panelType: null });
-      setSpecialProfiles({
-        waterIso10500: false,
-        pesticides: false,
-        fattyAcids: { enabled: false, variant: null },
-      });
-      setNablParams([]);
-      setNablGroupMetadata(null);
-      setNablPesticidePanel({ enabled: false, panelType: null });
-      setNonNablParams([]);
-      setNonNablGroupMetadata(null);
-      setNonNablPesticidePanel({ enabled: false, panelType: null });
-      setAssignUlrToNonNabl(false);
-      setUlrEditMode(false);
-      setCustomUlrNumber('');
-      setUlrValidation({ valid: null, error: null, fullUlr: null });
-      setSelectorResetKey(k => k + 1);
+    sessionStorage.removeItem("DRAFT_JOB_SELECTED_PARAMS");
+    sessionStorage.removeItem("DRAFT_JOB_METADATA");
+    sessionStorage.removeItem("DRAFT_JOB_PESTICIDE");
+    sessionStorage.removeItem("DRAFT_JOB_NABL_PARAMS");
+    sessionStorage.removeItem("DRAFT_JOB_NABL_METADATA");
+    sessionStorage.removeItem("DRAFT_JOB_NABL_PESTICIDE");
+    sessionStorage.removeItem("DRAFT_JOB_NON_NABL_PARAMS");
+    sessionStorage.removeItem("DRAFT_JOB_NON_NABL_METADATA");
+    sessionStorage.removeItem("DRAFT_JOB_NON_NABL_PESTICIDE");
+    sessionStorage.removeItem("DRAFT_JOB_SPECIAL_PROFILES");
+    sessionStorage.removeItem("DRAFT_JOB_NABL_SPECIAL_PROFILES");
+    sessionStorage.removeItem("DRAFT_JOB_NON_NABL_SPECIAL_PROFILES");
+    setFormData({ ...BLANK_FORM, reopenReason: "" });
+    setSelectedParams([]);
+    setGroupMetadata(null);
+    setPesticidePanel({ enabled: false, panelType: null });
+    setSpecialProfiles({
+      waterIso10500: false,
+      pesticides: false,
+      fattyAcids: { enabled: false, variant: null },
+    });
+    setNablSpecialProfiles({
+      waterIso10500: false,
+      pesticides: false,
+      fattyAcids: { enabled: false, variant: null },
+    });
+    setNonNablSpecialProfiles({
+      waterIso10500: false,
+      pesticides: false,
+      fattyAcids: { enabled: false, variant: null },
+    });
+    setNablParams([]);
+    setNablGroupMetadata(null);
+    setNablPesticidePanel({ enabled: false, panelType: null });
+    setNonNablParams([]);
+    setNonNablGroupMetadata(null);
+    setNonNablPesticidePanel({ enabled: false, panelType: null });
+    setAssignUlrToNonNabl(false);
+    setUlrEditMode(false);
+    setCustomUlrNumber('');
+    setUlrValidation({ valid: null, error: null, fullUlr: null });
+    setSelectorResetKey(k => k + 1);
   };
 
   const validationTimer = useRef(null);
@@ -534,21 +576,25 @@ export default function Jobs() {
           setNablShowSpecifications(!!j.showSpecifications);
           setNablGroupMetadata(j.groupMetadata || null);
           setNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
+          setNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
 
           setNonNablParams(mapParams(sib.parameters));
           setNonNablShowSpecifications(!!sib.showSpecifications);
           setNonNablGroupMetadata(sib.groupMetadata || null);
           setNonNablPesticidePanel(sib.pesticidePanel || { enabled: false, panelType: null });
+          setNonNablSpecialProfiles(sib.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
         } else {
           setNonNablParams(mapParams(j.parameters));
           setNonNablShowSpecifications(!!j.showSpecifications);
           setNonNablGroupMetadata(j.groupMetadata || null);
           setNonNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
+          setNonNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
 
           setNablParams(mapParams(sib.parameters));
           setNablShowSpecifications(!!sib.showSpecifications);
           setNablGroupMetadata(sib.groupMetadata || null);
           setNablPesticidePanel(sib.pesticidePanel || { enabled: false, panelType: null });
+          setNablSpecialProfiles(sib.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
         }
       } catch (err) {
         console.error('Failed to load sibling job for hybrid edit:', err);
@@ -559,11 +605,13 @@ export default function Jobs() {
       setNablShowSpecifications(!!j.showSpecifications);
       setNablGroupMetadata(j.groupMetadata || null);
       setNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
+      setNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
 
       setNonNablParams(mapParams(j.parameters));
       setNonNablShowSpecifications(!!j.showSpecifications);
       setNonNablGroupMetadata(j.groupMetadata || null);
       setNonNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
+      setNonNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
     }
 
     setShowForm(true);
@@ -611,26 +659,33 @@ export default function Jobs() {
       e.currentTarget.reportValidity();
       return;
     }
-    const hasSpecial = Boolean(
-      specialProfiles?.waterIso10500 ||
-      specialProfiles?.pesticides ||
-      specialProfiles?.fattyAcids?.enabled
-    );
-
-    // Fatty acid variant validation
-    if (specialProfiles?.fattyAcids?.enabled && !specialProfiles?.fattyAcids?.variant) {
-      toast.error("Please select a variant for Fatty Acid Profile (Compiled or Full).");
-      return;
-    }
-
     if (formData.nabl_mode === "hybrid") {
-      if (nablParams.length === 0 && !nablPesticidePanel?.enabled && !hasSpecial) {
+      const hasNablSpecial = Boolean(
+        nablSpecialProfiles?.pesticides ||
+        nablSpecialProfiles?.fattyAcids?.enabled
+      );
+      const hasNonNablSpecial = Boolean(
+        nonNablSpecialProfiles?.pesticides ||
+        nonNablSpecialProfiles?.fattyAcids?.enabled
+      );
+
+      // Fatty acid variant validation for hybrid siblings
+      if (nablSpecialProfiles?.fattyAcids?.enabled && !nablSpecialProfiles?.fattyAcids?.variant) {
+        toast.error("Please select a variant for NABL Fatty Acid Profile (Compiled or Full).");
+        return;
+      }
+      if (nonNablSpecialProfiles?.fattyAcids?.enabled && !nonNablSpecialProfiles?.fattyAcids?.variant) {
+        toast.error("Please select a variant for Non-NABL Fatty Acid Profile (Compiled or Full).");
+        return;
+      }
+
+      if (nablParams.length === 0 && !nablPesticidePanel?.enabled && !hasNablSpecial) {
         toast.error(
           "NABL job must have at least one Test Parameter or a Special Profile.",
         );
         return;
       }
-      if (nonNablParams.length === 0 && !nonNablPesticidePanel?.enabled && !hasSpecial) {
+      if (nonNablParams.length === 0 && !nonNablPesticidePanel?.enabled && !hasNonNablSpecial) {
         toast.error(
           "Non-NABL job must have at least one Test Parameter or a Special Profile.",
         );
@@ -653,6 +708,18 @@ export default function Jobs() {
         return;
       }
     } else {
+      const hasSpecial = Boolean(
+        specialProfiles?.waterIso10500 ||
+        specialProfiles?.pesticides ||
+        specialProfiles?.fattyAcids?.enabled
+      );
+
+      // Fatty acid variant validation
+      if (specialProfiles?.fattyAcids?.enabled && !specialProfiles?.fattyAcids?.variant) {
+        toast.error("Please select a variant for Fatty Acid Profile (Compiled or Full).");
+        return;
+      }
+
       if (selectedParams.length === 0 && !pesticidePanel?.enabled && !hasSpecial) {
         toast.error(
           "Please add at least one Test Parameter or a Special Profile before submitting.",
@@ -850,9 +917,9 @@ export default function Jobs() {
         nonNablParameters: nonNablParametersData,
         groupMetadata,
         pesticidePanel,
-        specialProfiles,
-        nablSpecialProfiles: specialProfiles,
-        nonNablSpecialProfiles: specialProfiles,
+        specialProfiles: formData.nabl_mode === "hybrid" ? undefined : specialProfiles,
+        nablSpecialProfiles: formData.nabl_mode === "hybrid" ? nablSpecialProfiles : specialProfiles,
+        nonNablSpecialProfiles: formData.nabl_mode === "hybrid" ? nonNablSpecialProfiles : specialProfiles,
         nablGroupMetadata,
         nablPesticidePanel,
         nonNablGroupMetadata,
@@ -918,7 +985,19 @@ export default function Jobs() {
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         });
+        setNablSpecialProfiles({
+          waterIso10500: false,
+          pesticides: false,
+          fattyAcids: { enabled: false, variant: null },
+        });
+        setNonNablSpecialProfiles({
+          waterIso10500: false,
+          pesticides: false,
+          fattyAcids: { enabled: false, variant: null },
+        });
         sessionStorage.removeItem("DRAFT_JOB_SPECIAL_PROFILES");
+        sessionStorage.removeItem("DRAFT_JOB_NABL_SPECIAL_PROFILES");
+        sessionStorage.removeItem("DRAFT_JOB_NON_NABL_SPECIAL_PROFILES");
         setNablParams([]);
         setNablShowSpecifications(false);
         setNablGroupMetadata(null);
@@ -2058,58 +2137,66 @@ export default function Jobs() {
                             {
                               id: "hybrid",
                               label: "Hybrid",
-                              desc: "Creates both NABL & Non-NABL jobs",
+                              desc: specialProfiles?.waterIso10500
+                                ? "Disabled (Water ISO not supported in Hybrid)"
+                                : "Creates both NABL & Non-NABL jobs",
+                              disabled: Boolean(specialProfiles?.waterIso10500),
                             },
-                          ].map((mode) => (
-                            <button
-                              key={mode.id}
-                              type="button"
-                              onClick={() =>
-                                !editingJobId && setField("nabl_mode", mode.id)
-                              }
-                              style={{
-                                flex: "1 1 200px",
-                                padding: "0.75rem 1rem",
-                                borderRadius: "var(--radius-md)",
-                                textAlign: "left",
-                                cursor: editingJobId
-                                  ? "not-allowed"
-                                  : "pointer",
-                                opacity: editingJobId ? 0.6 : 1,
-                                border:
-                                  formData.nabl_mode === mode.id
-                                    ? "2px solid var(--color-primary)"
-                                    : "1px solid var(--color-border)",
-                                backgroundColor:
-                                  formData.nabl_mode === mode.id
-                                    ? "var(--color-primary)10"
-                                    : "var(--color-surface)",
-                                transition: "all 0.15s",
-                              }}
-                            >
-                              <div
+                          ].map((mode) => {
+                            const isModeDisabled = Boolean(editingJobId || mode.disabled);
+                            return (
+                              <button
+                                key={mode.id}
+                                type="button"
+                                disabled={isModeDisabled}
+                                onClick={() => {
+                                  if (isModeDisabled) return;
+                                  setField("nabl_mode", mode.id);
+                                }}
                                 style={{
-                                  fontWeight:
-                                    formData.nabl_mode === mode.id ? 700 : 500,
-                                  color:
+                                  flex: "1 1 200px",
+                                  padding: "0.75rem 1rem",
+                                  borderRadius: "var(--radius-md)",
+                                  textAlign: "left",
+                                  cursor: isModeDisabled
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  opacity: isModeDisabled ? 0.5 : 1,
+                                  border:
                                     formData.nabl_mode === mode.id
-                                      ? "var(--color-primary)"
-                                      : "var(--color-text)",
+                                      ? "2px solid var(--color-primary)"
+                                      : "1px solid var(--color-border)",
+                                  backgroundColor:
+                                    formData.nabl_mode === mode.id
+                                      ? "var(--color-primary)10"
+                                      : "var(--color-surface)",
+                                  transition: "all 0.15s",
                                 }}
                               >
-                                {mode.label}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: "0.75rem",
-                                  color: "var(--color-text-muted)",
-                                  marginTop: "0.2rem",
-                                }}
-                              >
-                                {mode.desc}
-                              </div>
-                            </button>
-                          ))}
+                                <div
+                                  style={{
+                                    fontWeight:
+                                      formData.nabl_mode === mode.id ? 700 : 500,
+                                    color:
+                                      formData.nabl_mode === mode.id
+                                        ? "var(--color-primary)"
+                                        : "var(--color-text)",
+                                  }}
+                                >
+                                  {mode.label}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "var(--color-text-muted)",
+                                    marginTop: "0.2rem",
+                                  }}
+                                >
+                                  {mode.desc}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
 
                         {(() => {
@@ -2378,119 +2465,175 @@ export default function Jobs() {
                             width: "100%",
                           }}
                         >
-                          <SpecialProfilesSection
-                            specialProfiles={specialProfiles}
-                            disabled={!!editingJobId && isJobFullyComplete}
-                            onChange={(newProfiles) => {
-                              setSpecialProfiles(newProfiles);
-                              if (newProfiles.waterIso10500) {
-                                setSelectedParams([]);
-                                setGroupMetadata(null);
-                                setNablParams([]);
-                                setNablGroupMetadata(null);
-                                setNonNablParams([]);
-                                setNonNablGroupMetadata(null);
-                              }
-                            }}
-                          />
-
-                          {specialProfiles?.waterIso10500 ? (
-                            <div
-                              style={{
-                                padding: "1rem 1.25rem",
-                                borderRadius: "8px",
-                                backgroundColor: "rgba(52, 152, 219, 0.08)",
-                                border: "1px solid rgba(52, 152, 219, 0.2)",
-                                color: "var(--color-text-main)",
-                                fontSize: "0.9rem",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.75rem",
-                              }}
-                            >
-                              <Shield size={20} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
-                              <div>
-                                <strong>Water ISO 10500:2012 Standard Profile is active.</strong>
-                                <p style={{ margin: "0.2rem 0 0", fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-                                  All 102 required parameters from IS 10500:2012 will be automatically included in this job.
-                                </p>
-                              </div>
-                            </div>
-                          ) : formData.nabl_mode === "hybrid" ? (
+                          {formData.nabl_mode === "hybrid" ? (
                             <>
-                              <CascadingParameterSelector
-                                key={`nabl-${selectorResetKey}`}
-                                label="NABL Job Parameters"
-                                modeClass="nabl-card"
-                                allGroupData={allGroupData}
-                                initialSelectedParams={nablParams}
-                                initialGroupMetadata={nablGroupMetadata}
-                                initialPesticidePanel={nablPesticidePanel}
-                                initialShowSpecifications={
-                                  nablShowSpecifications
-                                }
-                                externalSync={nonNablGroupMetadata}
-                                immutable={
-                                  !!editingJobId && isJobFullyComplete
-                                }
-                                onDataChange={(data) => {
-                                  setNablParams(data.parameters);
-                                  setNablGroupMetadata(data.groupMetadata);
-                                  setNablPesticidePanel(data.pesticidePanel);
-                                  if (data.showSpecifications !== undefined)
-                                    setNablShowSpecifications(
-                                      data.showSpecifications,
-                                    );
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "0.75rem",
+                                  padding: "1.25rem",
+                                  backgroundColor: "var(--color-surface)",
+                                  borderRadius: "var(--radius-md)",
+                                  border: "1px solid var(--color-border)",
                                 }}
-                              />
-                              <CascadingParameterSelector
-                                key={`nonnabl-${selectorResetKey}`}
-                                label="Non-NABL Job Parameters"
-                                modeClass="non-nabl-card"
-                                allGroupData={allGroupData}
-                                initialSelectedParams={nonNablParams}
-                                initialGroupMetadata={nonNablGroupMetadata}
-                                initialPesticidePanel={nonNablPesticidePanel}
-                                initialShowSpecifications={
-                                  nonNablShowSpecifications
-                                }
-                                externalSync={nablGroupMetadata}
-                                immutable={
-                                  !!editingJobId && isJobFullyComplete
-                                }
-                                onDataChange={(data) => {
-                                  setNonNablParams(data.parameters);
-                                  setNonNablGroupMetadata(data.groupMetadata);
-                                  setNonNablPesticidePanel(data.pesticidePanel);
-                                  if (data.showSpecifications !== undefined)
-                                    setNonNablShowSpecifications(
-                                      data.showSpecifications,
-                                    );
+                              >
+                                <SpecialProfilesSection
+                                  idPrefix="nabl"
+                                  title="NABL Special Profiles & Panels"
+                                  hideWaterIso={true}
+                                  specialProfiles={nablSpecialProfiles}
+                                  disabled={!!editingJobId && isJobFullyComplete}
+                                  disabledProfiles={{
+                                    pesticides: Boolean(nonNablSpecialProfiles?.pesticides),
+                                    fattyAcids: Boolean(nonNablSpecialProfiles?.fattyAcids?.enabled),
+                                  }}
+                                  disabledReason="Selected in Non-NABL"
+                                  onChange={(newProfiles) => setNablSpecialProfiles(newProfiles)}
+                                />
+                                <CascadingParameterSelector
+                                  key={`nabl-${selectorResetKey}`}
+                                  label="NABL Job Parameters"
+                                  modeClass="nabl-card"
+                                  allGroupData={allGroupData}
+                                  initialSelectedParams={nablParams}
+                                  initialGroupMetadata={nablGroupMetadata}
+                                  initialPesticidePanel={nablPesticidePanel}
+                                  initialShowSpecifications={
+                                    nablShowSpecifications
+                                  }
+                                  externalSync={nonNablGroupMetadata}
+                                  immutable={
+                                    !!editingJobId && isJobFullyComplete
+                                  }
+                                  onDataChange={(data) => {
+                                    setNablParams(data.parameters);
+                                    setNablGroupMetadata(data.groupMetadata);
+                                    setNablPesticidePanel(data.pesticidePanel);
+                                    if (data.showSpecifications !== undefined)
+                                      setNablShowSpecifications(
+                                        data.showSpecifications,
+                                      );
+                                  }}
+                                />
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "0.75rem",
+                                  padding: "1.25rem",
+                                  backgroundColor: "var(--color-surface)",
+                                  borderRadius: "var(--radius-md)",
+                                  border: "1px solid var(--color-border)",
                                 }}
-                              />
+                              >
+                                <SpecialProfilesSection
+                                  idPrefix="non-nabl"
+                                  title="Non-NABL Special Profiles & Panels"
+                                  hideWaterIso={true}
+                                  specialProfiles={nonNablSpecialProfiles}
+                                  disabled={!!editingJobId && isJobFullyComplete}
+                                  disabledProfiles={{
+                                    pesticides: Boolean(nablSpecialProfiles?.pesticides),
+                                    fattyAcids: Boolean(nablSpecialProfiles?.fattyAcids?.enabled),
+                                  }}
+                                  disabledReason="Selected in NABL"
+                                  onChange={(newProfiles) => setNonNablSpecialProfiles(newProfiles)}
+                                />
+                                <CascadingParameterSelector
+                                  key={`nonnabl-${selectorResetKey}`}
+                                  label="Non-NABL Job Parameters"
+                                  modeClass="non-nabl-card"
+                                  allGroupData={allGroupData}
+                                  initialSelectedParams={nonNablParams}
+                                  initialGroupMetadata={nonNablGroupMetadata}
+                                  initialPesticidePanel={nonNablPesticidePanel}
+                                  initialShowSpecifications={
+                                    nonNablShowSpecifications
+                                  }
+                                  externalSync={nablGroupMetadata}
+                                  immutable={
+                                    !!editingJobId && isJobFullyComplete
+                                  }
+                                  onDataChange={(data) => {
+                                    setNonNablParams(data.parameters);
+                                    setNonNablGroupMetadata(data.groupMetadata);
+                                    setNonNablPesticidePanel(data.pesticidePanel);
+                                    if (data.showSpecifications !== undefined)
+                                      setNonNablShowSpecifications(
+                                        data.showSpecifications,
+                                      );
+                                  }}
+                                />
+                              </div>
                             </>
                           ) : (
-                            <CascadingParameterSelector
-                              key={`standard-${selectorResetKey}`}
-                              label="Test Parameters"
-                              allGroupData={allGroupData}
-                              initialSelectedParams={selectedParams}
-                              initialGroupMetadata={groupMetadata}
-                              initialPesticidePanel={pesticidePanel}
-                              initialShowSpecifications={showSpecifications}
-                              immutable={
-                                !!editingJobId && isJobFullyComplete
-                              }
-                              onDataChange={(data) => {
-                                setSelectedParams(data.parameters);
-                                setGroupMetadata(data.groupMetadata);
-                                setPesticidePanel(data.pesticidePanel);
-                                if (data.showSpecifications !== undefined)
-                                  setShowSpecifications(
-                                    data.showSpecifications,
-                                  );
-                              }}
-                            />
+                            <>
+                              <SpecialProfilesSection
+                                idPrefix="single"
+                                specialProfiles={specialProfiles}
+                                disabled={!!editingJobId && isJobFullyComplete}
+                                onChange={(newProfiles) => {
+                                  setSpecialProfiles(newProfiles);
+                                  if (newProfiles.waterIso10500) {
+                                    setSelectedParams([]);
+                                    setGroupMetadata(null);
+                                    setNablParams([]);
+                                    setNablGroupMetadata(null);
+                                    setNonNablParams([]);
+                                    setNonNablGroupMetadata(null);
+                                  }
+                                }}
+                              />
+
+                              {specialProfiles?.waterIso10500 ? (
+                                <div
+                                  style={{
+                                    padding: "1rem 1.25rem",
+                                    borderRadius: "8px",
+                                    backgroundColor: "rgba(52, 152, 219, 0.08)",
+                                    border: "1px solid rgba(52, 152, 219, 0.2)",
+                                    color: "var(--color-text-main)",
+                                    fontSize: "0.9rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.75rem",
+                                  }}
+                                >
+                                  <Shield size={20} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
+                                  <div>
+                                    <strong>Water ISO 10500:2012 Standard Profile is active.</strong>
+                                    <p style={{ margin: "0.2rem 0 0", fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+                                      All 102 required parameters from IS 10500:2012 will be automatically included in this job.
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <CascadingParameterSelector
+                                  key={`standard-${selectorResetKey}`}
+                                  label="Test Parameters"
+                                  allGroupData={allGroupData}
+                                  initialSelectedParams={selectedParams}
+                                  initialGroupMetadata={groupMetadata}
+                                  initialPesticidePanel={pesticidePanel}
+                                  initialShowSpecifications={showSpecifications}
+                                  immutable={
+                                    !!editingJobId && isJobFullyComplete
+                                  }
+                                  onDataChange={(data) => {
+                                    setSelectedParams(data.parameters);
+                                    setGroupMetadata(data.groupMetadata);
+                                    setPesticidePanel(data.pesticidePanel);
+                                    if (data.showSpecifications !== undefined)
+                                      setShowSpecifications(
+                                        data.showSpecifications,
+                                      );
+                                  }}
+                                />
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
