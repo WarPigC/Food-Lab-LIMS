@@ -88,6 +88,7 @@ app.use('/api/bug-reports', apiLimiter, require('./routes/bugReportRoutes'));
 app.use('/api/data-settings', apiLimiter, require('./routes/dataSettingsRoutes'));
 app.use('/api/test-methods', apiLimiter, require('./routes/testMethodRoutes'));
 app.use('/api/units', apiLimiter, require('./routes/unitRoutes'));
+app.use('/api/special-profiles', apiLimiter, require('./routes/specialProfileRoutes'));
 app.use('/api/export', apiLimiter, require('./routes/exportRoutes'));
 app.use('/api/logs', apiLimiter, require('./routes/logRoutes'));
 
