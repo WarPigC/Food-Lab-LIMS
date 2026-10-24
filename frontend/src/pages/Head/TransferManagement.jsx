@@ -9,6 +9,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from "../../utils/cache";
 import { formatDateTime } from "../../utils/dateUtils";
 import { useToast } from "../../hooks/useToast";
+import { useModal } from "../../hooks/useModal";
 
 export default function TransferManagement() {
   const [incomingTransfers, setIncomingTransfers] = useState([]);
@@ -17,8 +18,8 @@ export default function TransferManagement() {
     () => !isCached(CACHE_KEYS.TRANSFERS_IN) || !isCached(CACHE_KEYS.TRANSFERS_OUT)
   );
   const [transferLoading, setTransferLoading] = useState(false);
-  const [transferConfirmData, setTransferConfirmData] = useState(null);
   const toast = useToast();
+  const modal = useModal();
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const { user } = useContext(AuthContext);
   
@@ -64,29 +65,8 @@ export default function TransferManagement() {
     };
   }, [socket]);
 
-  const handleSendTransferClick = (jobId) => {
-    setTransferConfirmData({
-      type: "send",
-      id: jobId,
-      title: "Hand Over Sample",
-      message:
-        "You are handing over this sample to the other department. This action will be recorded and cannot be undone.",
-    });
-  };
-
-  const handleReceiveTransferClick = (transferId) => {
-    setTransferConfirmData({
-      type: "receive",
-      id: transferId,
-      title: "Confirm Receipt",
-      message:
-        "You are confirming receipt of this sample. The job will become available in your dispatcher.",
-    });
-  };
-
-  const executeTransfer = async () => {
-    if (!transferConfirmData || transferLoading) return;
-    const { type, id } = transferConfirmData;
+  const executeTransfer = async (type, id) => {
+    if (transferLoading) return;
     setTransferLoading(true);
 
     try {
@@ -124,7 +104,6 @@ export default function TransferManagement() {
         invalidateCache(CACHE_KEYS.JOBS);
       }
       fetchTransfers();
-      setTransferConfirmData(null);
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
@@ -132,6 +111,32 @@ export default function TransferManagement() {
       );
     } finally {
       setTransferLoading(false);
+    }
+  };
+
+  const handleSendTransferClick = async (jobId) => {
+    const confirmed = await modal.confirm({
+      title: "Hand Over Sample",
+      body: "You are handing over this sample to the other department. This action will be recorded and cannot be undone.",
+      variant: "default",
+      confirmLabel: "Hand Over Sample",
+      cancelLabel: "Cancel",
+    });
+    if (confirmed) {
+      executeTransfer("send", jobId);
+    }
+  };
+
+  const handleReceiveTransferClick = async (transferId) => {
+    const confirmed = await modal.confirm({
+      title: "Confirm Sample Receipt",
+      body: "You are confirming receipt of this sample. The job will become available in your dispatcher.",
+      variant: "default",
+      confirmLabel: "Confirm Receipt",
+      cancelLabel: "Cancel",
+    });
+    if (confirmed) {
+      executeTransfer("receive", transferId);
     }
   };
 
@@ -261,26 +266,6 @@ export default function TransferManagement() {
               {renderAccordionBody()}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Confirmation modal */}
-      {transferConfirmData && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: "400px", textAlign: "center" }}>
-            <h3 style={{ margin: "0 0 1rem 0", color: "var(--color-primary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-              <AlertCircle size={24} /> {transferConfirmData.title}
-            </h3>
-            <p style={{ marginBottom: "2rem" }}>{transferConfirmData.message}</p>
-            <div className="form-actions" style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-              <button className="btn btn-secondary" onClick={() => setTransferConfirmData(null)}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={() => executeTransfer()} disabled={transferLoading}>
-                {transferLoading ? "Processing..." : "Confirm"}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </>

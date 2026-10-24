@@ -4,6 +4,7 @@ import { AlertCircle, Beaker, Search, X, Plus, Save, Trash2 } from 'lucide-react
 import axios from 'axios';
 import API_URL from '../utils/api';
 import { useToast } from '../hooks/useToast';
+import { useModal } from '../hooks/useModal';
 
 const CascadingParameterSelector = ({ 
   label = "Parameters", 
@@ -18,6 +19,7 @@ const CascadingParameterSelector = ({
   immutable = false
 }) => {
   const toast = useToast();
+  const modal = useModal();
   const [selectedGroups, setSelectedGroups] = useState(initialGroupMetadata?.group ? initialGroupMetadata.group.split(', ') : []);
   const [selectedSubGroups, setSelectedSubGroups] = useState(initialGroupMetadata?.subGroup ? initialGroupMetadata.subGroup.split(', ') : []);
   const [selectedProductCategory, setSelectedProductCategory] = useState(initialGroupMetadata?.productCategory || '');
@@ -107,7 +109,7 @@ const CascadingParameterSelector = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ═══════ ALL LOCAL FILTERING — zero API calls on interaction ═══════
+  // ═══════ ALL LOCAL FILTERING: zero API calls on interaction ═══════
   const allData = allGroupData || [];
 
   const groups = useMemo(() => {
@@ -157,7 +159,7 @@ const CascadingParameterSelector = ({
   const hasNonPanelSubGroups = useMemo(() => matchedDocs.some(d => !d.isPesticidePanel), [matchedDocs]);
 
   // ═══════ NOTIFY PARENT ═══════
-  // Fix 1: onDataChange is NOT in the dependency array — breaks the infinite loop
+  // Fix 1: onDataChange is NOT in the dependency array; breaks the infinite loop
   useEffect(() => {
     if (onDataChange) {
       onDataChange({
@@ -268,7 +270,13 @@ const CascadingParameterSelector = ({
   };
 
   const handleDeleteParameter = async (paramId) => {
-    if (!window.confirm("Are you sure you want to permanently delete this parameter from the library?")) return;
+    const confirmed = await modal.confirm({
+      title: "Delete Parameter",
+      body: "Are you sure you want to permanently delete this parameter from the library? This action cannot be undone.",
+      variant: "danger",
+      confirmLabel: "Delete Parameter",
+    });
+    if (!confirmed) return;
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${API_URL}/api/parameters/${paramId}`, {
