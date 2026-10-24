@@ -22,6 +22,13 @@ test.describe('Department Head Experience', () => {
 
     await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible();
     await expect(page.getByPlaceholder('Search...')).toBeVisible();
+
+    // Expand instance card accordion
+    await page.getByText(/2604230001/).first().click();
+
+    await expect(page.getByText('Aldrin')).toBeVisible();
+    await expect(page.getByText('GCMSMS')).toBeVisible();
+    await expect(page.getByText('0.02')).toBeVisible();
   });
 
   test('should render Job Dispatcher with sample transfers and job list', async ({ page }) => {
