@@ -146,22 +146,11 @@ export default function ReviewQueue() {
     setShowReassignForm(inst._id);
     const selections = {};
     inst.results.forEach((r) => {
-      if (r.isPanel && r.panelName) {
-        const pKey = `panel-${r.panelName.toLowerCase()}`;
-        if (!selections[pKey]) {
-          selections[pKey] = {
-            selected: false,
-            assignedTo:
-              r.assignedTo || inst.assignedTo?._id || inst.assignedTo || "",
-          };
-        }
-      } else {
-        selections[r.parameterId] = {
-          selected: false,
-          assignedTo:
-            r.assignedTo || inst.assignedTo?._id || inst.assignedTo || "",
-        };
-      }
+      selections[r.parameterId] = {
+        selected: false,
+        assignedTo:
+          r.assignedTo || inst.assignedTo?._id || inst.assignedTo || "",
+      };
     });
     setParamSelections(selections);
     setReassignNote("");
@@ -200,19 +189,7 @@ export default function ReviewQueue() {
     const selected = [];
     Object.entries(paramSelections).forEach(([key, v]) => {
       if (v.selected) {
-        if (key.startsWith("panel-")) {
-          const panelName = key.replace("panel-", "").toUpperCase();
-          inst.results.forEach((r) => {
-            if (r.isPanel && r.panelName === panelName) {
-              selected.push({
-                parameterId: r.parameterId,
-                assignedTo: v.assignedTo,
-              });
-            }
-          });
-        } else {
-          selected.push({ parameterId: key, assignedTo: v.assignedTo });
-        }
+        selected.push({ parameterId: key, assignedTo: v.assignedTo });
       }
     });
 
@@ -591,30 +568,9 @@ export default function ReviewQueue() {
                           </tr>
                         </thead>
                         <tbody>
-                          {(() => {
-                            const displayResults = [];
-                            const panelGroups = {};
-                            inst.results.forEach((r) => {
-                              if (r.isPanel && r.panelName) {
-                                if (!panelGroups[r.panelName]) {
-                                  panelGroups[r.panelName] = {
-                                    parameterId: `panel-${r.panelName.toLowerCase()}`,
-                                    name: `Pesticide Panel (${r.panelName})`,
-                                    value: "Multiple",
-                                    unit: "mg/kg",
-                                    testMethod: "N/A",
-                                    specification: "",
-                                    isPanelGroup: true,
-                                  };
-                                  displayResults.push(panelGroups[r.panelName]);
-                                }
-                              } else {
-                                displayResults.push(r);
-                              }
-                            });
-                            return displayResults.map((r) => {
-                              const sel = paramSelections[r.parameterId];
-                              const isSelected = sel?.selected;
+                          {inst.results.map((r) => {
+                            const sel = paramSelections[r.parameterId];
+                            const isSelected = sel?.selected;
 
                               return (
                                 <tr
@@ -655,7 +611,7 @@ export default function ReviewQueue() {
                                   )}
                                   <td style={{ fontWeight: 500 }}>
                                     {r.name}
-                                    {r.isPanelGroup && (
+                                    {r.isPanel && r.panelName && (
                                       <span
                                         style={{
                                           marginLeft: "0.5rem",
@@ -666,7 +622,7 @@ export default function ReviewQueue() {
                                           borderRadius: "4px",
                                         }}
                                       >
-                                        PANEL
+                                        {r.panelName}
                                       </span>
                                     )}
                                   </td>
@@ -679,14 +635,14 @@ export default function ReviewQueue() {
                                         : "var(--color-primary)",
                                     }}
                                   >
-                                    {r.value || "—"}
+                                    {r.value || "-"}
                                   </td>
                                   <td>{r.unit}</td>
                                   <td style={{ fontSize: "0.85rem" }}>
                                     {r.testMethod || "N/A"}
                                   </td>
                                   <td style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-                                    {r.isPanelGroup ? "" : (r.specification || "")}
+                                    {r.specification || ""}
                                   </td>
                                   {isReassignMode && (
                                     <td onClick={(e) => e.stopPropagation()}>
@@ -727,8 +683,7 @@ export default function ReviewQueue() {
                                   )}
                                 </tr>
                               );
-                            });
-                          })()}
+                            })}
                         </tbody>
                       </table>
                     </div>
