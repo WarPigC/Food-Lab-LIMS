@@ -371,12 +371,11 @@ export default function Dispatcher() {
     // Inject virtual parameters for Food Pesticide Panels (only for Chemical department)
     if (
       user?.department?.toLowerCase() === "chemical" &&
-      job?.pesticidePanel?.enabled &&
-      job?.pesticidePanel?.panelType === "food"
+      (job?.specialProfiles?.pesticides || (job?.pesticidePanel?.enabled && job?.pesticidePanel?.panelType === "food"))
     ) {
       params.push({
         parameterId: { _id: "panel-gcmsms" },
-        name: "Pesticide Panel (GCMSMS)",
+        name: "Food Pesticides GC-MS/MS Panel (55 parameters)",
         type: "Chemical",
         unit: "mg/kg",
         isPanel: true,
@@ -384,7 +383,7 @@ export default function Dispatcher() {
       });
       params.push({
         parameterId: { _id: "panel-lcmsms" },
-        name: "Pesticide Panel (LCMSMS)",
+        name: "Food Pesticides LC-MS/MS Panel (164 parameters)",
         type: "Chemical",
         unit: "mg/kg",
         isPanel: true,
@@ -964,17 +963,35 @@ export default function Dispatcher() {
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center",
-                                    backgroundColor:
-                                      "var(--color-surface-hover)",
+                                    backgroundColor: p.isPanel
+                                      ? "rgba(52, 152, 219, 0.08)"
+                                      : "var(--color-surface-hover)",
+                                    border: p.isPanel
+                                      ? "1px solid rgba(52, 152, 219, 0.25)"
+                                      : "1px solid transparent",
                                     padding: "0.6rem 1rem",
                                     borderRadius: "var(--radius-md)",
                                     gap: "1rem",
                                   }}
                                 >
-                                  <div style={{ flex: 1 }}>
+                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                     <span style={{ fontWeight: 600 }}>
                                       {p.name}
-                                    </span>{" "}
+                                    </span>
+                                    {p.isPanel && (
+                                      <span
+                                        style={{
+                                          fontSize: "0.72rem",
+                                          fontWeight: 700,
+                                          padding: "0.1rem 0.45rem",
+                                          borderRadius: "4px",
+                                          backgroundColor: "rgba(52, 152, 219, 0.15)",
+                                          color: "var(--color-primary)",
+                                        }}
+                                      >
+                                        Special Panel
+                                      </span>
+                                    )}
                                     <span
                                       style={{
                                         fontSize: "0.8rem",

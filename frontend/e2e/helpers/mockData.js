@@ -57,6 +57,9 @@ export const mockJobs = [
     batchNo: 'BAT-2026-X1',
     status: 'IN_PROGRESS',
     isRetest: false,
+    specialProfiles: {
+      pesticides: true,
+    },
     distribution: {
       micro: {
         required: true,
