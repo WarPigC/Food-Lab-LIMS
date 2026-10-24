@@ -1,4 +1,4 @@
-const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, WidthType, BorderStyle, AlignmentType, VerticalAlign, PageBreak, Header, Footer, SectionType, TabStopType, TabStopPosition } = require('docx');
+const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, WidthType, BorderStyle, AlignmentType, VerticalAlign, PageBreak, Header, Footer, SectionType, TabStopType, TabStopPosition, PageNumber } = require('docx');
 const fs = require('fs');
 const path = require('path');
 
@@ -22,13 +22,21 @@ const AVG_CHAR_WIDTH = 100;
 const LINE_HEIGHT = 260;     // single line height in twips
 const ROW_PADDING = 50;      // top+bottom cell margins per row
 
+const { SPECIAL_PROFILE_CONSTANTS } = require('../utils/specialProfileConstants');
+const pestConstant = SPECIAL_PROFILE_CONSTANTS.find(p => p.key === 'pesticides');
+const gcPestNames = new Set((pestConstant?.variants?.find(v => v.key === 'GCMSMS')?.parameters || []).map(p => p.name.trim().toLowerCase()));
+const lcPestNames = new Set((pestConstant?.variants?.find(v => v.key === 'LCMSMS')?.parameters || []).map(p => p.name.trim().toLowerCase()));
+
 // Estimate how many lines a text will need in a column of given width
 const formatSignatoryName = (name, fallback) => {
   if (!name) return fallback;
-  if (/^(Mr\.|Ms\.|Dr\.|Mrs\.)/i.test(name.trim())) return name.trim();
-  const fallbackMatch = fallback.match(/^(Mr\.|Ms\.|Dr\.|Mrs\.)/i);
-  const honorific = fallbackMatch ? fallbackMatch[1] : '';
-  return honorific ? `${honorific} ${name.trim()}` : name.trim();
+  const trimmed = name.trim();
+  if (/^(Mr\.|Ms\.|Dr\.|Mrs\.)/i.test(trimmed)) return trimmed;
+
+  const firstName = trimmed.split(/\s+/)[0].toLowerCase();
+  const femaleNames = new Set(['jyoti', 'monika', 'diksha', 'yogita', 'priyanka', 'nikita', 'vaishali', 'sakshi', 'divya', 'pooja', 'neha', 'anjali']);
+  const honorific = femaleNames.has(firstName) ? 'Ms.' : 'Mr.';
+  return `${honorific} ${trimmed}`;
 };
 const estimateLines = (text, colWidthDxa) => {
   if (!text) return 1;
@@ -46,8 +54,11 @@ const estimateResultRowHeight = (row, hasSpec) => {
   if (row.type === 'header') {
     // Discipline header: 2 lines of text typically
     baseHeight = 2 * LINE_HEIGHT + ROW_PADDING;
+  } else if (row.type === 'section') {
+    // Section header (e.g. Pesticide Panel or Fatty Acid profile)
+    baseHeight = LINE_HEIGHT + ROW_PADDING;
   } else {
-    // Data row — the "Test Parameters" column (35% width) is usually the tallest
+    // Data row: the "Test Parameters" column (35% width) is usually the tallest
     const paramColWidth = Math.round(PAGE_WIDTH_DXA * 35 / 100);
     const nameLines = estimateLines(row.data.name, paramColWidth);
     baseHeight = nameLines * LINE_HEIGHT + ROW_PADDING;
@@ -214,7 +225,7 @@ const buildHeaderTable = (isNabl) => {
   if (isNabl) {
     const nablChildren = [];
 
-    // Both images INLINE in one paragraph — forces them side-by-side, never stacks
+    // Both images INLINE in one paragraph, forces them side-by-side, never stacks
     const inlineImages = [];
     if (nablLogoBuf) {
       inlineImages.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 65, height: 65 }, type: "png" }));
@@ -297,11 +308,14 @@ const buildSampleInfoTable = (job) => {
     })]
   }));
 
+  const productCat = job.groupMetadata?.productCategory || (job.specialProfiles?.pesticides || job.specialProfiles?.fattyAcids?.enabled ? 'Food & Agricultural Products' : 'N/A');
+  const standardSpec = compliance.standard_specification || (job.specialProfiles?.pesticides ? 'FSSAI Regulations / In-House SOP' : (job.specialProfiles?.fattyAcids?.enabled ? 'FSSAI Food Safety Standards' : 'NA'));
+
   r.push(new TableRow({ children: [createCell("Sample Name\n( as stated by customer )", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.sample_name || 'N/A', { widthPct: 30 }), createCell("Registration No.", { bold: true, widthPct: 23 }), createCell(registrationNo, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Product Category", { bold: true, colSpan: 2, widthPct: 25 }), createCell(job.groupMetadata?.productCategory || 'N/A', { widthPct: 30 }), createCell("Issue Date", { bold: true, widthPct: 23 }), createCell(issueDate, { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Product Category", { bold: true, colSpan: 2, widthPct: 25 }), createCell(productCat, { widthPct: 30 }), createCell("Issue Date", { bold: true, widthPct: 23 }), createCell(issueDate, { widthPct: 22 })] }));
   r.push(new TableRow({ children: [createCell("Sample Quantity", { bold: true, colSpan: 2, widthPct: 25 }), createCell(`01x${sample.sample_quantity || 'N/A'}`, { widthPct: 30 }), createCell("Date of Receipt", { bold: true, widthPct: 23 }), createCell(receiptDate, { widthPct: 22 })] }));
   r.push(new TableRow({ children: [createCell("Packing Details", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.packing_details || 'N/A', { widthPct: 30 }), createCell("Testing period", { bold: true, widthPct: 23 }), createCell(testingPeriodStr, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Marking Seal ( if any)", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.marking_seal || 'NA', { widthPct: 30 }), createCell("Standard Specification", { bold: true, widthPct: 23 }), createCell(compliance.standard_specification || 'NA', { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Marking Seal ( if any)", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.marking_seal || 'NA', { widthPct: 30 }), createCell("Standard Specification", { bold: true, widthPct: 23 }), createCell(standardSpec, { widthPct: 22 })] }));
   r.push(new TableRow({ children: [createCell("Sampling Details", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.sampling_details || 'Sample provided by the customer', { widthPct: 30 }), createCell("Sample condition on receipt", { bold: true, widthPct: 23 }), createCell(sample.condition_on_receipt || 'Satisfactory', { widthPct: 22 })] }));
   const hasCustomerData = !!(
     customer.customer_reference_no ||
@@ -359,6 +373,15 @@ const buildResultsTable = (rowsData, hasSpec, startIdx, repeatHeader = null) => 
           createCell(`Group \u2013 ${r.group}\nSub Group \u2013 ${r.subGroup}`, { bold: true, colSpan: hasSpec ? 3 : 2 })
         ]
       }));
+    } else if (r.type === 'section') {
+      tableRows.push(new TableRow({
+        children: [
+          createCell(r.title, {
+            bold: true,
+            colSpan: hasSpec ? 6 : 5
+          })
+        ]
+      }));
     } else {
       counter++;
       const dataCells = [
@@ -390,16 +413,56 @@ const generateReport = async (job, reportType) => {
   const { testReportNo, registrationNo, isAmended, baseReportNo } = deriveReportFields(job.jobCode);
 
   const allRows = [];
-  const groupName = job.groupMetadata?.group || 'N/A';
-  const subGroupName = job.groupMetadata?.subGroup || 'N/A';
+  const groupName = job.groupMetadata?.group || (job.specialProfiles?.pesticides || job.specialProfiles?.fattyAcids?.enabled ? 'Food & Agricultural Products' : 'N/A');
+  const subGroupName = job.groupMetadata?.subGroup || (job.specialProfiles?.pesticides ? 'Pesticides Residue' : (job.specialProfiles?.fattyAcids?.enabled ? 'Fats & Oils' : 'N/A'));
   const parameters = job.parameters || [];
 
   const chemicalResults = parameters.filter(p => (p.type || '').toUpperCase() === 'CHEMICAL');
   const microResults = parameters.filter(p => (p.type || '').toUpperCase() === 'MICRO');
 
+  const isFattyAcidParam = (name) => {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return n.includes('fatty acid') || n.includes('saturated fat') || n.includes('trans fat');
+  };
+
   if (chemicalResults.length > 0) {
     allRows.push({ type: 'header', dept: 'CHEMICAL', group: groupName, subGroup: subGroupName });
-    chemicalResults.forEach(r => allRows.push({ type: 'result', data: r }));
+
+    // Partition chemical parameters into logical sections
+    const isGcPest = (p) => (p.isPanel && p.panelName === 'GCMSMS') || gcPestNames.has((p.name || '').trim().toLowerCase());
+    const isLcPest = (p) => (p.isPanel && p.panelName === 'LCMSMS') || lcPestNames.has((p.name || '').trim().toLowerCase());
+
+    const standardChem = chemicalResults.filter(p => !isGcPest(p) && !isLcPest(p) && !p.isPanel && !isFattyAcidParam(p.name));
+    const faParams = chemicalResults.filter(p => !isGcPest(p) && !isLcPest(p) && isFattyAcidParam(p.name));
+    const gcParams = chemicalResults.filter(p => isGcPest(p));
+    const lcParams = chemicalResults.filter(p => isLcPest(p));
+    const otherPanels = chemicalResults.filter(p => p.isPanel && !isGcPest(p) && !isLcPest(p));
+
+    standardChem.forEach(r => allRows.push({ type: 'result', data: r }));
+
+    if (faParams.length > 0) {
+      if (standardChem.length > 0 || gcParams.length > 0 || lcParams.length > 0) {
+        const variantLabel = job.specialProfiles?.fattyAcids?.variant === 'full' ? 'Full 37 Parameters' : 'Compiled';
+        allRows.push({ type: 'section', title: `Fatty Acid Profile (${variantLabel})` });
+      }
+      faParams.forEach(r => allRows.push({ type: 'result', data: r }));
+    }
+
+    if (gcParams.length > 0) {
+      allRows.push({ type: 'section', title: 'Food Pesticides Residues by GC-MS/MS (55 parameters)' });
+      gcParams.forEach(r => allRows.push({ type: 'result', data: r }));
+    }
+
+    if (lcParams.length > 0) {
+      allRows.push({ type: 'section', title: 'Food Pesticides Residues by LC-MS/MS (164 parameters)' });
+      lcParams.forEach(r => allRows.push({ type: 'result', data: r }));
+    }
+
+    if (otherPanels.length > 0) {
+      allRows.push({ type: 'section', title: 'Special Panel Parameters' });
+      otherPanels.forEach(r => allRows.push({ type: 'result', data: r }));
+    }
   }
   if (microResults.length > 0) {
     allRows.push({ type: 'header', dept: 'MICRO', group: groupName, subGroup: subGroupName });
@@ -458,7 +521,7 @@ const generateReport = async (job, reportType) => {
     // Determine the discipline context for this page (for repeat header injection)
     let repeatHeader = null;
     if (!isFirstPage && needsDisciplineRepeat && activeDiscipline) {
-      // The page starts mid-discipline — inject a repeat header
+      // The page starts mid-discipline, inject a repeat header
       repeatHeader = activeDiscipline;
     }
 
@@ -524,7 +587,7 @@ const generateReport = async (job, reportType) => {
       }));
     }
 
-    // TEST RESULT title — only on the first page
+    // TEST RESULT title, only on the first page
     if (isFirst) {
       children.push(new Paragraph({
         children: [new TextRun({ text: "TEST RESULT", bold: true, font: "Times New Roman", size: 24 })],
@@ -567,11 +630,11 @@ const generateReport = async (job, reportType) => {
       const hasMicro = microResults.length > 0;
       const sigCells = [];
 
-      // Diksha always appears
+      const analystName = formatSignatoryName(job.assignedAnalyst, 'Ms. Diksha Dwivedi');
       sigCells.push(new TableCell({
         children: [
           new Paragraph({ children: [new TextRun({ text: "Reviewed By", bold: true, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
-          new Paragraph({ children: [new TextRun({ text: "Ms. Diksha Dwivedi", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: analystName, font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER }),
           new Paragraph({ children: [new TextRun({ text: "Analyst", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER })
         ], borders: BORDERS_NONE, width: { size: Math.round(PAGE_WIDTH_DXA / (hasChem && hasMicro ? 3 : 2)), type: WidthType.DXA }
       }));
@@ -606,7 +669,7 @@ const generateReport = async (job, reportType) => {
       }));
     }
 
-    // No explicit PageBreak needed — each page is its own section, which
+    // No explicit PageBreak needed, each page is its own section, which
     // automatically starts on a new page. Adding PageBreak here would
     // create a blank page between sections.
 
@@ -616,7 +679,15 @@ const generateReport = async (job, reportType) => {
       footers: {
         default: new Footer({
           children: [
-            new Paragraph({ children: [new TextRun({ text: `Page ${i + 1} of ${pages.length}`, font: "Times New Roman", size: 20 })], alignment: AlignmentType.RIGHT })
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Page ", font: "Times New Roman", size: 20 }),
+                new TextRun({ children: [PageNumber.CURRENT], font: "Times New Roman", size: 20 }),
+                new TextRun({ text: " of ", font: "Times New Roman", size: 20 }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Times New Roman", size: 20 }),
+              ],
+              alignment: AlignmentType.RIGHT
+            })
           ]
         })
       },
@@ -636,6 +707,7 @@ module.exports = {
   buildHeaderTable,
   buildSampleInfoTable,
   formatDate,
+  formatSignatoryName,
   PAGE_WIDTH_DXA,
   BORDERS_ALL,
   BORDERS_NONE,
