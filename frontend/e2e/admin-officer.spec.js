@@ -59,12 +59,18 @@ test.describe('Admin Officer Experience', () => {
 
     // Tabs
     const groupsTab = page.getByRole('button', { name: /Parameter Groups/i });
+    const profilesTab = page.getByRole('button', { name: /Special Profiles/i });
     const serialTab = page.getByRole('button', { name: /Sample Serial/i });
     const backupTab = page.getByRole('button', { name: /Backup/i });
 
     await expect(groupsTab).toBeVisible();
+    await expect(profilesTab).toBeVisible();
     await expect(serialTab).toBeVisible();
     await expect(backupTab).toBeVisible();
+
+    // Switch to Special Profiles tab
+    await profilesTab.click();
+    await expect(page.getByText('Water ISO 10500:2012').first()).toBeVisible();
 
     // Switch to Serial tab
     await serialTab.click();
@@ -74,6 +80,52 @@ test.describe('Admin Officer Experience', () => {
     await backupTab.click();
     await expect(page.getByText(/Database Backup/i)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Backup Data' })).toBeVisible();
+  });
+
+  test('should render Special Profiles in Job Creation form and handle exclusivity and variants', async ({ page }) => {
+    await page.goto('/admin-officer/jobs');
+
+    const newJobBtn = page.getByRole('button', { name: '+ New Client Sample Job' });
+    await expect(newJobBtn).toBeVisible();
+    await newJobBtn.click();
+
+    // Expand Sample Information accordion
+    await page.getByText('Sample Information').click();
+
+    // Verify Special Profiles section is visible
+    await expect(page.getByText('Special Profiles & Panels')).toBeVisible();
+
+    const waterCheckbox = page.locator('#special-profile-water');
+    const pesticidesCheckbox = page.locator('#special-profile-pesticides');
+    const fattyAcidsCheckbox = page.locator('#special-profile-fatty-acids');
+
+    await expect(waterCheckbox).toBeVisible();
+    await expect(pesticidesCheckbox).toBeVisible();
+    await expect(fattyAcidsCheckbox).toBeVisible();
+
+    // Activate Water ISO 10500 (Exclusive)
+    await waterCheckbox.check();
+    await expect(waterCheckbox).toBeChecked();
+    await expect(page.getByText(/Water ISO 10500:2012 Standard Profile is active/i)).toBeVisible();
+    await expect(pesticidesCheckbox).toBeDisabled();
+    await expect(fattyAcidsCheckbox).toBeDisabled();
+
+    // Deactivate Water ISO 10500
+    await waterCheckbox.uncheck();
+    await expect(waterCheckbox).not.toBeChecked();
+    await expect(page.getByText(/Water ISO 10500:2012 Standard Profile is active/i)).not.toBeVisible();
+    await expect(pesticidesCheckbox).toBeEnabled();
+    await expect(fattyAcidsCheckbox).toBeEnabled();
+
+    // Activate Fatty Acid Profile and verify variants
+    await fattyAcidsCheckbox.check();
+    await expect(fattyAcidsCheckbox).toBeChecked();
+    await expect(page.getByText('Compiled', { exact: true })).toBeVisible();
+    await expect(page.getByText('Full Profile', { exact: true })).toBeVisible();
+
+    // Activate Pesticides
+    await pesticidesCheckbox.check();
+    await expect(pesticidesCheckbox).toBeChecked();
   });
 
   test('should render Activity Logs for Admin Officer', async ({ page }) => {
