@@ -38,6 +38,21 @@ test.describe('Department Head Experience', () => {
     await expect(page.getByPlaceholder('Search...')).toBeVisible();
   });
 
+  test('should render pesticide panel cards for Chemical Head in Job Dispatcher', async ({ page }) => {
+    await loginAs(page, 'HEAD', { department: 'Chemical' });
+    await page.goto('/head/dispatcher');
+
+    await expect(page.getByRole('heading', { name: 'Job Dispatcher' })).toBeVisible();
+
+    // Click job card to expand
+    await page.getByText(/2604230001/).first().click();
+
+    // Verify pesticide panel cards and special panel badges
+    await expect(page.getByText('Food Pesticides GC-MS/MS Panel (55 parameters)')).toBeVisible();
+    await expect(page.getByText('Food Pesticides LC-MS/MS Panel (164 parameters)')).toBeVisible();
+    await expect(page.getByText('Special Panel').first()).toBeVisible();
+  });
+
   test('should render Assistants Management and toggle Create Assistant form', async ({ page }) => {
     await page.goto('/head/assistants');
 
