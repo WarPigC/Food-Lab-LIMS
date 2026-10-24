@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const TestInstance = require('../../models/TestInstance');
 const Job = require('../../models/Job');
-const ParameterGroup = require('../../models/ParameterGroup');
+const SpecialProfile = require('../../models/SpecialProfile');
 const Parameter = require('../../models/Parameter');
 const User = require('../../models/User');
 const Notification = require('../../models/Notification');
@@ -112,25 +112,22 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
         }
 
         if (assignment.isPanel) {
-          // Fetch the parameters for the specific sub-panel (GCMSMS or LCMSMS)
-          const group = await ParameterGroup.findOne({ isPesticidePanel: true, pesticidePanelType: 'food' }).populate('pesticideSubPanels.parameters.parameterId');
-          if (group) {
-            const panel = group.pesticideSubPanels.find(p => p.panelName === assignment.panelName);
-            if (panel) {
-              for (const param of panel.parameters) {
-                // Ensure no duplicate params just in case
-                if (!assistantMap[astId].some(existing => String(existing.parameterId) === String(param.parameterId._id))) {
-                  assistantMap[astId].push({
-                    parameterId: param.parameterId._id,
-                    name: param.name,
-                    value: '',
-                    unit: 'mg/kg',
-                    specification: param.specification || '',
-                    isPanel: true,
-                    panelName: assignment.panelName
-                  });
-                }
-              }
+          // Fetch parameters for specific sub-panel (GCMSMS or LCMSMS) from SpecialProfile
+          const pestProfile = await SpecialProfile.findOne({ key: 'pesticides' });
+          const variant = pestProfile?.variants?.find(v => v.key === assignment.panelName);
+          const panelParams = variant?.parameters || [];
+          for (const param of panelParams) {
+            // Ensure no duplicate params; prefix omitted: parameter name used directly as parameterId
+            if (!assistantMap[astId].some(existing => String(existing.parameterId) === String(param.name))) {
+              assistantMap[astId].push({
+                parameterId: param.name,
+                name: param.name,
+                value: '',
+                unit: param.unit || 'mg/kg',
+                specification: param.specification || '',
+                isPanel: true,
+                panelName: assignment.panelName
+              });
             }
           }
         } else {
