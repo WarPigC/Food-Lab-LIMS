@@ -224,23 +224,30 @@ export default function SpecialProfileSettings() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <button
-                className="btn btn-secondary"
-                onClick={handleAddRow}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-              >
-                <Plus size={16} /> Add Parameter
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSave}
-                disabled={saving}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-              >
-                <Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
+            {isWaterIso ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: 'rgba(52, 152, 219, 0.1)', color: 'var(--color-primary)', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600 }}>
+                <AlertCircle size={16} />
+                Locked National Standard (IS 10500:2012)
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleAddRow}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                >
+                  <Plus size={16} /> Add Parameter
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                >
+                  <Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Sub-variant tabs if present */}
@@ -274,7 +281,7 @@ export default function SpecialProfileSettings() {
                   {isWaterIso && <th style={{ width: '110px', textAlign: 'center' }}>Category?</th>}
                   {isFattyAcids && <th>Test Method</th>}
                   {(isFattyAcids || isPesticides) && <th>Specification</th>}
-                  <th style={{ width: '50px', textAlign: 'center' }}></th>
+                  {!isWaterIso && <th style={{ width: '50px', textAlign: 'center' }}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -304,6 +311,7 @@ export default function SpecialProfileSettings() {
                             type="text"
                             value={p.name || ''}
                             onChange={(e) => handleParamChange(idx, 'name', e.target.value)}
+                            disabled={isWaterIso}
                             placeholder={isHeader ? 'Category Header (e.g. General Parameters)' : 'Parameter Name'}
                             style={{
                               width: '100%',
@@ -318,7 +326,7 @@ export default function SpecialProfileSettings() {
                             type="text"
                             value={p.unit || ''}
                             onChange={(e) => handleParamChange(idx, 'unit', e.target.value)}
-                            disabled={isHeader}
+                            disabled={isHeader || isWaterIso}
                             placeholder="Unit"
                             style={{ width: '100%', padding: '0.35rem 0.5rem' }}
                           />
@@ -330,7 +338,7 @@ export default function SpecialProfileSettings() {
                                 type="text"
                                 value={p.testMethod || ''}
                                 onChange={(e) => handleParamChange(idx, 'testMethod', e.target.value)}
-                                disabled={isHeader}
+                                disabled={isHeader || isWaterIso}
                                 placeholder="Method"
                                 style={{ width: '100%', padding: '0.35rem 0.5rem' }}
                               />
@@ -340,7 +348,7 @@ export default function SpecialProfileSettings() {
                                 type="text"
                                 value={p.requirement || ''}
                                 onChange={(e) => handleParamChange(idx, 'requirement', e.target.value)}
-                                disabled={isHeader}
+                                disabled={isHeader || isWaterIso}
                                 placeholder="Requirement"
                                 style={{ width: '100%', padding: '0.35rem 0.5rem' }}
                               />
@@ -350,7 +358,7 @@ export default function SpecialProfileSettings() {
                                 type="text"
                                 value={p.permissibleLimit || ''}
                                 onChange={(e) => handleParamChange(idx, 'permissibleLimit', e.target.value)}
-                                disabled={isHeader}
+                                disabled={isHeader || isWaterIso}
                                 placeholder="Permissible Limit"
                                 style={{ width: '100%', padding: '0.35rem 0.5rem' }}
                               />
@@ -360,6 +368,7 @@ export default function SpecialProfileSettings() {
                                 type="checkbox"
                                 checked={isHeader}
                                 onChange={(e) => handleParamChange(idx, 'isCategoryHeader', e.target.checked)}
+                                disabled={isWaterIso}
                                 title="Toggle category divider row"
                               />
                             </td>
@@ -398,16 +407,18 @@ export default function SpecialProfileSettings() {
                             />
                           </td>
                         )}
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRow(idx)}
-                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.2rem' }}
-                            title="Delete row"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
+                        {!isWaterIso && (
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRow(idx)}
+                              style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '0.2rem' }}
+                              title="Delete row"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -420,14 +431,16 @@ export default function SpecialProfileSettings() {
             <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
               Total: {params.length} parameters
             </span>
-            <button
-              className="btn btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-            >
-              <Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            {!isWaterIso && (
+              <button
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={saving}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+              >
+                <Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            )}
           </div>
         </div>
       ) : null}
