@@ -45,6 +45,9 @@ router.get('/:key', protect, authorize('ADMIN_OFFICER', 'HEAD', 'ADMIN'), async 
 // Update top-level parameters array (waterIso10500)
 router.put('/:key/parameters', protect, authorize('ADMIN_OFFICER', 'HEAD', 'ADMIN'), async (req, res) => {
   try {
+    if (req.params.key === 'waterIso10500') {
+      return res.status(403).json({ message: 'Water ISO 10500 is a locked standard profile and cannot be modified.' });
+    }
     const { parameters } = req.body;
     if (!Array.isArray(parameters)) {
       return res.status(400).json({ message: 'parameters must be an array' });
