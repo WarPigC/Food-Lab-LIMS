@@ -76,39 +76,68 @@ export default function ReportPreview({ blob }) {
    */
   const fixUlrAlignment = (container) => {
     if (!container) return;
-    const allSpans = container.querySelectorAll('span');
+    const allPs = container.querySelectorAll('p');
     
-    allSpans.forEach(span => {
-      if (span.textContent.trim() === 'ULR No.') {
-        // This span and the next sibling (the ULR value) need to be right-aligned
-        const parentP = span.closest('p');
-        if (!parentP) return;
+    allPs.forEach(parentP => {
+      if (!parentP.textContent.includes('ULR No.')) return;
+      // In Water ISO reports, ULR is in a dedicated 2-cell table that aligns naturally with the tables below
+      if (parentP.closest('table')) return;
+      if (parentP.querySelector('.ulr-right-aligned')) return; // Already processed
+      
+      const allSpans = Array.from(parentP.querySelectorAll('span'));
+      const ulrIdx = allSpans.findIndex(s => s.textContent.includes('ULR No.'));
+      
+      if (ulrIdx !== -1) {
+        const targetSpan = allSpans[ulrIdx];
+        let ulrText = '';
 
-        // Collect ULR-related spans (the label + the value after it)
-        const ulrSpans = [];
-        let found = false;
-        const allChildSpans = parentP.querySelectorAll('span');
-        allChildSpans.forEach(s => {
-          if (s === span) found = true;
-          if (found) ulrSpans.push(s);
+        if (targetSpan.textContent.includes('FTL/AIPER') || targetSpan.textContent.includes('Report')) {
+          const match = targetSpan.textContent.match(/(.*?)(ULR No\..*)/s);
+          if (match) {
+            targetSpan.textContent = match[1].replace(/[\s\t]+$/, '');
+            ulrText = match[2].trim();
+          }
+        } else {
+          const ulrSpans = allSpans.slice(ulrIdx);
+          ulrText = ulrSpans.map(s => s.textContent).join(' ').trim();
+          ulrSpans.forEach(s => s.remove());
+        }
+
+        // Clean any tab text nodes and redundant spaces
+        parentP.childNodes.forEach(node => {
+          if (node.nodeType === 3) {
+            node.textContent = node.textContent.replace(/\t/g, '').replace(/[\s]{2,}$/, ' ');
+          }
         });
 
-        if (ulrSpans.length > 0) {
-          // Wrap ULR spans in a right-floated container
-          const ulrContainer = document.createElement('span');
-          ulrContainer.style.cssText = 'float: right;';
-          ulrSpans.forEach(s => ulrContainer.appendChild(s.cloneNode(true)));
-          ulrSpans.forEach(s => s.remove());
-          
-          // Remove any tab character text nodes
-          parentP.childNodes.forEach(node => {
-            if (node.nodeType === 3 && node.textContent.includes('\t')) {
-              node.textContent = node.textContent.replace(/\t/g, '');
+        // Use flexbox for pixel-perfect edge-to-edge alignment matching the table below
+        parentP.style.display = 'flex';
+        parentP.style.justifyContent = 'space-between';
+        parentP.style.alignItems = 'baseline';
+
+        const sec = parentP.closest('section');
+        const allSecTables = sec ? Array.from(sec.querySelectorAll('table')) : [];
+        // Target the customer details table (table 1) rather than the banner table (table 0)
+        const refTable = allSecTables.length > 1 ? allSecTables[1] : (allSecTables[0] || null);
+        if (refTable) {
+          const tableRect = refTable.getBoundingClientRect();
+          const pRect = parentP.getBoundingClientRect();
+          if (tableRect.width > 0) {
+            parentP.style.width = `${tableRect.width}px`;
+            const diffX = tableRect.left - pRect.left;
+            if (diffX !== 0) {
+              parentP.style.marginLeft = `${diffX}px`;
             }
-          });
-          
-          parentP.appendChild(ulrContainer);
+          }
+        } else {
+          parentP.style.width = '100%';
         }
+
+        const ulrContainer = document.createElement('span');
+        ulrContainer.className = 'ulr-right-aligned';
+        ulrContainer.style.fontWeight = 'bold';
+        ulrContainer.textContent = ulrText;
+        parentP.appendChild(ulrContainer);
       }
     });
   };
@@ -155,15 +184,18 @@ export default function ReportPreview({ blob }) {
     const containerWidth = container.clientWidth || (container.parentElement && container.parentElement.clientWidth);
     const sectionWidth = section.scrollWidth || section.offsetWidth;
 
+    const wrapper = container.querySelector('.docx-wrapper');
     if (sectionWidth > containerWidth && containerWidth > 0) {
       const scale = containerWidth / sectionWidth;
-      const wrapper = container.querySelector('.docx-wrapper');
       if (wrapper) {
-        wrapper.style.transformOrigin = 'top left';
+        wrapper.style.transformOrigin = 'top center';
         wrapper.style.transform = `scale(${scale})`;
         // Adjust container height so it doesn't leave empty space
         wrapper.style.width = `${100 / scale}%`;
       }
+    } else if (wrapper) {
+      wrapper.style.transform = 'none';
+      wrapper.style.width = '100%';
     }
   };
 
@@ -177,11 +209,43 @@ export default function ReportPreview({ blob }) {
   return (
     <>
       <style>{`
+        .report-preview-container {
+          display: flex;
+          justify-content: center;
+        }
         .report-preview-container .docx-wrapper {
           transition: transform 0.2s ease;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          margin: 0 auto !important;
         }
         .report-preview-container section.docx {
           max-width: none !important;
+          padding-left: 36pt !important;
+          padding-right: 36pt !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          overflow: hidden !important;
+        }
+        .report-preview-container section.docx > header,
+        .report-preview-container section.docx > article,
+        .report-preview-container section.docx > footer {
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        .report-preview-container section.docx table {
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+        /* Reset negative margins that push text out of bounds */
+        .report-preview-container p {
+          margin-right: 0 !important;
+          margin-inline-end: 0 !important;
         }
         /* Ensure inline-block images in table cells don't stack */
         .report-preview-container td div[style*="inline-block"] {
