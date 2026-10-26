@@ -250,6 +250,8 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P9 | F19 | Head Monitor Tab V1 — Cancel, Reassign & Live Progress | ⬜ Upcoming |
 | SP2.P10 | F20 | Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot | ⬜ Upcoming |
 | SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
+| SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ⬜ Upcoming |
+| SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ⬜ Upcoming |
 
 ---
 
@@ -649,6 +651,65 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP2.P10.5 | Test: split 1 param from analyst A to analyst B who already has an active instance — verify no new TestInstance created, B10 scenario cannot recur |
 | SP2.P10.6 | Test: split to an analyst with no existing instance — verify new instance IS created |
 | SP2.P10.7 | Verify progress snapshot shows correct per-param data after a split |
+
+---
+
+### SP2.P12: B12 - 1+ Samples Multi-Department Handover Bypass
+
+**Files**:
+- `backend/routes/jobs/jobCrudRoutes.js`
+- `backend/routes/jobs/jobWorkflowRoutes.js`
+- `backend/routes/sampleTransferRoutes.js`
+- `frontend/src/pages/Head/DispatcherPage.jsx`
+- `frontend/src/components/JobTimeline.jsx`
+
+**Symptom**: When a client provides 2 or more physical containers (`sample.sample_count > 1`, e.g. Job `2610011828` with 5 packets), Microbiology and Chemical receive physical samples at intake and can test concurrently from day 1. However, the system currently evaluates handover requirements purely via `isMultiDept = micro.required && chemical.required`, completely ignoring `sample_count`. This forces an artificial sequential handover (`sampleTransferState: PENDING_APPROVAL -> PENDING_TRANSFER -> IN_TRANSIT -> ACCEPTED`), locking Chemical out of dispatching for days until Micro completes testing and confirms transfer.
+
+**Fix**: Introduce a centralized helper `isSampleHandoverRequired(job)` returning `true` only when `micro.required && chemical.required && (sample.sample_count <= 1)`. When `sample.sample_count > 1`, set `sampleTransferState: 'NOT_REQUIRED'`, bypass outgoing/incoming transfer queues, unlock Chemical dispatch immediately upon joint review approval, and render parallel pipeline tracks in the timeline without an intermediate transfer connector.
+
+| Subphase | Task |
+|---|---|
+| SP2.P12.1 | **Backend - helper**: Create `isSampleHandoverRequired(job)` utility function checking multi-department requirement AND `(job.sample?.sample_count <= 1 || !job.sample?.sample_count)` |
+| SP2.P12.2 | **Backend - jobCrudRoutes**: In `POST /api/jobs` and `PUT /api/jobs/:id`, use `isSampleHandoverRequired` to set `sampleTransferState` to `'NOT_REQUIRED'` when `sample_count > 1` |
+| SP2.P12.3 | **Backend - jobWorkflowRoutes**: In `PUT /:id/approve-review`, if `!isSampleHandoverRequired(job)`, transition `sampleTransferState` to `'NOT_REQUIRED'` upon joint review approval, immediately enabling Chemical dispatch |
+| SP2.P12.4 | **Backend - sampleTransferRoutes**: In `GET /outgoing` and `GET /incoming`, exclude jobs where `sample.sample_count > 1` so they never appear in transfer queues |
+| SP2.P12.5 | **Frontend - DispatcherPage**: Update `canChemicalDispatch` logic to allow dispatch if `job.sample?.sample_count > 1` or `sampleTransferState === 'NOT_REQUIRED'`; hide the sample transfer warning banner when `sample_count > 1` |
+| SP2.P12.6 | **Frontend - JobTimeline**: Render parallel department tracks without an intermediate sample transfer connector box when `sample.sample_count > 1` |
+| SP2.P12.7 | **Testing**: Verify with multi-department job having `sample_count = 2`: confirm no transfer in queues, Chemical can dispatch immediately on review approval, and timeline displays clean parallel tracks |
+
+---
+
+### SP2.P13: B13 - Staged Parameter Amendments & Multi-Analyst Duplication Fix
+
+**Files**:
+- `backend/models/Job.js`
+- `backend/utils/parameterDelta.js`
+- `backend/utils/ulrService.js`
+- `backend/routes/jobs/jobCrudRoutes.js`
+- `backend/routes/jobs/jobWorkflowRoutes.js`
+- `backend/routes/jobs/jobListRoutes.js`
+- `backend/routes/tests/testResultRoutes.js`
+- `backend/routes/exportRoutes.js`
+- `frontend/src/pages/Head/DispatcherPage.jsx`
+- `frontend/src/components/JobLogTable.jsx`
+- `frontend/src/pages/AdminOfficer/JobsPage.jsx`
+
+**Symptom**: When an Admin Officer edits an active dispatched job and adds parameters, `applyAdditions` pushes the new parameters into every active `TestInstance` belonging to that department. Multiple analysts receive identical parameters, and completed tests are rolled back to `PENDING`. Furthermore, Department Heads have no approval or assignment control over the new parameters.
+
+**Fix**: Introduce a staged container on the Job schema (`pendingParamAmendments`). New parameters on dispatched jobs do not touch active `TestInstance` records. The Head receives a dedicated Dispatcher card to Approve & Assign (to an existing or new analyst) or Reject with a reason. Upon rejection, the Admin Officer's job row highlights in red with a `[Params Rejected]` badge, and the rejected parameters pre-fill the form (zero re-typing). A 3-layer completion safety guard ensures the job cannot be marked completed, assigned a ULR, or exported until amendments are fully resolved.
+
+| Subphase | Task |
+|---|---|
+| SP2.P13.1 | **Backend - schema**: Add `pendingParamAmendments` schema definition to `Job.js` with statuses `NONE`, `PENDING_HEAD_REVIEW`, `REJECTED` |
+| SP2.P13.2 | **Backend - jobCrudRoutes**: In `PUT /api/jobs/:id`, stage added parameters into `pendingParamAmendments` instead of calling `applyAdditions`; notify Head |
+| SP2.P13.3 | **Backend - jobWorkflowRoutes**: Create `POST /api/jobs/:id/approve-amendment` (assigns params to analysts, merges to `job.parameters`, clears staging) and `POST /api/jobs/:id/reject-amendment` (stores rejection reason, notifies officer) |
+| SP2.P13.4 | **Backend - safety guards**: In `testResultRoutes.js` (completion check), `ulrService.js` (`isJobFullyTested`), and `exportRoutes.js` (report export), block finalization while `pendingParamAmendments.status !== 'NONE'` |
+| SP2.P13.5 | **Frontend - DispatcherPage**: Display dedicated "Parameter Amendment Awaiting Review" card with Approve & Assign dropdowns and Reject modal |
+| SP2.P13.6 | **Frontend - JobLogTable**: When `pendingParamAmendments.status === 'REJECTED'`, render solid red left accent bar, red `[Params Rejected]` badge, and highlighted red Edit button |
+| SP2.P13.7 | **Frontend - JobsPage**: On editing a rejected job, show red alert banner with Head's reason, pre-fill rejected parameters in selector (zero re-typing), and provide "Discard Rejected Parameters" action |
+| SP2.P13.8 | **Testing**: Verify full lifecycle: edit dispatched job -> Head rejects -> red alert appears on officer row -> officer opens form with pre-filled params -> completion guard blocks report -> officer discards -> guard releases and job completes |
+
+---
 
 ### SP3 — UX Polish + Infrastructure
 | Phase | ID | Title |

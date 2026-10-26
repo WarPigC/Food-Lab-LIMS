@@ -7,7 +7,6 @@ const {
   TableRow,
   TableCell,
   WidthType,
-  BorderStyle,
   AlignmentType,
   VerticalAlign,
   Header,
@@ -19,6 +18,7 @@ const {
 const SpecialProfile = require('../models/SpecialProfile');
 const { SPECIAL_PROFILE_CONSTANTS } = require('../utils/specialProfileConstants');
 const {
+  createCell,
   deriveReportFields,
   buildHeaderTable,
   formatDate,
@@ -29,7 +29,7 @@ const {
   TABLE_BORDERS_NONE,
 } = require('./reportGenerator');
 
-// Specific markers for Water ISO 10500 parameters matching sample docx
+// Specific markers for Water ISO 10500 parameters matching standard numbering
 const SR_NO_MAP = {
   'PCB 118': 'i',
   'PCB 101': 'ii.',
@@ -42,21 +42,75 @@ const SR_NO_MAP = {
   'Trihalomethanes': '31',
 };
 
-const CATEGORY_EXACT_MAP = {
-  'Organoleptic and Physicals Parameters': ' Organoleptic and Physicals Parameters   ',
-  'General Parameters': 'General Parameters ',
-  'Parameters Concerning Toxic Substances': 'Parameters Concerning Toxic Substances ',
-  'Pesticides Residue': 'Pesticides Residue',
-  'Microbiology Test Parameters': 'Microbiology Test Parameters',
+// Column widths for 7-column Water ISO results table (sum = 10800 dxa)
+const COL_WIDTHS = [800, 2400, 900, 1100, 2000, 1800, 1800];
+
+// Height estimation constants in twips matching reportGenerator.js
+const PAGE_HEIGHT_DXA = 15840;
+const MARGIN_TOP = 720;
+const MARGIN_BOTTOM = 720;
+const FOOTER_RESERVE = 400;
+const USABLE_HEIGHT = PAGE_HEIGHT_DXA - MARGIN_TOP - MARGIN_BOTTOM - FOOTER_RESERVE;
+
+const LINE_HEIGHT = 260;
+const ROW_PADDING = 50;
+const AVG_CHAR_WIDTH = 100;
+const SAFETY_FACTOR = 1.0;
+
+const HEADER_HEIGHT = Math.ceil(1600 * SAFETY_FACTOR);
+const FTL_REF_HEIGHT = Math.ceil(340 * SAFETY_FACTOR);
+const TEST_REPORT_TITLE = Math.ceil(360 * SAFETY_FACTOR);
+const REPORT_ULR_LINE = Math.ceil(280 * SAFETY_FACTOR);
+const TEST_RESULT_TITLE = Math.ceil(400 * SAFETY_FACTOR);
+const RESULTS_HEADER_ROW = Math.ceil(640 * SAFETY_FACTOR);
+const FOOTER_BLOCK_HEIGHT = Math.ceil(3200 * SAFETY_FACTOR);
+const DISCIPLINE_HEADER_HEIGHT = Math.ceil((2 * LINE_HEIGHT + ROW_PADDING) * SAFETY_FACTOR);
+
+const estimateLines = (text, colWidthDxa) => {
+  if (!text) return 1;
+  const charsPerLine = Math.max(1, Math.floor(colWidthDxa / AVG_CHAR_WIDTH));
+  let total = 0;
+  for (const line of String(text).split('\n')) {
+    total += Math.max(1, Math.ceil(line.length / charsPerLine));
+  }
+  return total;
 };
 
-const PARAM_EXACT_MAP = {
-  'Total Coliform': 'Total  Coliform ',
-  'Total  Coliform': 'Total  Coliform ',
+const estimateRowHeight = (row) => {
+  if (row.type === 'discipline') {
+    return DISCIPLINE_HEADER_HEIGHT;
+  }
+  if (row.type === 'category') {
+    return LINE_HEIGHT + ROW_PADDING + 80;
+  }
+  const nameLines = estimateLines(row.name, COL_WIDTHS[1]);
+  const methodLines = estimateLines(row.testMethod, COL_WIDTHS[4]);
+  const reqLines = estimateLines(row.requirement, COL_WIDTHS[5]);
+  const permLines = estimateLines(row.permissibleLimit, COL_WIDTHS[6]);
+  const maxLines = Math.max(nameLines, methodLines, reqLines, permLines, 1);
+  return Math.ceil((maxLines * LINE_HEIGHT + ROW_PADDING) * SAFETY_FACTOR);
 };
 
-// Create cell with exact dxa width
-const createWaterIsoCell = (text, options = {}) => {
+const estimateSampleInfoHeight = (job) => {
+  const sample = job.sample || {};
+  let height = 3 * LINE_HEIGHT + ROW_PADDING; // customer block
+  height += 7 * (LINE_HEIGHT + ROW_PADDING); // fixed 7 rows
+  const descLines = estimateLines(sample.sample_description, 8100);
+  height += descLines * LINE_HEIGHT + ROW_PADDING;
+  return Math.ceil(height * SAFETY_FACTOR);
+};
+
+const calcFirstPageOverhead = (job) => {
+  return FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + estimateSampleInfoHeight(job) + TEST_RESULT_TITLE + RESULTS_HEADER_ROW;
+};
+
+const calcContinuationOverhead = () => {
+  const CONT_SAMPLE_INFO = Math.ceil((LINE_HEIGHT + ROW_PADDING) * SAFETY_FACTOR);
+  return FTL_REF_HEIGHT + HEADER_HEIGHT + TEST_REPORT_TITLE + REPORT_ULR_LINE + CONT_SAMPLE_INFO + RESULTS_HEADER_ROW + 160;
+};
+
+// Helper to create table cell with exact dxa width
+const createCellDxa = (text, widthDxa, options = {}) => {
   const {
     bold = false,
     alignment = AlignmentType.LEFT,
@@ -66,7 +120,6 @@ const createWaterIsoCell = (text, options = {}) => {
     shading = null,
     size = 20,
     verticalAlign = VerticalAlign.CENTER,
-    widthDxa,
   } = options;
 
   const textString = text !== undefined && text !== null ? String(text) : '';
@@ -87,18 +140,16 @@ const createWaterIsoCell = (text, options = {}) => {
     borders,
     verticalAlign,
     margins: { top: 20, bottom: 20, left: 40, right: 40 },
+    width: { size: widthDxa, type: WidthType.DXA },
   };
 
-  if (widthDxa) {
-    cellOptions.width = { size: widthDxa, type: WidthType.DXA };
-  }
   if (shading) {
     cellOptions.shading = { fill: shading };
   }
   return new TableCell(cellOptions);
 };
 
-// Build sample info table matching Water ISO 10500.docx Table 0
+// Build sample info table (8 clean rows, width = 10800 dxa)
 const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
   const customer = job.customer || {};
   const sample = job.sample || {};
@@ -155,6 +206,7 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
   }
 
   const rows = [];
+  const colW = [2700, 3240, 2484, 2376]; // sum = 10800 dxa
 
   // Row 0: Customer info (colspan: 4)
   rows.push(
@@ -177,10 +229,10 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Sample Name\n( as stated by customer )', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell((sample.sample_name || 'Drinking Water') + '  ', { widthDxa: 2977 }),
-        createWaterIsoCell('Registration No.', { bold: true, widthDxa: 2551 }),
-        createWaterIsoCell(registrationNo, { widthDxa: 2410 }),
+        createCellDxa('Sample Name\n( as stated by customer )', colW[0], { bold: true }),
+        createCellDxa((sample.sample_name || 'Drinking Water') + '  ', colW[1]),
+        createCellDxa('Registration No.', colW[2], { bold: true }),
+        createCellDxa(registrationNo, colW[3]),
       ],
     })
   );
@@ -190,10 +242,10 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Product Category ', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell(job.groupMetadata?.productCategory || 'Drinking water', { widthDxa: 2977 }),
-        createWaterIsoCell('Issue Date ', { bold: true, widthDxa: 2551 }),
-        createWaterIsoCell(issueDate, { widthDxa: 2410 }),
+        createCellDxa('Product Category ', colW[0], { bold: true }),
+        createCellDxa(job.groupMetadata?.productCategory || 'Drinking water', colW[1]),
+        createCellDxa('Issue Date ', colW[2], { bold: true }),
+        createCellDxa(issueDate, colW[3]),
       ],
     })
   );
@@ -205,10 +257,10 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Sample Quantity', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell(displayQty, { widthDxa: 2977 }),
-        createWaterIsoCell('Date of Receipt', { bold: true, widthDxa: 2551 }),
-        createWaterIsoCell(receiptDate, { widthDxa: 2410 }),
+        createCellDxa('Sample Quantity', colW[0], { bold: true }),
+        createCellDxa(displayQty, colW[1]),
+        createCellDxa('Date of Receipt', colW[2], { bold: true }),
+        createCellDxa(receiptDate, colW[3]),
       ],
     })
   );
@@ -218,10 +270,10 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Packing Details ', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell(sample.packing_details || 'Packed in green colour jar.', { widthDxa: 2977 }),
-        createWaterIsoCell('Testing period', { bold: true, widthDxa: 2551 }),
-        createWaterIsoCell(testingPeriodStr, { widthDxa: 2410 }),
+        createCellDxa('Packing Details ', colW[0], { bold: true }),
+        createCellDxa(sample.packing_details || 'Packed in green colour jar.', colW[1]),
+        createCellDxa('Testing period', colW[2], { bold: true }),
+        createCellDxa(testingPeriodStr, colW[3]),
       ],
     })
   );
@@ -231,10 +283,10 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Marking Seal ( if any)', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell(sample.marking_seal || 'NA', { widthDxa: 2977 }),
-        createWaterIsoCell('Standard Specification', { bold: true, widthDxa: 2551 }),
-        createWaterIsoCell(compliance.standard_specification || 'IS 10500:2012', { widthDxa: 2410 }),
+        createCellDxa('Marking Seal ( if any)', colW[0], { bold: true }),
+        createCellDxa(sample.marking_seal || 'NA', colW[1]),
+        createCellDxa('Standard Specification', colW[2], { bold: true }),
+        createCellDxa(compliance.standard_specification || 'IS 10500:2012', colW[3]),
       ],
     })
   );
@@ -244,280 +296,228 @@ const buildWaterIsoSampleInfoTable = (job, registrationNo, issueDate) => {
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Sampling Details', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell(sample.sampling_details || 'Sample provided by the customer', { widthDxa: 2977 }),
-        createWaterIsoCell('Sample condition on receipt', { bold: true, widthDxa: 2551 }),
-        createWaterIsoCell(sample.condition_on_receipt || 'Satisfactory', { widthDxa: 2410 }),
+        createCellDxa('Sampling Details', colW[0], { bold: true }),
+        createCellDxa(sample.sampling_details || 'Sample provided by the customer', colW[1]),
+        createCellDxa('Sample condition on receipt', colW[2], { bold: true }),
+        createCellDxa(sample.condition_on_receipt || 'Satisfactory', colW[3]),
       ],
     })
   );
 
-  // Optional customer provided data
-  const hasCustomerData = Boolean(
-    customer.customer_reference_no ||
-    customer.batch_no ||
-    customer.dom ||
-    customer.brand_name ||
-    customer.any_other_info ||
-    customer.batch_size ||
-    customer.doe
-  );
-
-  if (hasCustomerData) {
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Any data provided by customer;', { bold: true, colSpan: 4, widthDxa: PAGE_WIDTH_DXA }),
-        ],
-      })
-    );
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Customer ref.', { bold: true, widthDxa: 2836 }),
-          createWaterIsoCell(customer.customer_reference_no || 'NA', { widthDxa: 2977 }),
-          createWaterIsoCell('Brand Name', { bold: true, widthDxa: 2551 }),
-          createWaterIsoCell(customer.brand_name || 'NA', { widthDxa: 2410 }),
-        ],
-      })
-    );
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Batch No.', { bold: true, widthDxa: 2836 }),
-          createWaterIsoCell(customer.batch_no || 'NA', { widthDxa: 2977 }),
-          createWaterIsoCell('Any Other Information', { bold: true, widthDxa: 2551 }),
-          createWaterIsoCell(customer.any_other_info || 'NA', { widthDxa: 2410 }),
-        ],
-      })
-    );
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('DOM', { bold: true, widthDxa: 2836 }),
-          createWaterIsoCell(customer.dom || 'NA', { widthDxa: 2977 }),
-          createWaterIsoCell('Batch Size', { bold: true, widthDxa: 2551 }),
-          createWaterIsoCell(customer.batch_size || 'NA', { widthDxa: 2410 }),
-        ],
-      })
-    );
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Any Handling Instructions provided : Yes/NO ( if yes ; Short details)', {
-            bold: true,
-            colSpan: 2,
-            widthDxa: 5813,
-          }),
-          createWaterIsoCell('DOE', { bold: true, widthDxa: 2551 }),
-          createWaterIsoCell(customer.doe || 'NA', { widthDxa: 2410 }),
-        ],
-      })
-    );
-  } else if (compliance.special_handling_instructions) {
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Any Handling Instructions provided : Yes/NO ( if yes ; Short details)', {
-            bold: true,
-            colSpan: 4,
-            widthDxa: PAGE_WIDTH_DXA,
-          }),
-        ],
-      })
-    );
-  }
-
-  // Row 7 (or final row): Sample Description (colSpan 3 for value)
+  // Row 7: Sample Description (colspan 3 for value)
   rows.push(
     new TableRow({
       cantSplit: true,
       children: [
-        createWaterIsoCell('Sample Description', { bold: true, widthDxa: 2836 }),
-        createWaterIsoCell((sample.sample_description || 'N/A') + ' \n', { colSpan: 3, widthDxa: 7938 }),
+        createCellDxa('Sample Description', colW[0], { bold: true }),
+        createCellDxa((sample.sample_description || 'N/A') + ' \n', colW[1] + colW[2] + colW[3], { colSpan: 3 }),
       ],
     })
   );
 
-  return new Table({ rows, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
+  return new Table({
+    rows,
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: colW,
+  });
 };
 
-// Build continuation banner table (2 rows matching sample docx)
-const buildContinuationBanner = (job, registrationNo, issueDate) => {
+// Build continuation banner table (width = 10800 dxa)
+const buildContinuationTable = (job, registrationNo) => {
+  const colW = [3240, 2160, 2700, 2700]; // sum = 10800 dxa
   return new Table({
     rows: [
       new TableRow({
         cantSplit: true,
         children: [
-          createWaterIsoCell('Sample Name\n( as stated by customer )', {
-            bold: true,
-            widthDxa: 2835,
-          }),
-          createWaterIsoCell((job.sample?.sample_name || 'Drinking Water') + '  ', {
-            widthDxa: 2847,
-          }),
-          createWaterIsoCell('Registration No.', {
-            bold: true,
-            widthDxa: 2242,
-          }),
-          createWaterIsoCell(registrationNo, {
-            widthDxa: 2850,
-          }),
-        ],
-      }),
-      new TableRow({
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Product Category ', {
-            bold: true,
-            widthDxa: 2835,
-          }),
-          createWaterIsoCell(job.groupMetadata?.productCategory || 'Drinking water', {
-            widthDxa: 2847,
-          }),
-          createWaterIsoCell('Issue Date ', {
-            bold: true,
-            widthDxa: 2242,
-          }),
-          createWaterIsoCell(issueDate, {
-            widthDxa: 2850,
-          }),
+          createCellDxa('Sample Name\n( as stated by customer )', colW[0], { bold: true }),
+          createCellDxa(job.sample?.sample_name || 'Drinking Water', colW[1]),
+          createCellDxa('Registration No.', colW[2], { bold: true }),
+          createCellDxa(registrationNo, colW[3]),
         ],
       }),
     ],
     width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: colW,
   });
 };
 
-// Build Water ISO results table for a given page chunk
-const buildWaterIsoResultsTable = (pageRows, isFirstPage) => {
+// Build results table for a given page's slice of rows
+const buildWaterIsoResultsTable = (pageRows, repeatHeader = null) => {
   const tableRows = [];
 
-  const W_COL0 = 976;   // Sr. No. (453 / 5000 = 9.06%)
-  const W_COL1 = 1976;  // Test Parameters (917 / 5000 = 18.34%)
-  const W_COL2 = 832;   // UoM (386 / 5000 = 7.72%)
-  const W_COL3 = 1692;  // Result (785 / 5000 = 15.7%)
-  const W_COL4 = 2273;  // Test Method (1055 / 5000 = 21.1%)
-  const W_COL5 = 1482;  // Requirement (688 / 5000 = 13.76%)
-  const W_COL6 = 1543;  // Permissible Limit (716 / 5000 = 14.32%)
+  // Header Row 0
+  tableRows.push(
+    new TableRow({
+      tableHeader: true,
+      cantSplit: true,
+      children: [
+        createCellDxa('Sr. No.', COL_WIDTHS[0], { bold: true, alignment: AlignmentType.CENTER, rowSpan: 2 }),
+        createCellDxa('Test Parameters', COL_WIDTHS[1], { bold: true, alignment: AlignmentType.CENTER, rowSpan: 2 }),
+        createCellDxa('UoM', COL_WIDTHS[2], { bold: true, alignment: AlignmentType.CENTER, rowSpan: 2 }),
+        createCellDxa('Result', COL_WIDTHS[3], { bold: true, alignment: AlignmentType.CENTER, rowSpan: 2 }),
+        createCellDxa('Test Method', COL_WIDTHS[4], { bold: true, alignment: AlignmentType.CENTER, rowSpan: 2 }),
+        createCellDxa(
+          'Limit as per IS: 10500:2012 (Reaff.2023) with Amendment No: 4 November 2021',
+          COL_WIDTHS[5] + COL_WIDTHS[6],
+          { bold: true, alignment: AlignmentType.CENTER, colSpan: 2 }
+        ),
+      ],
+    })
+  );
 
-  if (isFirstPage) {
-    // Dual-column header on Page 1
+  // Header Row 1
+  tableRows.push(
+    new TableRow({
+      tableHeader: true,
+      cantSplit: true,
+      children: [
+        createCellDxa('Requirement (Acceptable Limit)', COL_WIDTHS[5], { bold: true, alignment: AlignmentType.CENTER }),
+        createCellDxa('Permissible Limit in the absence of Alternate Source', COL_WIDTHS[6], { bold: true, alignment: AlignmentType.CENTER }),
+      ],
+    })
+  );
+
+  // Optional repeated discipline header if continuing mid-discipline
+  if (repeatHeader) {
+    const isBio = repeatHeader === 'Biological';
+    const cell1Text = isBio
+      ? 'Discipline- Biological\nMicrobiology Test Parameter'
+      : 'Discipline- Chemical\nChemical Test Parameter';
     tableRows.push(
       new TableRow({
-        tableHeader: true,
         cantSplit: true,
         children: [
-          createWaterIsoCell('Sr. No.', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL0, rowSpan: 2 }),
-          createWaterIsoCell('Test Parameters', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL1, rowSpan: 2 }),
-          createWaterIsoCell('UoM', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL2, rowSpan: 2 }),
-          createWaterIsoCell('Result', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL3, rowSpan: 2 }),
-          createWaterIsoCell('Test Method', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL4, rowSpan: 2 }),
-          createWaterIsoCell(
-            'Limit as per IS: 10500:2012 (Reaff.2023) with Amendment  No: 4 November 2021 ',
-            { bold: true, alignment: AlignmentType.CENTER, colSpan: 2, widthDxa: W_COL5 + W_COL6 }
-          ),
-        ],
-      })
-    );
-    tableRows.push(
-      new TableRow({
-        tableHeader: true,
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Requirement (Acceptable Limit)', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL5 }),
-          createWaterIsoCell('Permissible Limit in the absence of Alternate Source ', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL6 }),
-        ],
-      })
-    );
-  } else {
-    // Single header row on continuation pages
-    tableRows.push(
-      new TableRow({
-        tableHeader: true,
-        cantSplit: true,
-        children: [
-          createWaterIsoCell('Sr. No.', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL0 }),
-          createWaterIsoCell('Test Parameters', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL1 }),
-          createWaterIsoCell('UoM', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL2 }),
-          createWaterIsoCell('Result', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL3 }),
-          createWaterIsoCell('Test Method', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL4 }),
-          createWaterIsoCell('Requirement (Acceptable Limit)', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL5 }),
-          createWaterIsoCell('Permissible Limit in the absence of Alternate Source ', { bold: true, alignment: AlignmentType.CENTER, widthDxa: W_COL6 }),
+          createCellDxa(cell1Text, COL_WIDTHS[0] + COL_WIDTHS[1], {
+            bold: true,
+            colSpan: 2,
+            alignment: AlignmentType.CENTER,
+            shading: 'F2F2F2',
+          }),
+          createCellDxa('Group: Water                                     Sub Group: Drinking water', PAGE_WIDTH_DXA - (COL_WIDTHS[0] + COL_WIDTHS[1]), {
+            bold: true,
+            colSpan: 5,
+            alignment: AlignmentType.CENTER,
+            shading: 'F2F2F2',
+          }),
         ],
       })
     );
   }
 
-  // Render rows for this page chunk
+  // Add the rows assigned to this page
   for (const r of pageRows) {
     if (r.type === 'discipline') {
-      const isChem = r.discipline === 'Chemical';
+      const isBio = r.discipline === 'Biological';
+      const cell1Text = isBio
+        ? 'Discipline- Biological\nMicrobiology Test Parameter'
+        : 'Discipline- Chemical\nChemical Test Parameter';
       tableRows.push(
         new TableRow({
           cantSplit: true,
           children: [
-            createWaterIsoCell(
-              isChem ? 'Discipline- Chemical\nChemical Test Parameter' : 'Discipline- Biological \nMicrobiology Test Parameters',
-              { bold: true, colSpan: 5, widthDxa: W_COL0 + W_COL1 + W_COL2 + W_COL3 + W_COL4 }
-            ),
-            createWaterIsoCell(
-              isChem
-                ? 'Group \u2013 Water                                     Sub Group \u2013 Drinking water'
-                : 'Group - Water\nSub Group \u2013 Drinking water',
-              { bold: true, colSpan: 2, widthDxa: W_COL5 + W_COL6 }
-            ),
+            createCellDxa(cell1Text, COL_WIDTHS[0] + COL_WIDTHS[1], {
+              bold: true,
+              colSpan: 2,
+              alignment: AlignmentType.CENTER,
+              shading: 'F2F2F2',
+            }),
+            createCellDxa('Group: Water                                     Sub Group: Drinking water', PAGE_WIDTH_DXA - (COL_WIDTHS[0] + COL_WIDTHS[1]), {
+              bold: true,
+              colSpan: 5,
+              alignment: AlignmentType.CENTER,
+              shading: 'F2F2F2',
+            }),
           ],
         })
       );
     } else if (r.type === 'category') {
-      const catText = CATEGORY_EXACT_MAP[r.name] || r.name;
       tableRows.push(
         new TableRow({
           cantSplit: true,
           children: [
-            createWaterIsoCell(catText, {
+            createCellDxa(r.name, PAGE_WIDTH_DXA, {
               bold: true,
               colSpan: 7,
-              widthDxa: PAGE_WIDTH_DXA,
+              alignment: AlignmentType.CENTER,
+              shading: 'F2F2F2',
             }),
           ],
         })
       );
     } else {
-      // Data row
-      const srNo = r.srNo || SR_NO_MAP[r.name] || '';
-      const displayName = PARAM_EXACT_MAP[r.name] || r.name;
       tableRows.push(
         new TableRow({
           cantSplit: true,
           children: [
-            createWaterIsoCell(srNo, { alignment: AlignmentType.CENTER, widthDxa: W_COL0 }),
-            createWaterIsoCell(displayName, { widthDxa: W_COL1 }),
-            createWaterIsoCell(r.unit || '-', { alignment: AlignmentType.CENTER, widthDxa: W_COL2 }),
-            createWaterIsoCell(r.value || 'BLQ (LOQ 0.01)', { alignment: AlignmentType.CENTER, widthDxa: W_COL3 }),
-            createWaterIsoCell(r.testMethod || '--', { alignment: AlignmentType.CENTER, widthDxa: W_COL4 }),
-            createWaterIsoCell(r.requirement || '--', { alignment: AlignmentType.CENTER, widthDxa: W_COL5 }),
-            createWaterIsoCell(r.permissibleLimit || '--', { alignment: AlignmentType.CENTER, widthDxa: W_COL6 }),
+            createCellDxa(r.srNo || '', COL_WIDTHS[0], { alignment: AlignmentType.CENTER }),
+            createCellDxa(r.name || '', COL_WIDTHS[1], { alignment: AlignmentType.LEFT }),
+            createCellDxa(r.unit || '-', COL_WIDTHS[2], { alignment: AlignmentType.CENTER }),
+            createCellDxa(r.value || 'BLQ (LOQ 0.01)', COL_WIDTHS[3], { alignment: AlignmentType.CENTER }),
+            createCellDxa(r.testMethod || 'N/A', COL_WIDTHS[4], { alignment: AlignmentType.LEFT }),
+            createCellDxa(r.requirement || 'N/A', COL_WIDTHS[5], { alignment: AlignmentType.CENTER }),
+            createCellDxa(r.permissibleLimit || 'No relaxation', COL_WIDTHS[6], { alignment: AlignmentType.CENTER }),
           ],
         })
       );
     }
   }
 
-  return new Table({ rows: tableRows, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
+  return new Table({
+    rows: tableRows,
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: COL_WIDTHS,
+  });
+};
+
+// Build signature table (3 columns, width = 10800 dxa)
+const buildSignatureTable = (job) => {
+  const analystName = formatSignatoryName(job.assignedAnalyst, 'Ms. Diksha Dwivedi');
+  const chemHead = formatSignatoryName(job.distribution?.chemical?.assignedHead?.name, 'Ms. Monika Pali');
+  const microHead = formatSignatoryName(job.distribution?.micro?.assignedHead?.name, 'Ms. Jyoti Pathak');
+  const sigColWidth = 3600; // 3600 * 3 = 10800 dxa
+
+  const sigCells = [
+    new TableCell({
+      children: [
+        new Paragraph({ children: [new TextRun({ text: 'Reviewed By', bold: true, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: analystName, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: 'Analyst', font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+      ],
+      borders: BORDERS_NONE,
+      width: { size: sigColWidth, type: WidthType.DXA },
+    }),
+    new TableCell({
+      children: [
+        new Paragraph({ children: [new TextRun({ text: 'Authorized Signatory', bold: true, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: chemHead, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: 'Technical Manager', font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+      ],
+      borders: BORDERS_NONE,
+      width: { size: sigColWidth, type: WidthType.DXA },
+    }),
+    new TableCell({
+      children: [
+        new Paragraph({ children: [new TextRun({ text: 'Authorized Signatory', bold: true, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: microHead, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+        new Paragraph({ children: [new TextRun({ text: 'Microbiology Head', font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
+      ],
+      borders: BORDERS_NONE,
+      width: { size: sigColWidth, type: WidthType.DXA },
+    }),
+  ];
+
+  return new Table({
+    rows: [new TableRow({ children: sigCells })],
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths: [sigColWidth, sigColWidth, sigColWidth],
+    borders: TABLE_BORDERS_NONE,
+  });
 };
 
 /**
- * generateWaterIso10500Report
- * Generates the complete single-section dual-column Water ISO 10500:2012 compliance report
- * matching Water iso 10500.docx architecture with native header and dynamic page numbering.
+ * Main report generator for Water ISO 10500 jobs.
+ * Follows reportGenerator.js section-by-section dynamic pagination architecture.
  */
 const generateWaterIso10500Report = async (job, reportType, providedProfile = null) => {
   const isNabl = reportType === 'nabl' || job.sample?.nabl_type === 'Nabl';
@@ -527,7 +527,7 @@ const generateWaterIso10500Report = async (job, reportType, providedProfile = nu
   const completedAt = job.completedAt || fallbackDate;
   const issueDate = formatDate(completedAt);
 
-  // 1. Fetch SpecialProfile parameters
+  // 1. Fetch baseline parameters
   let profile = providedProfile;
   if (!profile) {
     try {
@@ -550,8 +550,6 @@ const generateWaterIso10500Report = async (job, reportType, providedProfile = nu
 
   // 2. Build complete linear sequence of rows
   const allRows = [];
-
-  // Chemical discipline starts
   allRows.push({ type: 'discipline', discipline: 'Chemical' });
 
   let enteredBio = false;
@@ -559,7 +557,6 @@ const generateWaterIso10500Report = async (job, reportType, providedProfile = nu
   for (const bp of baselineParams) {
     const isBio = bp.name === 'Total  Coliform' || bp.name === 'E. coli' || bp.name === 'Total Coliform';
 
-    // Inject biological discipline header right before the first microbiology item
     if (isBio && !enteredBio) {
       allRows.push({ type: 'discipline', discipline: 'Biological' });
       enteredBio = true;
@@ -578,295 +575,229 @@ const generateWaterIso10500Report = async (job, reportType, providedProfile = nu
         srCounter++;
       }
       allRows.push({
-        type: 'data',
-        name: bp.name,
-        unit: match?.unit || bp.unit,
-        value: match?.value || bp.value || 'BLQ (LOQ 0.01)',
-        testMethod: match?.testMethod || bp.testMethod,
-        requirement: match?.requirement || bp.requirement,
-        permissibleLimit: match?.permissibleLimit || bp.permissibleLimit,
+        type: 'result',
         srNo,
+        name: bp.name,
+        unit: match?.unit || bp.unit || '-',
+        value: match?.value || bp.value || 'BLQ (LOQ 0.01)',
+        testMethod: match?.testMethod || bp.testMethod || 'N/A',
+        requirement: match?.requirement || bp.requirement || 'N/A',
+        permissibleLimit: match?.permissibleLimit || bp.permissibleLimit || 'No relaxation',
       });
     }
   }
 
-  // 3. Partition rows into the 7 natural table chunks matching reference document
-  const chunks = [];
-  let currentChunk = [];
+  // 3. Dynamic pagination via height estimation matching reportGenerator.js
+  const pages = [];
+  let idx = 0;
+  let activeDiscipline = 'Chemical';
 
-  for (const r of allRows) {
-    currentChunk.push(r);
-    const norm = (r.name || '').trim().toLowerCase();
-    if (norm.startsWith('nitrate')) {
-      chunks.push(currentChunk);
-      currentChunk = [];
-    } else if (norm === 'mineral oil') {
-      chunks.push(currentChunk);
-      currentChunk = [];
-    } else if (norm === 'pcb 153') {
-      chunks.push(currentChunk);
-      currentChunk = [];
-    } else if (norm === 'phenanthrene') {
-      chunks.push(currentChunk);
-      currentChunk = [];
-    } else if (norm === 'parathion-methyl') {
-      chunks.push(currentChunk);
-      currentChunk = [];
-    } else if (norm === 'dibromochloromethane') {
-      chunks.push(currentChunk);
-      currentChunk = [];
+  while (idx < allRows.length || pages.length === 0) {
+    const isFirstPage = pages.length === 0;
+    const overhead = isFirstPage ? calcFirstPageOverhead(job) : calcContinuationOverhead();
+    let usedHeight = overhead;
+    const pageRows = [];
+
+    let needsDisciplineRepeat = !isFirstPage && activeDiscipline !== null;
+    if (needsDisciplineRepeat) {
+      usedHeight += DISCIPLINE_HEADER_HEIGHT;
     }
-  }
-  if (currentChunk.length > 0) {
-    chunks.push(currentChunk);
-  }
 
-  // 4. Assemble document body children
-  const children = [];
+    while (idx < allRows.length) {
+      const row = allRows[idx];
+      const rowHeight = estimateRowHeight(row);
 
-  // Table 0: Full sample info table
-  children.push(buildWaterIsoSampleInfoTable(job, registrationNo, issueDate));
+      if (row.type === 'discipline') {
+        activeDiscipline = row.discipline;
+      }
 
-  // TEST RESULT Title
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: 'TEST RESULT', bold: true, font: 'Times New Roman', size: 24 })],
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 80, after: 40 },
-    })
-  );
+      const isLastRow = idx === allRows.length - 1;
+      const footerHeight = isLastRow ? FOOTER_BLOCK_HEIGHT : 0;
 
-  // Table chunks with continuation banners between them
-  for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
-    const isFirst = cIdx === 0;
-    if (!isFirst) {
-      children.push(buildContinuationBanner(job, registrationNo, issueDate));
-      children.push(new Paragraph({ children: [], spacing: { before: 40, after: 20 } }));
+      if (usedHeight + rowHeight + footerHeight > USABLE_HEIGHT && pageRows.length > 0) {
+        break;
+      }
+
+      pageRows.push(row);
+      usedHeight += rowHeight;
+      idx++;
+
+      if (row.type === 'discipline') {
+        needsDisciplineRepeat = false;
+      }
     }
-    children.push(buildWaterIsoResultsTable(chunks[cIdx], isFirst));
-    children.push(new Paragraph({ children: [], spacing: { before: 40, after: 20 } }));
+
+    let repeatHeader = null;
+    if (!isFirstPage && needsDisciplineRepeat && activeDiscipline) {
+      repeatHeader = activeDiscipline;
+    }
+
+    pages.push({ rows: pageRows, repeatHeader });
+    if (pageRows.length === 0 && idx >= allRows.length) break;
   }
 
-  // Remarks
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Remark : ', bold: true, font: 'Times New Roman', size: 20 }),
-        new TextRun({
-          text: 'It is recommended that the acceptable limit is to be implemented. Values in excess of those mentioned under',
-          font: 'Times New Roman',
-          size: 20,
-        }),
-      ],
-      spacing: { before: 80, after: 0 },
-      alignment: AlignmentType.LEFT,
-    })
-  );
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: '‘acceptable’  render the water not suitable, but still may be tolerated in the absence of an alternative source but up to the limits           indicated under ‘permissible limit in the absence of alternate source’ in col 7, above which the source will have rejected.',
-          font: 'Times New Roman',
-          size: 20,
-        }),
-      ],
-      spacing: { before: 0, after: 40 },
-      alignment: AlignmentType.JUSTIFY,
-    })
-  );
+  // 4. Build document sections matching reportGenerator.js
+  const sections = [];
 
-  // Notes
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: '          NOTE: ', bold: true, font: 'Times New Roman', size: 20 }),
-        new TextRun({ text: '1) Report shall not be reproduced except in full without approval of the laboratory.', font: 'Times New Roman', size: 20 }),
-      ],
-      spacing: { before: 40, after: 0 },
-      alignment: AlignmentType.LEFT,
-    })
-  );
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: ' 2) The results relate only to the items sampled & tested.', font: 'Times New Roman', size: 20 }),
-      ],
-      spacing: { before: 0, after: 0 },
-      alignment: AlignmentType.LEFT,
-    })
-  );
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: ' 3) Duplicate report will be issued on chargeable basis. ', font: 'Times New Roman', size: 20 }),
-      ],
-      spacing: { before: 0, after: 40 },
-      alignment: AlignmentType.LEFT,
-    })
-  );
-  if (isAmended) {
+  for (let i = 0; i < pages.length; i++) {
+    const isFirst = i === 0;
+    const isLast = i === pages.length - 1;
+    const pageObj = pages[i];
+    const children = [];
+
+    // FTL reference
     children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: ` 4) This test report is the replacement to earlier test report no. (${baseReportNo}). Earlier test report stands obsolete.`,
-            font: 'Times New Roman',
-            size: 20,
-          }),
-        ],
-        spacing: { before: 0, after: 40 },
-        alignment: AlignmentType.LEFT,
-      })
-    );
-  }
-
-  // Abbreviations
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Abbreviations used: ', bold: true, font: 'Times New Roman', size: 20 }),
-        new TextRun({
-          text: 'UOM: Unit of Measurement; BLQ-Below limit of Quantification, LOQ:-Limit of Quantification DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable.NMT: Not More Than , NLT: Not Less Than',
-          font: 'Times New Roman',
-          size: 20,
-        }),
-      ],
-      spacing: { before: 40, after: 60 },
-      alignment: AlignmentType.LEFT,
-    })
-  );
-
-  // Signatures
-  const analystName = typeof job.assignedAnalyst === 'object' && job.assignedAnalyst?.name
-    ? formatSignatoryName(job.assignedAnalyst.name, 'Ms. Diksha Dwivedi')
-    : formatSignatoryName(job.assignedAnalyst, 'Ms. Diksha Dwivedi');
-  const chemHeadName = formatSignatoryName(job.distribution?.chemical?.assignedHead?.name, 'Ms. Monika Pali');
-  const microHeadName = formatSignatoryName(job.distribution?.micro?.assignedHead?.name, 'Ms. Jyoti Pathak');
-
-  const sigCells = [
-    new TableCell({
-      children: [
-        new Paragraph({ children: [new TextRun({ text: 'Reviewed By', bold: true, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: analystName, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: 'Analyst', font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-      ],
-      borders: BORDERS_NONE,
-      width: { size: Math.round(PAGE_WIDTH_DXA / 3), type: WidthType.DXA },
-    }),
-    new TableCell({
-      children: [
-        new Paragraph({ children: [new TextRun({ text: 'Authorized Signatory', bold: true, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: chemHeadName, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: 'Technical Manager', font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-      ],
-      borders: BORDERS_NONE,
-      width: { size: Math.round(PAGE_WIDTH_DXA / 3), type: WidthType.DXA },
-    }),
-    new TableCell({
-      children: [
-        new Paragraph({ children: [new TextRun({ text: 'Authorized Signatory', bold: true, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: microHeadName, font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-        new Paragraph({ children: [new TextRun({ text: 'Department Head Microbiology', font: 'Times New Roman', size: 20 })], alignment: AlignmentType.CENTER }),
-      ],
-      borders: BORDERS_NONE,
-      width: { size: Math.round(PAGE_WIDTH_DXA / 3), type: WidthType.DXA },
-    }),
-  ];
-
-  children.push(new Paragraph({ children: [], spacing: { before: 400 } }));
-  children.push(
-    new Table({
-      rows: [new TableRow({ children: sigCells, cantSplit: true })],
-      width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA },
-      borders: TABLE_BORDERS_NONE,
-    })
-  );
-
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: '*End of report*', bold: true, font: 'Times New Roman', size: 22 })],
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 80, after: 60 },
-    })
-  );
-
-  // 5. Build Native Word Header
-  const reportUlrRuns = [
-    new TextRun({ text: 'Report  No. ', bold: true, font: 'Times New Roman', size: 20 }),
-    new TextRun({ text: testReportNo, font: 'Times New Roman', size: 20 }),
-  ];
-  if (isNabl && job.sample?.ulr_no) {
-    reportUlrRuns.push(new TextRun({ text: '\t', font: 'Times New Roman', size: 20 }));
-    reportUlrRuns.push(new TextRun({ text: 'ULR No. ', bold: true, font: 'Times New Roman', size: 20 }));
-    reportUlrRuns.push(new TextRun({ text: job.sample.ulr_no, font: 'Times New Roman', size: 20 }));
-  }
-
-  const header = new Header({
-    children: [
       new Paragraph({
         children: [new TextRun({ text: 'FTL/AIPER/F/7.8-01', bold: true, font: 'Times New Roman', size: 16 })],
         alignment: AlignmentType.RIGHT,
-        spacing: { before: 0, after: 60 },
-      }),
-      buildHeaderTable(isNabl),
+        spacing: { after: 100 },
+      })
+    );
+
+    // Sticky Header Table
+    children.push(buildHeaderTable(isNabl));
+
+    // TEST REPORT title
+    children.push(
       new Paragraph({
         children: [new TextRun({ text: 'TEST REPORT', bold: true, font: 'Times New Roman', size: 28 })],
         alignment: AlignmentType.CENTER,
-        spacing: { before: 60, after: 30 },
-      }),
+        spacing: { before: 80, after: 40 },
+      })
+    );
+
+    // Report No. + ULR No.
+    const reportUlrRuns = [
+      new TextRun({ text: 'Report  No. ', bold: true, font: 'Times New Roman', size: 20 }),
+      new TextRun({ text: testReportNo, font: 'Times New Roman', size: 20 }),
+    ];
+    if (isNabl && job.sample?.ulr_no) {
+      reportUlrRuns.push(new TextRun({ text: '\t', font: 'Times New Roman', size: 20 }));
+      reportUlrRuns.push(new TextRun({ text: 'ULR No. ', bold: true, font: 'Times New Roman', size: 20 }));
+      reportUlrRuns.push(new TextRun({ text: job.sample.ulr_no, font: 'Times New Roman', size: 20 }));
+    }
+    children.push(
       new Paragraph({
         children: reportUlrRuns,
         tabStops: [{ type: TabStopType.RIGHT, position: PAGE_WIDTH_DXA }],
-        spacing: { before: 30, after: 40 },
-      }),
-    ],
-  });
+        spacing: { before: 40, after: 40 },
+      })
+    );
 
-  // 6. Build Native Word Footer with dynamic page numbers
-  const footer = new Footer({
-    children: [
-      new Paragraph({
-        children: [new TextRun({ text: 'Continue…..', font: 'Times New Roman', size: 20 })],
-        alignment: AlignmentType.RIGHT,
-        spacing: { before: 0, after: 0 },
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({ text: 'Page  ', font: 'Times New Roman', size: 20 }),
-          new TextRun({ children: [PageNumber.CURRENT], font: 'Times New Roman', size: 20 }),
-          new TextRun({ text: ' of  ', font: 'Times New Roman', size: 20 }),
-          new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Times New Roman', size: 20 }),
-        ],
-        alignment: AlignmentType.RIGHT,
-        spacing: { before: 0, after: 0 },
-      }),
-    ],
-  });
+    // Sample Info (Page 1) or Continuation Table (Page 2+)
+    if (isFirst) {
+      children.push(buildWaterIsoSampleInfoTable(job, registrationNo, issueDate));
+    } else {
+      children.push(buildContinuationTable(job, registrationNo));
+    }
 
-  // 7. Single section Document matching Water iso 10500.docx section settings
-  const doc = new Document({
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: { top: 284, bottom: 284, left: 1134, right: 1134, header: 283, footer: 0 },
-            size: { width: 12240, height: 15840 },
-          },
+    // TEST RESULT title only on the first page
+    if (isFirst) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: 'TEST RESULT', bold: true, font: 'Times New Roman', size: 24 })],
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 100, after: 60 },
+        })
+      );
+    } else {
+      children.push(new Paragraph({ children: [], spacing: { before: 100, after: 60 } }));
+    }
+
+    // Results table for this page
+    children.push(buildWaterIsoResultsTable(pageObj.rows, pageObj.repeatHeader));
+
+    // Last page footer content
+    if (isLast) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'Abbreviations used: ', bold: true, font: 'Times New Roman', size: 18 }),
+            new TextRun({
+              text: 'UOM: Unit of Measurement; BLQ-Below limit of Quantification, LOQ:-Limit of Quantification',
+              font: 'Times New Roman',
+              size: 18,
+            }),
+          ],
+          spacing: { before: 60 },
+          alignment: AlignmentType.LEFT,
+        })
+      );
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'DOE: Date of Expiry; DOM: Date of Manufacturing; NA: Not Applicable.NMT: Not More Than , NLT: Not Less Than',
+              font: 'Times New Roman',
+              size: 18,
+            }),
+          ],
+          alignment: AlignmentType.LEFT,
+        })
+      );
+
+      const noteRuns = [
+        new TextRun({ text: 'NOTE: ', bold: true, font: 'Times New Roman', size: 18 }),
+        new TextRun({ text: '1) Report shall not be reproduced except in full without approval of the laboratory.', font: 'Times New Roman', size: 18 }),
+        new TextRun({ text: '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A02) The results relate only to the items as received.', break: 1, font: 'Times New Roman', size: 18 }),
+        new TextRun({ text: '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A03) Duplicate report will be issued on chargeable basis.', break: 1, font: 'Times New Roman', size: 18 }),
+      ];
+      if (isAmended) {
+        noteRuns.push(
+          new TextRun({
+            text: `\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A04) This test report is the replacement to earlier test report no. (${baseReportNo}). Earlier test report stands obsolete.`,
+            break: 1,
+            font: 'Times New Roman',
+            size: 18,
+          })
+        );
+      }
+      children.push(new Paragraph({ children: noteRuns, alignment: AlignmentType.LEFT }));
+
+      // Signature table spacer and table
+      children.push(new Paragraph({ children: [], spacing: { before: 600 } }));
+      children.push(buildSignatureTable(job));
+
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: '*End of report*', bold: true, font: 'Times New Roman', size: 22 })],
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 100, after: 100 },
+        })
+      );
+    }
+
+    sections.push({
+      properties: {
+        page: {
+          margin: { top: 720, right: 720, bottom: 720, left: 720 },
+          size: { width: 12240, height: 15840 },
         },
-        headers: { default: header },
-        footers: { default: footer },
-        children,
       },
-    ],
-  });
+      headers: { default: new Header({ children: [] }) },
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Page ', font: 'Times New Roman', size: 20 }),
+                new TextRun({ children: [PageNumber.CURRENT], font: 'Times New Roman', size: 20 }),
+                new TextRun({ text: ' of ', font: 'Times New Roman', size: 20 }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Times New Roman', size: 20 }),
+              ],
+              alignment: AlignmentType.RIGHT,
+            }),
+          ],
+        }),
+      },
+      children,
+    });
+  }
 
+  const doc = new Document({ sections });
   return await Packer.toBuffer(doc);
 };
 
 module.exports = {
   generateWaterIso10500Report,
-  buildWaterIsoSampleInfoTable,
-  buildWaterIsoResultsTable,
-  buildContinuationBanner,
 };
