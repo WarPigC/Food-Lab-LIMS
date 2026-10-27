@@ -100,17 +100,20 @@ export default function ReportPreview({ blob }) {
             cells[1].style.boxSizing = 'border-box';
             cells[1].style.textAlign = 'right';
             cells[1].style.whiteSpace = 'nowrap';
+
+            // Clean spacing between report no./ULR code line and the customer detail table
+            table.style.marginBottom = '4px';
           }
         }
       }
     });
 
-    // 2. Ensure "TEST REPORT" headline has clean newline breathing room before it
+    // 2. Ensure "TEST REPORT" headline has subtle breathing room before it
     const allParagraphs = container.querySelectorAll('p');
     allParagraphs.forEach(p => {
       if (p.textContent.trim() === 'TEST REPORT') {
-        p.style.marginTop = '10px';
-        p.style.marginBottom = '4px';
+        p.style.marginTop = '4px';
+        p.style.marginBottom = '2px';
       }
     });
 
@@ -311,6 +314,21 @@ export default function ReportPreview({ blob }) {
         /* Ensure inline-block images in table cells don't stack */
         .report-preview-container td div[style*="inline-block"] {
           vertical-align: middle;
+        }
+        /* Ensure serialization numbering in table cells matches standard 10pt font */
+        .report-preview-container td p::before,
+        .report-preview-container td [class*="num"]::before,
+        .report-preview-container td [class*="docx-num"]::before {
+          font-size: 10pt !important;
+          font-family: 'Times New Roman', serif !important;
+          font-weight: normal !important;
+          line-height: normal !important;
+          display: inline !important;
+        }
+        .report-preview-container td p[class*="num"],
+        .report-preview-container td p[class*="docx-num"] {
+          font-size: 10pt !important;
+          line-height: normal !important;
         }
       `}</style>
       <div 
