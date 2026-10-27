@@ -138,6 +138,12 @@ const generateWaterIso10500Report = async (job, reportType) => {
   hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00413138"[\s\S]*?<\/w:p>\s*(?=<\/w:hdr>)/, '');
   hdrXml = hdrXml.replace(/<w:p[^>]*>\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*<\/w:p>\s*(?=<\/w:hdr>)/, '');
 
+  // Spacing for TEST REPORT headline matching reportGenerator.js (before: 80, after: 40)
+  hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00177518"[\s\S]*?<\/w:p>/, '');
+  hdrXml = hdrXml.replace(/(<w:pPr><w:spacing w:after="0"[^>]*>)([\s\S]*?<w:t>TEST REPORT<\/w:t>)/, (m, p1, p2) => {
+    return p1.replace('w:spacing w:after="0"', 'w:spacing w:before="80" w:after="40"') + p2;
+  });
+
   // If not NABL, clear NABL logo/QR cell in header table
   if (!isNabl) {
     hdrXml = hdrXml.replace(
