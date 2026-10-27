@@ -105,15 +105,21 @@ export default function ReportPreview({ blob }) {
       }
     });
 
-    // 2. Remove any trailing empty <p> inside <header> to prevent blank newline
+    // 2. Ensure "TEST REPORT" headline has clean newline breathing room before it
+    const allParagraphs = container.querySelectorAll('p');
+    allParagraphs.forEach(p => {
+      if (p.textContent.trim() === 'TEST REPORT') {
+        p.style.marginTop = '10px';
+        p.style.marginBottom = '4px';
+      }
+    });
+
+    // 3. Remove only trailing empty <p> at the end of <header> to prevent blank newline before customer table
     const headers = container.querySelectorAll('header');
     headers.forEach(hdr => {
-      const ps = hdr.querySelectorAll('p');
-      ps.forEach(p => {
-        if (!p.textContent.trim() && !p.querySelector('img')) {
-          p.remove();
-        }
-      });
+      while (hdr.lastElementChild && hdr.lastElementChild.tagName === 'P' && !hdr.lastElementChild.textContent.trim() && !hdr.lastElementChild.querySelector('img')) {
+        hdr.lastElementChild.remove();
+      }
     });
 
     // 3. Fallback for legacy single-paragraph reports (if any)
@@ -295,8 +301,8 @@ export default function ReportPreview({ blob }) {
           margin-right: 0 !important;
           margin-inline-end: 0 !important;
         }
-        /* Remove any empty paragraphs in header that create unwanted newlines */
-        .report-preview-container section.docx > header p:empty {
+        /* Remove trailing empty paragraphs at the end of header that create unwanted newlines */
+        .report-preview-container section.docx > header > p:last-child:empty {
           display: none !important;
           margin: 0 !important;
           padding: 0 !important;
