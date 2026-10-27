@@ -70,17 +70,56 @@ export default function ReportPreview({ blob }) {
   }, [blob]);
 
   /**
-   * Fix ULR right-alignment.
-   * docx-preview ignores tab stops, so "Report No. xxx\tULR No. xxx" renders
-   * as a single left-aligned line. We find the ULR spans and float them right.
+   * Format Report No and ULR line:
+   * 1. On 2-cell header tables (Water ISO and standard reports), indent the
+   *    report number to the right and the ULR code to the left (inwards).
+   * 2. Remove any empty trailing paragraphs in <header> to ensure no newline
+   *    exists between the report code/ULR line and the customer details table.
+   * 3. Backward compatibility for legacy single-paragraph reports.
    */
   const fixUlrAlignment = (container) => {
     if (!container) return;
+
+    // 1. Process 2-cell tables containing Report No and ULR
+    const allTables = container.querySelectorAll('table');
+    allTables.forEach(table => {
+      const rows = table.querySelectorAll('tr');
+      if (rows.length === 1) {
+        const cells = rows[0].querySelectorAll('td');
+        if (cells.length === 2) {
+          const t0 = (cells[0].textContent || '').trim();
+          const t1 = (cells[1].textContent || '').trim();
+          if (t0.includes('FTL/AIPER') || t1.includes('ULR No.')) {
+            // Indent report number inwards to the right
+            cells[0].style.paddingLeft = '14px';
+            cells[0].style.boxSizing = 'border-box';
+            cells[0].style.textAlign = 'left';
+
+            // Indent ULR code inwards to the left
+            cells[1].style.paddingRight = '14px';
+            cells[1].style.boxSizing = 'border-box';
+            cells[1].style.textAlign = 'right';
+            cells[1].style.whiteSpace = 'nowrap';
+          }
+        }
+      }
+    });
+
+    // 2. Remove any trailing empty <p> inside <header> to prevent blank newline
+    const headers = container.querySelectorAll('header');
+    headers.forEach(hdr => {
+      const ps = hdr.querySelectorAll('p');
+      ps.forEach(p => {
+        if (!p.textContent.trim() && !p.querySelector('img')) {
+          p.remove();
+        }
+      });
+    });
+
+    // 3. Fallback for legacy single-paragraph reports (if any)
     const allPs = container.querySelectorAll('p');
-    
     allPs.forEach(parentP => {
       if (!parentP.textContent.includes('ULR No.')) return;
-      // In Water ISO reports, ULR is in a dedicated 2-cell table that aligns naturally with the tables below
       if (parentP.closest('table')) return;
       if (parentP.querySelector('.ulr-right-aligned')) return; // Already processed
       
@@ -103,6 +142,13 @@ export default function ReportPreview({ blob }) {
           ulrSpans.forEach(s => s.remove());
         }
 
+        // Clean any "Report  No. " prefix if present to match clean report number format
+        allSpans.slice(0, ulrIdx).forEach(s => {
+          if (s.textContent.includes('Report') && s.textContent.includes('No.')) {
+            s.textContent = s.textContent.replace(/Report\s+No\.\s*/i, '');
+          }
+        });
+
         // Clean any tab text nodes and redundant spaces
         parentP.childNodes.forEach(node => {
           if (node.nodeType === 3) {
@@ -110,14 +156,16 @@ export default function ReportPreview({ blob }) {
           }
         });
 
-        // Use flexbox for pixel-perfect edge-to-edge alignment matching the table below
+        // Use flexbox with inward indents
         parentP.style.display = 'flex';
         parentP.style.justifyContent = 'space-between';
         parentP.style.alignItems = 'baseline';
+        parentP.style.paddingLeft = '14px';
+        parentP.style.paddingRight = '14px';
+        parentP.style.boxSizing = 'border-box';
 
         const sec = parentP.closest('section');
         const allSecTables = sec ? Array.from(sec.querySelectorAll('table')) : [];
-        // Target the customer details table (table 1) rather than the banner table (table 0)
         const refTable = allSecTables.length > 1 ? allSecTables[1] : (allSecTables[0] || null);
         if (refTable) {
           const tableRect = refTable.getBoundingClientRect();
@@ -246,6 +294,13 @@ export default function ReportPreview({ blob }) {
         .report-preview-container p {
           margin-right: 0 !important;
           margin-inline-end: 0 !important;
+        }
+        /* Remove any empty paragraphs in header that create unwanted newlines */
+        .report-preview-container section.docx > header p:empty {
+          display: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          min-height: 0 !important;
         }
         /* Ensure inline-block images in table cells don't stack */
         .report-preview-container td div[style*="inline-block"] {
