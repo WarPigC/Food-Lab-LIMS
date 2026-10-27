@@ -116,23 +116,27 @@ const generateWaterIso10500Report = async (job, reportType) => {
   <w:tr>
     <w:trPr><w:cantSplit/></w:trPr>
     <w:tc>
-      <w:tcPr><w:tcW w:w="5387" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>
-      <w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="left"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(testReportNo)}</w:t></w:r></w:p>
+      <w:tcPr><w:tcW w:w="5387" w:type="dxa"/><w:vAlign w:val="center"/><w:tcMar><w:left w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>
+      <w:p><w:pPr><w:spacing w:after="0"/><w:ind w:left="180"/><w:jc w:val="left"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(testReportNo)}</w:t></w:r></w:p>
     </w:tc>
     <w:tc>
-      <w:tcPr><w:tcW w:w="5387" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>
+      <w:tcPr><w:tcW w:w="5387" w:type="dxa"/><w:vAlign w:val="center"/><w:tcMar><w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>
       ${rightCellContentXml}
     </w:tc>
   </w:tr>
 </w:tbl>`;
 
   if (isNabl && ulrNo) {
-    const rightCellXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="right"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">ULR No. </w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(ulrNo)}</w:t></w:r></w:p>`;
+    const rightCellXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:ind w:right="180"/><w:jc w:val="right"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">ULR No. </w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(ulrNo)}</w:t></w:r></w:p>`;
     hdrXml = hdrXml.replace(oldHeaderP, createHeaderTableXml(rightCellXml));
   } else {
-    const emptyRightCellXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="right"/></w:pPr></w:p>`;
+    const emptyRightCellXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:ind w:right="180"/><w:jc w:val="right"/></w:pPr></w:p>`;
     hdrXml = hdrXml.replace(oldHeaderP, createHeaderTableXml(emptyRightCellXml));
   }
+
+  // Delete the trailing empty paragraph after the header line to eliminate the newline before customer table
+  hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00413138"[\s\S]*?<\/w:p>\s*(?=<\/w:hdr>)/, '');
+  hdrXml = hdrXml.replace(/<w:p[^>]*>\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*<\/w:p>\s*(?=<\/w:hdr>)/, '');
 
   // If not NABL, clear NABL logo/QR cell in header table
   if (!isNabl) {

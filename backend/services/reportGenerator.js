@@ -287,36 +287,38 @@ const buildSampleInfoTable = (job) => {
 
   const customerInfoChildren = [
     new Paragraph({ children: [new TextRun({ text: "Customer Name :  ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_name || job.clientName || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }),
-    new Paragraph({ children: [new TextRun({ text: "Address :               ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_address || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } })
+    new Paragraph({ children: [new TextRun({ text: "Address :                ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.customer_address || 'N/A', font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } })
   ];
 
-  const contactParts = [];
-  if (customer.contact_person && customer.contact_person !== 'N/A') contactParts.push(customer.contact_person);
-  if (customer.mobile_number && customer.mobile_number !== 'N/A') contactParts.push(`Mobile : ${customer.mobile_number}`);
-  if (customer.email && customer.email !== 'N/A') contactParts.push(`Email : ${customer.email}`);
+  if (customer.contact_person && customer.contact_person !== 'N/A') {
+    const contactStr = customer.mobile_number ? `${customer.contact_person} , ${customer.mobile_number}` : customer.contact_person;
+    customerInfoChildren.push(new Paragraph({ children: [new TextRun({ text: "Contact Person:    ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: contactStr, font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }));
+  } else if (customer.mobile_number && customer.mobile_number !== 'N/A') {
+    customerInfoChildren.push(new Paragraph({ children: [new TextRun({ text: "Contact Person:    ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.mobile_number, font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }));
+  }
 
-  if (contactParts.length > 0) {
-    customerInfoChildren.push(new Paragraph({ children: [new TextRun({ text: "Contact details:    ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: contactParts.join("  "), font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }));
+  if (customer.email && customer.email !== 'N/A') {
+    customerInfoChildren.push(new Paragraph({ children: [new TextRun({ text: "Email :                   ", bold: true, font: "Times New Roman", size: 20 }), new TextRun({ text: customer.email, font: "Times New Roman", size: 20 })], spacing: { before: 0, after: 0 } }));
   }
 
   const r = [];
 
-  // Customer info row
+  // Customer info row (spanning all 4 columns)
   r.push(new TableRow({
     children: [new TableCell({
-      children: customerInfoChildren, columnSpan: 5, borders: BORDERS_ALL, margins: { top: 20, bottom: 20, left: 40, right: 40 }
+      children: customerInfoChildren, columnSpan: 4, borders: BORDERS_ALL, margins: { top: 20, bottom: 20, left: 40, right: 40 }
     })]
   }));
 
   const productCat = job.groupMetadata?.productCategory || (job.specialProfiles?.pesticides || job.specialProfiles?.fattyAcids?.enabled ? 'Food & Agricultural Products' : 'N/A');
   const standardSpec = compliance.standard_specification || (job.specialProfiles?.pesticides ? 'FSSAI Regulations / In-House SOP' : (job.specialProfiles?.fattyAcids?.enabled ? 'FSSAI Food Safety Standards' : 'NA'));
 
-  r.push(new TableRow({ children: [createCell("Sample Name\n( as stated by customer )", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.sample_name || 'N/A', { widthPct: 30 }), createCell("Registration No.", { bold: true, widthPct: 23 }), createCell(registrationNo, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Product Category", { bold: true, colSpan: 2, widthPct: 25 }), createCell(productCat, { widthPct: 30 }), createCell("Issue Date", { bold: true, widthPct: 23 }), createCell(issueDate, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Sample Quantity", { bold: true, colSpan: 2, widthPct: 25 }), createCell(`01x${sample.sample_quantity || 'N/A'}`, { widthPct: 30 }), createCell("Date of Receipt", { bold: true, widthPct: 23 }), createCell(receiptDate, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Packing Details", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.packing_details || 'N/A', { widthPct: 30 }), createCell("Testing period", { bold: true, widthPct: 23 }), createCell(testingPeriodStr, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Marking Seal ( if any)", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.marking_seal || 'NA', { widthPct: 30 }), createCell("Standard Specification", { bold: true, widthPct: 23 }), createCell(standardSpec, { widthPct: 22 })] }));
-  r.push(new TableRow({ children: [createCell("Sampling Details", { bold: true, colSpan: 2, widthPct: 25 }), createCell(sample.sampling_details || 'Sample provided by the customer', { widthPct: 30 }), createCell("Sample condition on receipt", { bold: true, widthPct: 23 }), createCell(sample.condition_on_receipt || 'Satisfactory', { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Sample Name\n( as stated by customer )", { bold: true, widthPct: 26 }), createCell(sample.sample_name || 'N/A', { widthPct: 28 }), createCell("Registration No.", { bold: true, widthPct: 24 }), createCell(registrationNo, { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Product Category", { bold: true, widthPct: 26 }), createCell(productCat, { widthPct: 28 }), createCell("Issue Date", { bold: true, widthPct: 24 }), createCell(issueDate, { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Sample Quantity", { bold: true, widthPct: 26 }), createCell(`01x${sample.sample_quantity || 'N/A'}`, { widthPct: 28 }), createCell("Date of Receipt", { bold: true, widthPct: 24 }), createCell(receiptDate, { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Packing Details", { bold: true, widthPct: 26 }), createCell(sample.packing_details || 'N/A', { widthPct: 28 }), createCell("Testing period", { bold: true, widthPct: 24 }), createCell(testingPeriodStr, { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Marking Seal ( if any)", { bold: true, widthPct: 26 }), createCell(sample.marking_seal || 'NA', { widthPct: 28 }), createCell("Standard Specification", { bold: true, widthPct: 24 }), createCell(standardSpec, { widthPct: 22 })] }));
+  r.push(new TableRow({ children: [createCell("Sampling Details", { bold: true, widthPct: 26 }), createCell(sample.sampling_details || 'Sample provided by the customer', { widthPct: 28 }), createCell("Sample condition on receipt", { bold: true, widthPct: 24 }), createCell(sample.condition_on_receipt || 'Satisfactory', { widthPct: 22 })] }));
   const hasCustomerData = !!(
     customer.customer_reference_no ||
     customer.batch_no ||
@@ -328,17 +330,21 @@ const buildSampleInfoTable = (job) => {
   );
 
   if (hasCustomerData) {
-    r.push(new TableRow({ children: [createCell("Any data provided by customer;", { bold: true, colSpan: 5 })] }));
-    r.push(new TableRow({ children: [createCell("Customer ref.", { bold: true, colSpan: 2, widthPct: 25 }), createCell(customer.customer_reference_no || 'NA', { widthPct: 30 }), createCell("Brand Name", { bold: true, widthPct: 23 }), createCell(customer.brand_name || 'NA', { widthPct: 22 })] }));
-    r.push(new TableRow({ children: [createCell("Batch No.", { bold: true, colSpan: 2, widthPct: 25 }), createCell(customer.batch_no || 'NA', { widthPct: 30 }), createCell("Any Other Information", { bold: true, widthPct: 23 }), createCell(customer.any_other_info || 'NA', { widthPct: 22 })] }));
-    r.push(new TableRow({ children: [createCell("DOM", { bold: true, colSpan: 2, widthPct: 25 }), createCell(customer.dom || 'NA', { widthPct: 30 }), createCell("Batch Size", { bold: true, widthPct: 23 }), createCell(customer.batch_size || 'NA', { widthPct: 22 })] }));
-    r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 3, widthPct: 55 }), createCell("DOE", { bold: true, widthPct: 23 }), createCell(customer.doe || 'NA', { widthPct: 22 })] }));
+    r.push(new TableRow({ children: [createCell("Any data provided by customer;", { bold: true, colSpan: 4 })] }));
+    r.push(new TableRow({ children: [createCell("Customer ref.", { bold: true, widthPct: 26 }), createCell(customer.customer_reference_no || 'NA', { widthPct: 28 }), createCell("Brand Name", { bold: true, widthPct: 24 }), createCell(customer.brand_name || 'NA', { widthPct: 22 })] }));
+    r.push(new TableRow({ children: [createCell("Batch No.", { bold: true, widthPct: 26 }), createCell(customer.batch_no || 'NA', { widthPct: 28 }), createCell("Any Other Information", { bold: true, widthPct: 24 }), createCell(customer.any_other_info || 'NA', { widthPct: 22 })] }));
+    r.push(new TableRow({ children: [createCell("DOM", { bold: true, widthPct: 26 }), createCell(customer.dom || 'NA', { widthPct: 28 }), createCell("Batch Size", { bold: true, widthPct: 24 }), createCell(customer.batch_size || 'NA', { widthPct: 22 })] }));
+    r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 2, widthPct: 54 }), createCell("DOE", { bold: true, widthPct: 24 }), createCell(customer.doe || 'NA', { widthPct: 22 })] }));
   } else {
-    r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 5 })] }));
+    r.push(new TableRow({ children: [createCell("Any Handling Instructions provided : Yes/NO ( if yes ; Short details)", { bold: true, colSpan: 4 })] }));
   }
-  r.push(new TableRow({ children: [createCell("Sample Description", { bold: true }), createCell(sample.sample_description || 'N/A', { colSpan: 4 })] }));
+  r.push(new TableRow({ children: [createCell("Sample Description", { bold: true }), createCell(sample.sample_description || 'N/A', { colSpan: 3 })] }));
 
-  return new Table({ rows: r, width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
+  return new Table({
+    columnWidths: [2836, 2977, 2551, 2410],
+    rows: r,
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
+  });
 };
 
 const buildResultsTable = (rowsData, hasSpec, startIdx, repeatHeader = null) => {
@@ -554,33 +560,61 @@ const generateReport = async (job, reportType) => {
       alignment: AlignmentType.CENTER, spacing: { before: 80, after: 40 }
     }));
 
-    // Report No + ULR No on same line (single paragraph with tab stop)
-    const reportUlrRuns = [
-      new TextRun({ text: "Report  No. ", bold: true, font: "Times New Roman", size: 20 }),
-      new TextRun({ text: testReportNo, font: "Times New Roman", size: 20 })
-    ];
-    if (isNabl && job.sample?.ulr_no) {
-      reportUlrRuns.push(new TextRun({ text: "\t", font: "Times New Roman", size: 20 }));
-      reportUlrRuns.push(new TextRun({ text: "ULR No. ", bold: true, font: "Times New Roman", size: 20 }));
-      reportUlrRuns.push(new TextRun({ text: job.sample.ulr_no, font: "Times New Roman", size: 20 }));
-    }
-    children.push(new Paragraph({
-      children: reportUlrRuns,
-      tabStops: [{ type: TabStopType.RIGHT, position: PAGE_WIDTH_DXA }],
-      spacing: { before: 40, after: 40 }
-    }));
+    // Report No and ULR line (1-row, 2-cell borderless table matching Water ISO layout)
+    const reportUlrTable = new Table({
+      columnWidths: [Math.floor(PAGE_WIDTH_DXA / 2), Math.ceil(PAGE_WIDTH_DXA / 2)],
+      rows: [
+        new TableRow({
+          cantSplit: true,
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text: testReportNo, font: "Times New Roman", size: 20 })],
+                  alignment: AlignmentType.LEFT,
+                  indent: { left: 180 },
+                  spacing: { before: 20, after: 20 }
+                })
+              ],
+              borders: BORDERS_NONE,
+              margins: { left: 180, right: 0, top: 0, bottom: 0 },
+              width: { size: Math.floor(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: (isNabl && job.sample?.ulr_no) ? [
+                    new TextRun({ text: `ULR No. ${job.sample.ulr_no}`, bold: true, font: "Times New Roman", size: 20 })
+                  ] : [],
+                  alignment: AlignmentType.RIGHT,
+                  indent: { right: 180 },
+                  spacing: { before: 20, after: 20 }
+                })
+              ],
+              borders: BORDERS_NONE,
+              margins: { left: 0, right: 180, top: 0, bottom: 0 },
+              width: { size: Math.ceil(PAGE_WIDTH_DXA / 2), type: WidthType.DXA }
+            })
+          ]
+        })
+      ],
+      borders: TABLE_BORDERS_NONE,
+      width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
+    });
+    children.push(reportUlrTable);
 
     if (isFirst) {
       children.push(buildSampleInfoTable(job));
     } else {
-      // Continuation: Sample Name + Registration No only
+      // Continuation: Sample Name + Registration No only (4-column layout matching page 1)
       children.push(new Table({
+        columnWidths: [2836, 2977, 2551, 2410],
         rows: [new TableRow({
           children: [
-            createCell("Sample Name\n( as stated by customer )", { bold: true, widthPct: 30 }),
-            createCell(job.sample?.sample_name || 'N/A', { widthPct: 20 }),
-            createCell("Registration No.", { bold: true, widthPct: 25 }),
-            createCell(registrationNo, { widthPct: 25 })
+            createCell("Sample Name\n( as stated by customer )", { bold: true, widthPct: 26 }),
+            createCell(job.sample?.sample_name || 'N/A', { widthPct: 28 }),
+            createCell("Registration No.", { bold: true, widthPct: 24 }),
+            createCell(registrationNo, { widthPct: 22 })
           ]
         })],
         width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
