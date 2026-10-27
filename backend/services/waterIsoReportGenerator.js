@@ -91,13 +91,13 @@ const generateWaterIso10500Report = async (job, reportType) => {
 
   // 1. Process header1.xml (Report No and ULR)
   let hdrXml = await zip.file('word/header1.xml').async('text');
-  const oldHeaderP = '<w:p w:rsidR="00E75A7A" w:rsidRDefault="00E75A7A" w:rsidP="00D1063C"><w:pPr><w:spacing w:after="0" /><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman" /><w:b /><w:sz w:val="20" /><w:lang w:val="en-IN" /></w:rPr></w:pPr><w:r><w:t xml:space="preserve">{{HEADER_REPORT_LINE}}</w:t></w:r></w:p>';
+  const headerLineRegex = /<w:p\b[^>]*>(?:(?!<w:p\b)[\s\S])*?\{\{HEADER_REPORT_LINE\}\}[\s\S]*?<\/w:p>/;
 
   const createHeaderTableXml = (rightCellContentXml) => `<w:tbl>
   <w:tblPr>
     <w:tblStyle w:val="TableGrid"/>
-    <w:tblW w:w="10774" w:type="dxa"/>
-    <w:tblInd w:w="-318" w:type="dxa"/>
+    <w:tblW w:w="11057" w:type="dxa"/>
+    <w:tblInd w:w="-459" w:type="dxa"/>
     <w:tblBorders>
       <w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>
       <w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>
@@ -110,38 +110,37 @@ const generateWaterIso10500Report = async (job, reportType) => {
     <w:tblLook w:val="04A0"/>
   </w:tblPr>
   <w:tblGrid>
-    <w:gridCol w:w="5387"/>
-    <w:gridCol w:w="5387"/>
+    <w:gridCol w:w="5528"/>
+    <w:gridCol w:w="5529"/>
   </w:tblGrid>
   <w:tr>
     <w:trPr><w:cantSplit/></w:trPr>
     <w:tc>
-      <w:tcPr><w:tcW w:w="5387" w:type="dxa"/><w:vAlign w:val="center"/><w:tcMar><w:left w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>
-      <w:p><w:pPr><w:spacing w:after="0"/><w:ind w:left="180"/><w:jc w:val="left"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(testReportNo)}</w:t></w:r></w:p>
+      <w:tcPr><w:tcW w:w="5528" w:type="dxa"/><w:vAlign w:val="center"/><w:tcMar><w:left w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>
+      <w:p><w:pPr><w:spacing w:before="20" w:after="60" w:line="240" w:lineRule="auto"/><w:ind w:left="180"/><w:jc w:val="left"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(testReportNo)}</w:t></w:r></w:p>
     </w:tc>
     <w:tc>
-      <w:tcPr><w:tcW w:w="5387" w:type="dxa"/><w:vAlign w:val="center"/><w:tcMar><w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>
+      <w:tcPr><w:tcW w:w="5529" w:type="dxa"/><w:vAlign w:val="center"/><w:tcMar><w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr>
       ${rightCellContentXml}
     </w:tc>
   </w:tr>
 </w:tbl>`;
 
   if (isNabl && ulrNo) {
-    const rightCellXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:ind w:right="180"/><w:jc w:val="right"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">ULR No. </w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(ulrNo)}</w:t></w:r></w:p>`;
-    hdrXml = hdrXml.replace(oldHeaderP, createHeaderTableXml(rightCellXml));
+    const rightCellXml = `<w:p><w:pPr><w:spacing w:before="20" w:after="60" w:line="240" w:lineRule="auto"/><w:ind w:right="180"/><w:jc w:val="right"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">ULR No. </w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>${escapeXml(ulrNo)}</w:t></w:r></w:p>`;
+    hdrXml = hdrXml.replace(headerLineRegex, createHeaderTableXml(rightCellXml));
   } else {
-    const emptyRightCellXml = `<w:p><w:pPr><w:spacing w:after="0"/><w:ind w:right="180"/><w:jc w:val="right"/></w:pPr></w:p>`;
-    hdrXml = hdrXml.replace(oldHeaderP, createHeaderTableXml(emptyRightCellXml));
+    const emptyRightCellXml = `<w:p><w:pPr><w:spacing w:before="20" w:after="60" w:line="240" w:lineRule="auto"/><w:ind w:right="180"/><w:jc w:val="right"/></w:pPr></w:p>`;
+    hdrXml = hdrXml.replace(headerLineRegex, createHeaderTableXml(emptyRightCellXml));
   }
 
   // Delete the trailing empty paragraph after the header line to eliminate the newline before customer table
   hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00413138"[\s\S]*?<\/w:p>\s*(?=<\/w:hdr>)/, '');
   hdrXml = hdrXml.replace(/<w:p[^>]*>\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*<\/w:p>\s*(?=<\/w:hdr>)/, '');
 
-  // Spacing for TEST REPORT headline matching reportGenerator.js (before: 80, after: 40)
-  hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00177518"[\s\S]*?<\/w:p>/, '');
-  hdrXml = hdrXml.replace(/(<w:pPr><w:spacing w:after="0"[^>]*>)([\s\S]*?<w:t>TEST REPORT<\/w:t>)/, (m, p1, p2) => {
-    return p1.replace('w:spacing w:after="0"', 'w:spacing w:before="80" w:after="40"') + p2;
+  // Subtle spacing for TEST REPORT headline: 60 dxa (3pt / 4px) before
+  hdrXml = hdrXml.replace(/(<w:pPr>[\s\S]*?<w:spacing\s+)(w:after="0"|w:before="\d+"\s+w:after="\d+")([^>]*>[\s\S]*?<w:t>TEST REPORT<\/w:t>)/, (m, p1, p2, p3) => {
+    return p1 + 'w:before="60" w:after="30"' + p3;
   });
 
   // If not NABL, clear NABL logo/QR cell in header table
@@ -152,6 +151,13 @@ const generateWaterIso10500Report = async (job, reportType) => {
     );
   }
   zip.file('word/header1.xml', hdrXml);
+
+  // Process header2.xml (continuation pages: FTL reference only, no Report No/ULR repetition)
+  if (zip.file('word/header2.xml')) {
+    let hdr2Xml = await zip.file('word/header2.xml').async('text');
+    hdr2Xml = hdr2Xml.replace(headerLineRegex, '');
+    zip.file('word/header2.xml', hdr2Xml);
+  }
 
   // 2. Process document.xml
   let docXml = await zip.file('word/document.xml').async('text');
@@ -190,8 +196,8 @@ const generateWaterIso10500Report = async (job, reportType) => {
   const signaturesTableXml = `<w:tbl>
   <w:tblPr>
     <w:tblStyle w:val="TableGrid"/>
-    <w:tblW w:w="10774" w:type="dxa"/>
-    <w:tblInd w:w="-318" w:type="dxa"/>
+    <w:tblW w:w="11057" w:type="dxa"/>
+    <w:tblInd w:w="-459" w:type="dxa"/>
     <w:tblBorders>
       <w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>
       <w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>
@@ -204,9 +210,9 @@ const generateWaterIso10500Report = async (job, reportType) => {
     <w:tblLook w:val="04A0"/>
   </w:tblPr>
   <w:tblGrid>
-    <w:gridCol w:w="3591"/>
-    <w:gridCol w:w="3591"/>
-    <w:gridCol w:w="3592"/>
+    <w:gridCol w:w="3685"/>
+    <w:gridCol w:w="3686"/>
+    <w:gridCol w:w="3686"/>
   </w:tblGrid>
   <w:tr>
     <w:trPr><w:cantSplit/></w:trPr>
