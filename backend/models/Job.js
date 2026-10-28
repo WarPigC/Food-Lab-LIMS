@@ -22,9 +22,13 @@ const jobSchema = new mongoose.Schema({
     subGroup: { type: String },
     productCategory: { type: String }
   },
-  pesticidePanel: {
-    enabled: { type: Boolean, default: false },
-    panelType: { type: String, enum: ['food', null], default: null }
+  specialProfiles: {
+    waterIso10500: { type: Boolean, default: false },
+    pesticides:    { type: Boolean, default: false },
+    fattyAcids: {
+      enabled: { type: Boolean, default: false },
+      variant: { type: String, enum: ['compiled', 'full', null], default: null }
+    }
   },
   parameters: [{
     parameterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parameter' },

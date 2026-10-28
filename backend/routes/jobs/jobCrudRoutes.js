@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Job = require('../../models/Job');
 const TestInstance = require('../../models/TestInstance');
@@ -6,6 +7,7 @@ const SampleTransfer = require('../../models/SampleTransfer');
 const User = require('../../models/User');
 const UlrCounter = require('../../models/UlrCounter');
 const SampleCounter = require('../../models/SampleCounter');
+const SpecialProfile = require('../../models/SpecialProfile');
 const { protect } = require('../../middlewares/authMiddleware');
 const { authorize } = require('../../middlewares/roleMiddleware');
 const { createNotification, notifyAdmins, notifyAdminOfficers } = require('../../utils/notifier');
@@ -135,7 +137,54 @@ router.put('/sample-serial-offset', protect, authorize('ADMIN_OFFICER', 'ADMIN')
 // Create a new job (ADMIN_OFFICER only)
 router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
   try {
-    const { customer, sample, compliance, parameters, sampleFlow, assignedMicroHead, assignedChemicalHead, nablMode, nablParameters, nonNablParameters, groupMetadata, pesticidePanel, nablGroupMetadata, nablPesticidePanel, nonNablGroupMetadata, nonNablPesticidePanel, showSpecifications, nablShowSpecifications, nonNablShowSpecifications, customCreationDate } = req.body;
+    const {
+      customer, sample, compliance, parameters, sampleFlow,
+      assignedMicroHead, assignedChemicalHead, nablMode,
+      nablParameters, nonNablParameters, groupMetadata,
+      specialProfiles, nablSpecialProfiles, nonNablSpecialProfiles,
+      pesticidePanel, nablGroupMetadata, nablPesticidePanel,
+      nonNablGroupMetadata, nonNablPesticidePanel,
+      showSpecifications, nablShowSpecifications, nonNablShowSpecifications,
+      customCreationDate
+    } = req.body;
+
+    const activeSpecialProfiles = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+    const activeNablSpecialProfiles = nablSpecialProfiles || (nablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+    const activeNonNablSpecialProfiles = nonNablSpecialProfiles || (nonNablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+
+    // Helper to resolve parameter snapshotting from Special Profiles
+    const resolveProfileParameters = async (incomingParams, profiles) => {
+      let params = (incomingParams || []).map(p => ({
+        ...p,
+        parameterId: p.parameterId || new mongoose.Types.ObjectId()
+      }));
+      if (profiles?.waterIso10500) {
+        const profile = await SpecialProfile.findOne({ key: 'waterIso10500' });
+        const profileParams = (profile?.parameters || [])
+          .filter(p => !p.isCategoryHeader)
+          .map(p => ({
+            parameterId: new mongoose.Types.ObjectId(),
+            name: p.name,
+            unit: p.unit,
+            type: 'Chemical',
+            specification: p.requirement || ''
+          }));
+        params = [...params, ...profileParams];
+      }
+      if (profiles?.fattyAcids?.enabled) {
+        const profile = await SpecialProfile.findOne({ key: 'fattyAcids' });
+        const variant = profile?.variants?.find(v => v.key === profiles.fattyAcids.variant);
+        const faParams = (variant?.parameters || []).map(p => ({
+          parameterId: new mongoose.Types.ObjectId(),
+          name: p.name,
+          unit: p.unit,
+          type: 'Chemical',
+          specification: p.specification || ''
+        }));
+        params = [...params, ...faParams];
+      }
+      return params;
+    };
 
     // customCreationDate is an optional YYYY-MM-DD string chosen by the officer.
     // It overrides the date prefix in the job code but does NOT affect the counter.
@@ -151,9 +200,9 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
     const firstDept = sampleFlow?.firstDepartm || 'micro';
 
     // Helper to determine distribution object for a set of parameters
-    const getDistribution = (params, isPesticideEnabled = false) => {
+    const getDistribution = (params, isSpecialChem = false) => {
       const hasMicro = params && params.some(p => p.type === 'Micro');
-      const hasChemical = (params && params.some(p => p.type === 'Chemical')) || isPesticideEnabled;
+      const hasChemical = (params && params.some(p => p.type === 'Chemical')) || Boolean(isSpecialChem);
 
       // ALL jobs start at PENDING_REVIEW (universal approval gate)
       return {
@@ -200,8 +249,14 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
     let createdJobs = [];
 
     if (nablMode === 'hybrid') {
-      const nablDist = getDistribution(nablParameters, nablPesticidePanel?.enabled);
-      const nonNablDist = getDistribution(nonNablParameters, nonNablPesticidePanel?.enabled);
+      const isNablSpecial = Boolean(activeNablSpecialProfiles?.pesticides || activeNablSpecialProfiles?.waterIso10500 || activeNablSpecialProfiles?.fattyAcids?.enabled);
+      const isNonNablSpecial = Boolean(activeNonNablSpecialProfiles?.pesticides || activeNonNablSpecialProfiles?.waterIso10500 || activeNonNablSpecialProfiles?.fattyAcids?.enabled);
+
+      const resolvedNablParams = await resolveProfileParameters(nablParameters, activeNablSpecialProfiles);
+      const resolvedNonNablParams = await resolveProfileParameters(nonNablParameters, activeNonNablSpecialProfiles);
+
+      const nablDist = getDistribution(resolvedNablParams, isNablSpecial);
+      const nonNablDist = getDistribution(resolvedNonNablParams, isNonNablSpecial);
 
       // Create NABL job
       const nablJob = await Job.create({
@@ -212,9 +267,9 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         customer,
         sample: { ...sampleWithId, nabl_type: 'Nabl', ulr_no: null },
         compliance,
-        parameters: nablParameters,
+        parameters: resolvedNablParams,
         groupMetadata: nablGroupMetadata,
-        pesticidePanel: nablPesticidePanel,
+        specialProfiles: activeNablSpecialProfiles,
         distribution: nablDist,
         sampleTransferState: (nablDist.micro.required && nablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
@@ -237,9 +292,9 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         customer,
         sample: { ...sampleWithId, nabl_type: 'Non Nabl', ulr_no: null },
         compliance,
-        parameters: nonNablParameters,
+        parameters: resolvedNonNablParams,
         groupMetadata: nonNablGroupMetadata,
-        pesticidePanel: nonNablPesticidePanel,
+        specialProfiles: activeNonNablSpecialProfiles,
         distribution: nonNablDist,
         sampleTransferState: (nonNablDist.micro.required && nonNablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
@@ -292,7 +347,9 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       }
 
       const effectiveNablType = isNabl ? 'Nabl' : 'Non Nabl';
-      const dist = getDistribution(parameters, pesticidePanel?.enabled);
+      const isSpecialChem = Boolean(activeSpecialProfiles?.pesticides || activeSpecialProfiles?.waterIso10500 || activeSpecialProfiles?.fattyAcids?.enabled);
+      const resolvedParams = await resolveProfileParameters(parameters, activeSpecialProfiles);
+      const dist = getDistribution(resolvedParams, isSpecialChem);
 
       const job = await Job.create({
         jobCode: baseJobCode,
@@ -304,9 +361,9 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         reservedUlrSlot: reservedSlot,
         reservedUlrYear: reservedYear,
         compliance,
-        parameters,
+        parameters: resolvedParams,
         groupMetadata,
-        pesticidePanel,
+        specialProfiles: activeSpecialProfiles,
         distribution: dist,
         sampleTransferState: (dist.micro.required && dist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
         sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
@@ -414,7 +471,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       job.sampleTransferState = isMulti ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
     }
 
-    const { customer, sample, compliance, parameters, groupMetadata, pesticidePanel, sampleFlow, assignedMicroHead, assignedChemicalHead, showSpecifications } = req.body;
+    const { customer, sample, compliance, parameters, groupMetadata, specialProfiles, pesticidePanel, sampleFlow, assignedMicroHead, assignedChemicalHead, showSpecifications } = req.body;
 
     if (customer) job.customer = customer;
     
@@ -501,12 +558,17 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       }
 
       // Now update job.parameters
-      job.parameters = parameters;
+      job.parameters = (parameters || []).map(p => ({
+        ...p,
+        parameterId: p.parameterId || new mongoose.Types.ObjectId()
+      }));
       if (groupMetadata) job.groupMetadata = groupMetadata;
-      if (pesticidePanel) job.pesticidePanel = pesticidePanel;
+      const activeSpecial = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined);
+      if (activeSpecial) job.specialProfiles = activeSpecial;
 
+      const isSpecialChem = Boolean(job.specialProfiles?.pesticides || job.specialProfiles?.waterIso10500 || job.specialProfiles?.fattyAcids?.enabled);
       const hasMicro = parameters.some(p => p.type === 'Micro');
-      const hasChemical = parameters.some(p => p.type === 'Chemical') || pesticidePanel?.enabled;
+      const hasChemical = parameters.some(p => p.type === 'Chemical') || isSpecialChem;
 
       // Retain existing valid statuses, default to PENDING_REVIEW if newly required
       let microStatus = (job.distribution.micro?.status && job.distribution.micro.status !== 'RETURNED') ? job.distribution.micro.status : 'PENDING_REVIEW';
@@ -664,6 +726,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
     // Hybrid sibling sync: propagate customer/sample-metadata/compliance and update sibling's own params
     const { nablMode, nablParameters, nonNablParameters, nablGroupMetadata, nonNablGroupMetadata,
+            nablSpecialProfiles, nonNablSpecialProfiles,
             nablPesticidePanel, nonNablPesticidePanel, nablShowSpecifications, nonNablShowSpecifications } = req.body;
     
     if (nablMode === 'hybrid' && job.siblingJobId) {
@@ -682,13 +745,15 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         const isCurrentJobNabl = job.sample?.nabl_type === 'Nabl';
         const siblingParams    = isCurrentJobNabl ? nonNablParameters : nablParameters;
         const siblingGroupMeta = isCurrentJobNabl ? nonNablGroupMetadata : nablGroupMetadata;
-        const siblingPesticide = isCurrentJobNabl ? nonNablPesticidePanel : nablPesticidePanel;
+        const siblingSpecial = isCurrentJobNabl
+          ? (nonNablSpecialProfiles || (nonNablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined))
+          : (nablSpecialProfiles || (nablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined));
         const siblingShowSpecs = isCurrentJobNabl ? nonNablShowSpecifications : nablShowSpecifications;
     
         if (siblingParams) {
           sibling.parameters = siblingParams;
           if (siblingGroupMeta !== undefined) sibling.groupMetadata = siblingGroupMeta;
-          if (siblingPesticide) sibling.pesticidePanel = siblingPesticide;
+          if (siblingSpecial) sibling.specialProfiles = siblingSpecial;
           if (siblingShowSpecs !== undefined) sibling.showSpecifications = siblingShowSpecs;
         }
         
