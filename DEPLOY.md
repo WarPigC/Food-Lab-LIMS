@@ -47,7 +47,7 @@
   MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<database>?retryWrites=true&w=majority
   JWT_SECRET=<your-strong-random-secret>
   SAMPLE_ID_START=1100
-  FRONTEND_URL=https://acrocsit.in
+  FRONTEND_URL=https://ftl.acrocsit.in
   LOG_LEVEL=info
   LOG_DB_ENABLED=true
   BREVO_API_KEY=<optional_key>
