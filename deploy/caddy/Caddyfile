@@ -18,5 +18,5 @@ ftl.acrocsit.in {
 }
 
 acrocsit.in, www.acrocsit.in {
-    redir https://ftl.acrocsit.in{uri} permanent
+    redir https://ftl.acrocsit.in{uri} 301
 }
