@@ -1,0 +1,27 @@
+# ==============================================================================
+# Caddy Configuration for acrocsit.in
+# Target Server Location: ~/stacks/caddy/Caddyfile
+# ==============================================================================
+
+acrocsit.in {
+    encode gzip zstd
+
+    # Route backend REST API requests to foodlab-backend
+    handle /api/* {
+        reverse_proxy foodlab-backend:5000
+    }
+
+    # Route real-time Socket.IO WebSocket and polling requests to foodlab-backend
+    handle /socket.io/* {
+        reverse_proxy foodlab-backend:5000
+    }
+
+    # Route all other web traffic to foodlab-frontend (Nginx serving React SPA)
+    handle {
+        reverse_proxy foodlab-frontend:80
+    }
+}
+
+www.acrocsit.in {
+    redir https://acrocsit.in{uri} permanent
+}
