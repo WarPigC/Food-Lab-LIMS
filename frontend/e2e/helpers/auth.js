@@ -6,6 +6,7 @@ import {
   mockNotifications,
   mockTestMethods,
   mockUnits,
+  mockSpecialProfiles,
 } from './mockData.js';
 
 /**
@@ -201,6 +202,47 @@ export const setupApiMocks = async (page, overrides = {}) => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ serial: 100 }),
+      });
+    }
+
+    // Special profiles
+    if (url.includes('/api/special-profiles')) {
+      if (method === 'PUT') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Profile parameters updated successfully' }),
+        });
+      }
+      // Check if fetching single profile by key
+      const match = url.match(/\/api\/special-profiles\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const key = match[1];
+        const profile = mockSpecialProfiles.find((p) => p.key === key) || mockSpecialProfiles[0];
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(profile),
+        });
+      }
+      // Summary list
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          mockSpecialProfiles.map((p) => ({
+            key: p.key,
+            label: p.label,
+            description: p.description,
+            isExclusive: p.isExclusive,
+            parameterCount: p.parameterCount,
+            variants: p.variants?.map((v) => ({
+              key: v.key,
+              label: v.label,
+              parameterCount: v.parameterCount,
+            })),
+          }))
+        ),
       });
     }
 

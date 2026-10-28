@@ -1,0 +1,54 @@
+# ==============================================================================
+# FoodLab LIMS - Application Docker Compose Stack
+# Target Server Location: ~/stacks/foodlab_lims/docker-compose.yml
+#
+# TODO: Replace "owner/repo" below with your lowercase GitHub username/org
+# and repository name (e.g. ghcr.io/myuser/foodlab_lims-backend:${TAG:-latest})
+# ==============================================================================
+
+services:
+  backend:
+    image: ghcr.io/OWNER/REPO-backend:${TAG:-latest}
+    container_name: foodlab-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    mem_limit: 1024m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:5000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - web
+
+  frontend:
+    image: ghcr.io/OWNER/REPO-frontend:${TAG:-latest}
+    container_name: foodlab-frontend
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - web
+
+networks:
+  web:
+    external: true

@@ -177,14 +177,17 @@ router.post('/:id/retest', protect, authorize('ADMIN_OFFICER'), async (req, res)
     const retestNumber = retestCount + 1;
     const jobCode = `${rootJob.jobCode}-retest-${retestNumber}`;
 
-    const { customer, sample, compliance, parameters, groupMetadata, pesticidePanel, reopenReason } = req.body;
+    const { customer, sample, compliance, parameters, groupMetadata, specialProfiles, pesticidePanel, reopenReason } = req.body;
 
-    if (!parameters || (!Array.isArray(parameters) && !pesticidePanel?.enabled)) {
-      return res.status(400).json({ message: 'Parameters or Pesticide Panel are required for retest' });
+    const activeSpecialProfiles = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+    const isSpecialChem = Boolean(activeSpecialProfiles?.pesticides || activeSpecialProfiles?.waterIso10500 || activeSpecialProfiles?.fattyAcids?.enabled);
+
+    if (!parameters || (!Array.isArray(parameters) && !isSpecialChem)) {
+      return res.status(400).json({ message: 'Parameters or Special Profiles are required for retest' });
     }
 
     const hasMicro = parameters && parameters.some(p => p.type && p.type.toLowerCase() === 'micro');
-    const hasChemical = (parameters && parameters.some(p => p.type && p.type.toLowerCase() !== 'micro')) || pesticidePanel?.enabled;
+    const hasChemical = (parameters && parameters.some(p => p.type && p.type.toLowerCase() !== 'micro')) || isSpecialChem;
 
     const job = new Job({
       jobCode,
@@ -196,7 +199,8 @@ router.post('/:id/retest', protect, authorize('ADMIN_OFFICER'), async (req, res)
       compliance,
       parameters: parameters || [],
       groupMetadata,
-      pesticidePanel, distribution: {
+      specialProfiles: activeSpecialProfiles,
+      distribution: {
         micro: { required: hasMicro, status: 'PENDING' },
         chemical: { required: hasChemical, status: 'PENDING' }
       },

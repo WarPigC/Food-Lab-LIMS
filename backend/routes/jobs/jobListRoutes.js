@@ -202,7 +202,7 @@ router.get('/', protect, async (req, res) => {
         .sort({ createdAt: 1 });
       const jobObj = job.toObject();
       if (jobObj.parameters) {
-        jobObj.parameters = jobObj.parameters.filter(p => p.parameterId);
+        jobObj.parameters = jobObj.parameters.filter(p => p.parameterId || p.name);
       }
       return { ...jobObj, testInstances: instances, sampleTransfers: transfers };
     }));

@@ -70,45 +70,131 @@ export default function ReportPreview({ blob }) {
   }, [blob]);
 
   /**
-   * Fix ULR right-alignment.
-   * docx-preview ignores tab stops, so "Report No. xxx\tULR No. xxx" renders
-   * as a single left-aligned line. We find the ULR spans and float them right.
+   * Format Report No and ULR line:
+   * 1. On 2-cell header tables (Water ISO and standard reports), indent the
+   *    report number to the right and the ULR code to the left (inwards).
+   * 2. Remove any empty trailing paragraphs in <header> to ensure no newline
+   *    exists between the report code/ULR line and the customer details table.
+   * 3. Backward compatibility for legacy single-paragraph reports.
    */
   const fixUlrAlignment = (container) => {
     if (!container) return;
-    const allSpans = container.querySelectorAll('span');
-    
-    allSpans.forEach(span => {
-      if (span.textContent.trim() === 'ULR No.') {
-        // This span and the next sibling (the ULR value) need to be right-aligned
-        const parentP = span.closest('p');
-        if (!parentP) return;
 
-        // Collect ULR-related spans (the label + the value after it)
-        const ulrSpans = [];
-        let found = false;
-        const allChildSpans = parentP.querySelectorAll('span');
-        allChildSpans.forEach(s => {
-          if (s === span) found = true;
-          if (found) ulrSpans.push(s);
+    // 1. Process 2-cell tables containing Report No and ULR
+    const allTables = container.querySelectorAll('table');
+    allTables.forEach(table => {
+      const rows = table.querySelectorAll('tr');
+      if (rows.length === 1) {
+        const cells = rows[0].querySelectorAll('td');
+        if (cells.length === 2) {
+          const t0 = (cells[0].textContent || '').trim();
+          const t1 = (cells[1].textContent || '').trim();
+          if (t0.includes('FTL/AIPER') || t1.includes('ULR No.')) {
+            // Indent report number inwards to the right
+            cells[0].style.paddingLeft = '14px';
+            cells[0].style.boxSizing = 'border-box';
+            cells[0].style.textAlign = 'left';
+
+            // Indent ULR code inwards to the left
+            cells[1].style.paddingRight = '14px';
+            cells[1].style.boxSizing = 'border-box';
+            cells[1].style.textAlign = 'right';
+            cells[1].style.whiteSpace = 'nowrap';
+
+            // Clean spacing between report no./ULR code line and the customer detail table
+            table.style.marginBottom = '4px';
+          }
+        }
+      }
+    });
+
+    // 2. Ensure "TEST REPORT" headline has subtle breathing room before it
+    const allParagraphs = container.querySelectorAll('p');
+    allParagraphs.forEach(p => {
+      if (p.textContent.trim() === 'TEST REPORT') {
+        p.style.marginTop = '4px';
+        p.style.marginBottom = '2px';
+      }
+    });
+
+    // 3. Remove only trailing empty <p> at the end of <header> to prevent blank newline before customer table
+    const headers = container.querySelectorAll('header');
+    headers.forEach(hdr => {
+      while (hdr.lastElementChild && hdr.lastElementChild.tagName === 'P' && !hdr.lastElementChild.textContent.trim() && !hdr.lastElementChild.querySelector('img')) {
+        hdr.lastElementChild.remove();
+      }
+    });
+
+    // 3. Fallback for legacy single-paragraph reports (if any)
+    const allPs = container.querySelectorAll('p');
+    allPs.forEach(parentP => {
+      if (!parentP.textContent.includes('ULR No.')) return;
+      if (parentP.closest('table')) return;
+      if (parentP.querySelector('.ulr-right-aligned')) return; // Already processed
+      
+      const allSpans = Array.from(parentP.querySelectorAll('span'));
+      const ulrIdx = allSpans.findIndex(s => s.textContent.includes('ULR No.'));
+      
+      if (ulrIdx !== -1) {
+        const targetSpan = allSpans[ulrIdx];
+        let ulrText = '';
+
+        if (targetSpan.textContent.includes('FTL/AIPER') || targetSpan.textContent.includes('Report')) {
+          const match = targetSpan.textContent.match(/(.*?)(ULR No\..*)/s);
+          if (match) {
+            targetSpan.textContent = match[1].replace(/[\s\t]+$/, '');
+            ulrText = match[2].trim();
+          }
+        } else {
+          const ulrSpans = allSpans.slice(ulrIdx);
+          ulrText = ulrSpans.map(s => s.textContent).join(' ').trim();
+          ulrSpans.forEach(s => s.remove());
+        }
+
+        // Clean any "Report  No. " prefix if present to match clean report number format
+        allSpans.slice(0, ulrIdx).forEach(s => {
+          if (s.textContent.includes('Report') && s.textContent.includes('No.')) {
+            s.textContent = s.textContent.replace(/Report\s+No\.\s*/i, '');
+          }
         });
 
-        if (ulrSpans.length > 0) {
-          // Wrap ULR spans in a right-floated container
-          const ulrContainer = document.createElement('span');
-          ulrContainer.style.cssText = 'float: right;';
-          ulrSpans.forEach(s => ulrContainer.appendChild(s.cloneNode(true)));
-          ulrSpans.forEach(s => s.remove());
-          
-          // Remove any tab character text nodes
-          parentP.childNodes.forEach(node => {
-            if (node.nodeType === 3 && node.textContent.includes('\t')) {
-              node.textContent = node.textContent.replace(/\t/g, '');
+        // Clean any tab text nodes and redundant spaces
+        parentP.childNodes.forEach(node => {
+          if (node.nodeType === 3) {
+            node.textContent = node.textContent.replace(/\t/g, '').replace(/[\s]{2,}$/, ' ');
+          }
+        });
+
+        // Use flexbox with inward indents
+        parentP.style.display = 'flex';
+        parentP.style.justifyContent = 'space-between';
+        parentP.style.alignItems = 'baseline';
+        parentP.style.paddingLeft = '14px';
+        parentP.style.paddingRight = '14px';
+        parentP.style.boxSizing = 'border-box';
+
+        const sec = parentP.closest('section');
+        const allSecTables = sec ? Array.from(sec.querySelectorAll('table')) : [];
+        const refTable = allSecTables.length > 1 ? allSecTables[1] : (allSecTables[0] || null);
+        if (refTable) {
+          const tableRect = refTable.getBoundingClientRect();
+          const pRect = parentP.getBoundingClientRect();
+          if (tableRect.width > 0) {
+            parentP.style.width = `${tableRect.width}px`;
+            const diffX = tableRect.left - pRect.left;
+            if (diffX !== 0) {
+              parentP.style.marginLeft = `${diffX}px`;
             }
-          });
-          
-          parentP.appendChild(ulrContainer);
+          }
+        } else {
+          parentP.style.width = '100%';
         }
+
+        const ulrContainer = document.createElement('span');
+        ulrContainer.className = 'ulr-right-aligned';
+        ulrContainer.style.fontWeight = 'bold';
+        ulrContainer.textContent = ulrText;
+        parentP.appendChild(ulrContainer);
       }
     });
   };
@@ -155,15 +241,18 @@ export default function ReportPreview({ blob }) {
     const containerWidth = container.clientWidth || (container.parentElement && container.parentElement.clientWidth);
     const sectionWidth = section.scrollWidth || section.offsetWidth;
 
+    const wrapper = container.querySelector('.docx-wrapper');
     if (sectionWidth > containerWidth && containerWidth > 0) {
       const scale = containerWidth / sectionWidth;
-      const wrapper = container.querySelector('.docx-wrapper');
       if (wrapper) {
-        wrapper.style.transformOrigin = 'top left';
+        wrapper.style.transformOrigin = 'top center';
         wrapper.style.transform = `scale(${scale})`;
         // Adjust container height so it doesn't leave empty space
         wrapper.style.width = `${100 / scale}%`;
       }
+    } else if (wrapper) {
+      wrapper.style.transform = 'none';
+      wrapper.style.width = '100%';
     }
   };
 
@@ -177,15 +266,69 @@ export default function ReportPreview({ blob }) {
   return (
     <>
       <style>{`
+        .report-preview-container {
+          display: flex;
+          justify-content: center;
+        }
         .report-preview-container .docx-wrapper {
           transition: transform 0.2s ease;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          margin: 0 auto !important;
         }
         .report-preview-container section.docx {
           max-width: none !important;
+          padding-left: 36pt !important;
+          padding-right: 36pt !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          overflow: hidden !important;
+        }
+        .report-preview-container section.docx > header,
+        .report-preview-container section.docx > article,
+        .report-preview-container section.docx > footer {
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        .report-preview-container section.docx table {
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+        /* Reset negative margins that push text out of bounds */
+        .report-preview-container p {
+          margin-right: 0 !important;
+          margin-inline-end: 0 !important;
+        }
+        /* Remove trailing empty paragraphs at the end of header that create unwanted newlines */
+        .report-preview-container section.docx > header > p:last-child:empty {
+          display: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          min-height: 0 !important;
         }
         /* Ensure inline-block images in table cells don't stack */
         .report-preview-container td div[style*="inline-block"] {
           vertical-align: middle;
+        }
+        /* Ensure serialization numbering in table cells matches standard 10pt font */
+        .report-preview-container td p::before,
+        .report-preview-container td [class*="num"]::before,
+        .report-preview-container td [class*="docx-num"]::before {
+          font-size: 10pt !important;
+          font-family: 'Times New Roman', serif !important;
+          font-weight: normal !important;
+          line-height: normal !important;
+          display: inline !important;
+        }
+        .report-preview-container td p[class*="num"],
+        .report-preview-container td p[class*="docx-num"] {
+          font-size: 10pt !important;
+          line-height: normal !important;
         }
       `}</style>
       <div 

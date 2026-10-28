@@ -7,7 +7,7 @@
 | SP | Name | Items | Status |
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
-| SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9 | ⬜ Active |
+| SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8 | ⬜ Active |
 | SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | Upcoming |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
@@ -250,6 +250,10 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P9 | F19 | Head Monitor Tab V1 — Cancel, Reassign & Live Progress | ⬜ Upcoming |
 | SP2.P10 | F20 | Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot | ⬜ Upcoming |
 | SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
+| SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ⬜ Upcoming |
+| SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ⬜ Upcoming |
+| SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ⬜ Upcoming |
+| SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ⬜ Upcoming |
 
 ---
 
@@ -649,6 +653,119 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP2.P10.5 | Test: split 1 param from analyst A to analyst B who already has an active instance — verify no new TestInstance created, B10 scenario cannot recur |
 | SP2.P10.6 | Test: split to an analyst with no existing instance — verify new instance IS created |
 | SP2.P10.7 | Verify progress snapshot shows correct per-param data after a split |
+
+---
+
+### SP2.P12: B12 - 1+ Samples Multi-Department Handover Bypass
+
+**Files**:
+- `backend/routes/jobs/jobCrudRoutes.js`
+- `backend/routes/jobs/jobWorkflowRoutes.js`
+- `backend/routes/sampleTransferRoutes.js`
+- `frontend/src/pages/Head/DispatcherPage.jsx`
+- `frontend/src/components/JobTimeline.jsx`
+
+**Symptom**: When a client provides 2 or more physical containers (`sample.sample_count > 1`, e.g. Job `2610011828` with 5 packets), Microbiology and Chemical receive physical samples at intake and can test concurrently from day 1. However, the system currently evaluates handover requirements purely via `isMultiDept = micro.required && chemical.required`, completely ignoring `sample_count`. This forces an artificial sequential handover (`sampleTransferState: PENDING_APPROVAL -> PENDING_TRANSFER -> IN_TRANSIT -> ACCEPTED`), locking Chemical out of dispatching for days until Micro completes testing and confirms transfer.
+
+**Fix**: Introduce a centralized helper `isSampleHandoverRequired(job)` returning `true` only when `micro.required && chemical.required && (sample.sample_count <= 1)`. When `sample.sample_count > 1`, set `sampleTransferState: 'NOT_REQUIRED'`, bypass outgoing/incoming transfer queues, unlock Chemical dispatch immediately upon joint review approval, and render parallel pipeline tracks in the timeline without an intermediate transfer connector.
+
+| Subphase | Task |
+|---|---|
+| SP2.P12.1 | **Backend - helper**: Create `isSampleHandoverRequired(job)` utility function checking multi-department requirement AND `(job.sample?.sample_count <= 1 || !job.sample?.sample_count)` |
+| SP2.P12.2 | **Backend - jobCrudRoutes**: In `POST /api/jobs` and `PUT /api/jobs/:id`, use `isSampleHandoverRequired` to set `sampleTransferState` to `'NOT_REQUIRED'` when `sample_count > 1` |
+| SP2.P12.3 | **Backend - jobWorkflowRoutes**: In `PUT /:id/approve-review`, if `!isSampleHandoverRequired(job)`, transition `sampleTransferState` to `'NOT_REQUIRED'` upon joint review approval, immediately enabling Chemical dispatch |
+| SP2.P12.4 | **Backend - sampleTransferRoutes**: In `GET /outgoing` and `GET /incoming`, exclude jobs where `sample.sample_count > 1` so they never appear in transfer queues |
+| SP2.P12.5 | **Frontend - DispatcherPage**: Update `canChemicalDispatch` logic to allow dispatch if `job.sample?.sample_count > 1` or `sampleTransferState === 'NOT_REQUIRED'`; hide the sample transfer warning banner when `sample_count > 1` |
+| SP2.P12.6 | **Frontend - JobTimeline**: Render parallel department tracks without an intermediate sample transfer connector box when `sample.sample_count > 1` |
+| SP2.P12.7 | **Testing**: Verify with multi-department job having `sample_count = 2`: confirm no transfer in queues, Chemical can dispatch immediately on review approval, and timeline displays clean parallel tracks |
+
+---
+
+### SP2.P13: B13 - Staged Parameter Amendments & Multi-Analyst Duplication Fix
+
+**Files**:
+- `backend/models/Job.js`
+- `backend/utils/parameterDelta.js`
+- `backend/utils/ulrService.js`
+- `backend/routes/jobs/jobCrudRoutes.js`
+- `backend/routes/jobs/jobWorkflowRoutes.js`
+- `backend/routes/jobs/jobListRoutes.js`
+- `backend/routes/tests/testResultRoutes.js`
+- `backend/routes/exportRoutes.js`
+- `frontend/src/pages/Head/DispatcherPage.jsx`
+- `frontend/src/components/JobLogTable.jsx`
+- `frontend/src/pages/AdminOfficer/JobsPage.jsx`
+
+**Symptom**: When an Admin Officer edits an active dispatched job and adds parameters, `applyAdditions` pushes the new parameters into every active `TestInstance` belonging to that department. Multiple analysts receive identical parameters, and completed tests are rolled back to `PENDING`. Furthermore, Department Heads have no approval or assignment control over the new parameters.
+
+**Fix**: Introduce a staged container on the Job schema (`pendingParamAmendments`). New parameters on dispatched jobs do not touch active `TestInstance` records. The Head receives a dedicated Dispatcher card to Approve & Assign (to an existing or new analyst) or Reject with a reason. Upon rejection, the Admin Officer's job row highlights in red with a `[Params Rejected]` badge, and the rejected parameters pre-fill the form (zero re-typing). A 3-layer completion safety guard ensures the job cannot be marked completed, assigned a ULR, or exported until amendments are fully resolved.
+
+| Subphase | Task |
+|---|---|
+| SP2.P13.1 | **Backend - schema**: Add `pendingParamAmendments` schema definition to `Job.js` with statuses `NONE`, `PENDING_HEAD_REVIEW`, `REJECTED` |
+| SP2.P13.2 | **Backend - jobCrudRoutes**: In `PUT /api/jobs/:id`, stage added parameters into `pendingParamAmendments` instead of calling `applyAdditions`; notify Head |
+| SP2.P13.3 | **Backend - jobWorkflowRoutes**: Create `POST /api/jobs/:id/approve-amendment` (assigns params to analysts, merges to `job.parameters`, clears staging) and `POST /api/jobs/:id/reject-amendment` (stores rejection reason, notifies officer) |
+| SP2.P13.4 | **Backend - safety guards**: In `testResultRoutes.js` (completion check), `ulrService.js` (`isJobFullyTested`), and `exportRoutes.js` (report export), block finalization while `pendingParamAmendments.status !== 'NONE'` |
+| SP2.P13.5 | **Frontend - DispatcherPage**: Display dedicated "Parameter Amendment Awaiting Review" card with Approve & Assign dropdowns and Reject modal |
+| SP2.P13.6 | **Frontend - JobLogTable**: When `pendingParamAmendments.status === 'REJECTED'`, render solid red left accent bar, red `[Params Rejected]` badge, and highlighted red Edit button |
+| SP2.P13.7 | **Frontend - JobsPage**: On editing a rejected job, show red alert banner with Head's reason, pre-fill rejected parameters in selector (zero re-typing), and provide "Discard Rejected Parameters" action |
+| SP2.P13.8 | **Testing**: Verify full lifecycle: edit dispatched job -> Head rejects -> red alert appears on officer row -> officer opens form with pre-filled params -> completion guard blocks report -> officer discards -> guard releases and job completes |
+
+---
+
+### SP2.P14: B14 - Duplicate Parameter Guard & Whitespace Trim Fix
+
+**Files**:
+- `backend/routes/parameterRoutes.js`
+- `frontend/src/components/CascadingParameterSelector.jsx`
+- `frontend/src/pages/Settings/GroupSettings.jsx`
+
+**Symptom**:
+When adding a new parameter in Data Settings or in the Job Creation Form:
+1. If the user enters a parameter name with leading or trailing whitespace (e.g. `" Moisture"` or `"Moisture "`), the backend duplicate check regex `new RegExp('^' + name + '$', 'i')` does not match the existing trimmed `"Moisture"` record in the database.
+2. The check passes, but `Parameter.create({ name: name.trim(), ... })` triggers a MongoDB `E11000 duplicate key error`.
+3. The catch block fails to recognize code 11000 as a duplicate collision and returns a `500 Server Error` instead of a clean 400 `"already exists"` message.
+4. Neither `CascadingParameterSelector.jsx` nor `GroupSettings.jsx` performs a client-side check against loaded parameters before dispatching an HTTP POST request.
+5. In `CascadingParameterSelector.jsx`, unit is not validated prior to submission, despite being required by the backend.
+
+**Fix**:
+Normalize input strings immediately by trimming before running regex checks; catch MongoDB duplicate key code 11000 in error handlers and return a 400 status with a descriptive collision message; add instant client-side duplicate verification against the local `globalParameters` library before firing API calls; and validate unit inputs on the frontend.
+
+| Subphase | Task |
+|---|---|
+| SP2.P14.1 | **Backend - trimming & regex normalization**: In `POST /api/parameters` and `PUT /api/parameters/:id`, trim `name` and `unit` immediately; build the exact match regex using `trimmedName` |
+| SP2.P14.2 | **Backend - Mongo 11000 duplicate key error trap**: In error catch blocks for parameter creation and update, catch `err.code === 11000` and respond with `400 Bad Request` and `message: 'Parameter "${trimmedName}" already exists in the library'` |
+| SP2.P14.3 | **Frontend - CascadingParameterSelector client guard**: In `handleCreateParameter`, trim inputs and verify case-insensitively against `globalParameters`. If found, show toast error `"Parameter already exists in the library"`, automatically select the existing parameter, and close the creator |
+| SP2.P14.4 | **Frontend - CascadingParameterSelector unit validation**: Add validation for `unit.trim()` before calling the API |
+| SP2.P14.5 | **Frontend - GroupSettings client guard**: In `handleAddGlobalParameter`, trim inputs and check case-insensitively against `globalParameters`. If duplicate, show toast error `"Parameter already exists in the library"` |
+| SP2.P14.6 | **Testing**: Verify adding duplicate parameters with exact case, different case, leading/trailing spaces, and empty units in both Data Settings and Job Creation Form |
+
+---
+
+### SP2.P15: C8 - Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields
+
+**Files**:
+- `backend/models/Parameter.js`
+- `backend/routes/dataSettingsRoutes.js`
+- `backend/routes/parameterRoutes.js`
+- `backend/routes/parameterGroupRoutes.js`
+- `temp/drop_parameter_group_fields.js` (migration script)
+
+**Symptom**:
+`backend/models/Parameter.js` defines `group: { type: String, default: null }` and `subGroup: { type: String, default: null }`. Parameters in a testing laboratory are global entities (e.g. "Moisture", "Ash", "Lead") and are never bound to a single group or subgroup. Group and subgroup mappings are maintained exclusively by `ParameterGroup` documents through parameter references (`parameters: [{ parameterId, name, type, unit }]`). Having `group` and `subGroup` on `Parameter` documents represents dead-weight schema clutter, causes inconsistent data when parameters belong to multiple groups, and triggers redundant cascading updates during group renames.
+
+**Fix**:
+Remove `group` and `subGroup` fields from `Parameter.js`; eliminate dead-weight cascading updates to `Parameter` on group/subgroup renames in `dataSettingsRoutes.js`; remove `group` and `subGroup` from parameter creation routes; and execute a database migration script via `$unset: { group: "", subGroup: "" }` to strip both fields from all parameter records in both `local_db` and `prod_db`.
+
+| Subphase | Task |
+|---|---|
+| SP2.P15.1 | **Backend - model cleanup**: Remove `group` and `subGroup` field definitions from `backend/models/Parameter.js` |
+| SP2.P15.2 | **Backend - dataSettingsRoutes cleanup**: In `dataSettingsRoutes.js`, remove all dead-weight cascading updates to `Parameter` on group rename (line 56) and subgroup rename (line 145); remove `group` and `subGroup` from `Parameter.create()` in `POST /subgroups/:id/parameters` (lines 247-248) |
+| SP2.P15.3 | **Backend - parameterRoutes / parameterGroupRoutes verification**: Verify that parameter endpoints and population logic do not query or rely on `Parameter.group` or `Parameter.subGroup` |
+| SP2.P15.4 | **Database Migration Script**: Create a migration script in `temp/drop_parameter_group_fields.js` using MongoDB `$unset: { group: "", subGroup: "" }` on the `parameters` collection. Test against `local_db` and prepare for `prod_db` |
+| SP2.P15.5 | **Testing**: Verify parameter creation, search, group management, and job creation to ensure no regressions after dropping `group` and `subGroup` |
+
+---
 
 ### SP3 — UX Polish + Infrastructure
 | Phase | ID | Title |

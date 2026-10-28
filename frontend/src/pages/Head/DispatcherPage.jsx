@@ -356,10 +356,18 @@ export default function Dispatcher() {
   }, [socket, user]);
 
 
+  const getParamId = (p) => {
+    if (!p) return "";
+    if (p.parameterId && typeof p.parameterId === "object" && p.parameterId._id) {
+      return String(p.parameterId._id);
+    }
+    return String(p.parameterId || p._id || p.name);
+  };
+
   const getDeptParams = (job) => {
     const params =
       job?.parameters?.filter((p) => {
-        if (!p || !p.parameterId) return false;
+        if (!p || (!p.parameterId && !p.name)) return false;
         const d = user?.department ? user.department.toLowerCase() : "";
         const pt = p.type ? p.type.toLowerCase() : "";
         if ((d === "chemical" || d === "chemical") && pt === "chemical")
@@ -371,12 +379,11 @@ export default function Dispatcher() {
     // Inject virtual parameters for Food Pesticide Panels (only for Chemical department)
     if (
       user?.department?.toLowerCase() === "chemical" &&
-      job?.pesticidePanel?.enabled &&
-      job?.pesticidePanel?.panelType === "food"
+      (job?.specialProfiles?.pesticides || (job?.pesticidePanel?.enabled && job?.pesticidePanel?.panelType === "food"))
     ) {
       params.push({
         parameterId: { _id: "panel-gcmsms" },
-        name: "Pesticide Panel (GCMSMS)",
+        name: "Food Pesticides GC-MS/MS Panel (55 parameters)",
         type: "Chemical",
         unit: "mg/kg",
         isPanel: true,
@@ -384,7 +391,7 @@ export default function Dispatcher() {
       });
       params.push({
         parameterId: { _id: "panel-lcmsms" },
-        name: "Pesticide Panel (LCMSMS)",
+        name: "Food Pesticides LC-MS/MS Panel (164 parameters)",
         type: "Chemical",
         unit: "mg/kg",
         isPanel: true,
@@ -406,7 +413,7 @@ export default function Dispatcher() {
     if (!assistantId) return;
     const newAssignments = { ...assignments };
     deptParams.forEach((p) => {
-      newAssignments[`${jobId}-${p.parameterId._id}`] = assistantId;
+      newAssignments[`${jobId}-${getParamId(p)}`] = assistantId;
     });
     setAssignments(newAssignments);
   };
@@ -419,7 +426,7 @@ export default function Dispatcher() {
 
     // Validate all params assigned
     const allAssigned = deptParams.every(
-      (p) => assignments[`${job._id}-${p.parameterId._id}`],
+      (p) => assignments[`${job._id}-${getParamId(p)}`],
     );
     if (!allAssigned) return toast.error("Please assign all parameters to analysts");
     if (!deadline) return toast.error("Please set a submission deadline");
@@ -427,14 +434,14 @@ export default function Dispatcher() {
     setSubmittingJobId(job._id);
     try {
       const assignmentList = deptParams.map((p) => ({
-        parameterId: p.parameterId._id,
+        parameterId: getParamId(p),
         name: p.name,
         type: p.type,
         unit: p.unit,
         specification: p.specification || '',
         isPanel: p.isPanel,
         panelName: p.panelName,
-        assignedTo: assignments[`${job._id}-${p.parameterId._id}`],
+        assignedTo: assignments[`${job._id}-${getParamId(p)}`],
       }));
 
       await axios.post(`${API_URL}/api/tests/instances`, {
@@ -625,7 +632,7 @@ export default function Dispatcher() {
       const deptParams = getDeptParams(job);
 
       const assignmentList = deptParams.map((p) => ({
-        parameterId: p.parameterId._id,
+        parameterId: getParamId(p),
         name: p.name,
         type: p.type,
         unit: p.unit,
@@ -959,22 +966,40 @@ export default function Dispatcher() {
                             >
                               {deptParams.map((p) => (
                                 <div
-                                  key={p.parameterId._id}
+                                  key={getParamId(p)}
                                   style={{
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center",
-                                    backgroundColor:
-                                      "var(--color-surface-hover)",
+                                    backgroundColor: p.isPanel
+                                      ? "rgba(52, 152, 219, 0.08)"
+                                      : "var(--color-surface-hover)",
+                                    border: p.isPanel
+                                      ? "1px solid rgba(52, 152, 219, 0.25)"
+                                      : "1px solid transparent",
                                     padding: "0.6rem 1rem",
                                     borderRadius: "var(--radius-md)",
                                     gap: "1rem",
                                   }}
                                 >
-                                  <div style={{ flex: 1 }}>
+                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                     <span style={{ fontWeight: 600 }}>
                                       {p.name}
-                                    </span>{" "}
+                                    </span>
+                                    {p.isPanel && (
+                                      <span
+                                        style={{
+                                          fontSize: "0.72rem",
+                                          fontWeight: 700,
+                                          padding: "0.1rem 0.45rem",
+                                          borderRadius: "4px",
+                                          backgroundColor: "rgba(52, 152, 219, 0.15)",
+                                          color: "var(--color-primary)",
+                                        }}
+                                      >
+                                        Special Panel
+                                      </span>
+                                    )}
                                     <span
                                       style={{
                                         fontSize: "0.8rem",
@@ -989,13 +1014,13 @@ export default function Dispatcher() {
                                     <select
                                       value={
                                         assignments[
-                                        `${job._id}-${p.parameterId._id}`
+                                        `${job._id}-${getParamId(p)}`
                                         ] || ""
                                       }
                                       onChange={(e) =>
                                         handleAssign(
                                           job._id,
-                                          p.parameterId._id,
+                                          getParamId(p),
                                           e.target.value,
                                         )
                                       }
