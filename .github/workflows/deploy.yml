@@ -1,0 +1,147 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Run Tests and Build Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Run backend Jest test suite
+        run: npm test
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci_test_secret
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend production build check
+        run: npm run build
+        working-directory: frontend
+
+  deploy:
+    name: Build, Push, and Deploy to VPS
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute lowercase repository identifiers
+        id: meta
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "backend_image=ghcr.io/${REPO_LOWER}-backend" >> $GITHUB_OUTPUT
+          echo "frontend_image=ghcr.io/${REPO_LOWER}-frontend" >> $GITHUB_OUTPUT
+          echo "repo_lower=${REPO_LOWER}" >> $GITHUB_OUTPUT
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.backend_image }}:latest
+            ${{ steps.meta.outputs.backend_image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.frontend_image }}:latest
+            ${{ steps.meta.outputs.frontend_image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prepare production compose file with resolved image names
+        run: |
+          sed -i "s|ghcr.io/OWNER/REPO|ghcr.io/${{ steps.meta.outputs.repo_lower }}|g" deploy/docker-compose.yml
+
+      - name: Copy docker-compose.yml to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "deploy/docker-compose.yml"
+          target: "/home/${{ secrets.VPS_USER }}/stacks/foodlab_lims/"
+          strip_components: 1
+
+      - name: Execute deployment on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            cd /home/${{ secrets.VPS_USER }}/stacks/foodlab_lims
+            TAG=${{ github.sha }} docker compose pull
+            TAG=${{ github.sha }} docker compose up -d
+            docker image prune -af --filter until=168h
+
+      - name: Verify healthcheck endpoint
+        run: |
+          echo "Checking https://acrocsit.in/api/health..."
+          MAX_ATTEMPTS=24
+          DELAY_SECONDS=5
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://acrocsit.in/api/health || true)
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "Health check succeeded with HTTP 200 on attempt $i."
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS: Received HTTP $HTTP_STATUS. Retrying in $DELAY_SECONDS seconds..."
+            sleep $DELAY_SECONDS
+          done
+          echo "Health check failed: Endpoint did not return HTTP 200 within timeout."
+          exit 1

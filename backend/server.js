@@ -23,6 +23,9 @@ const { initMongoTransport, logError } = require('./utils/logger');
 const requestLogger = require('./middlewares/requestLogger');
 
 const app = express();
+// Enable trust proxy because the application sits behind Caddy reverse proxy
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
 const allowedOrigin = process.env.FRONTEND_URL;
@@ -31,6 +34,7 @@ if (!allowedOrigin) {
 }
 const corsOrigin = allowedOrigin || '*';
 const io = new Server(server, {
+  path: '/socket.io',
   cors: {
     origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
@@ -50,18 +54,28 @@ io.on('connection', (socket) => {
   });
 });
 
-// ── Security Middlewares ──
-app.use(helmet());
+// Security Middlewares: disable CSP and COEP in API helmet so SPA preview, websockets, and QR codes are not blocked
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Request logger — logs every HTTP request
+// Request logger: logs every HTTP request
 app.use(requestLogger);
 
-// ── Health Check ──────────────────────────────────────────────────────────────
-// Used by Railway, UptimeRobot, or any external monitor to verify the server
-// and DB connection are both alive. Returns 200 when healthy, 503 when DB is down.
+// Lightweight health check without auth or database operations
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Database and server readiness check
 app.get('/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
   // readyState: 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
@@ -92,8 +106,9 @@ app.use('/api/special-profiles', apiLimiter, require('./routes/specialProfileRou
 app.use('/api/export', apiLimiter, require('./routes/exportRoutes'));
 app.use('/api/logs', apiLimiter, require('./routes/logRoutes'));
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
+// Connect to MongoDB using MONGODB_URI or MONGO_URI
+const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+mongoose.connect(mongoUri)
   .then(() => {
     console.log('Connected to MongoDB Atlas');
     // Initialize MongoDB logging transport now that DB is connected
@@ -106,6 +121,30 @@ mongoose.connect(process.env.MONGODB_URI)
     });
   })
   .catch(err => console.error('MongoDB connection error:', err));
+
+// Graceful shutdown handling for container termination
+const gracefulShutdown = (signal) => {
+  console.log(`Received ${signal}. Starting graceful shutdown...`);
+  server.close(async () => {
+    console.log('HTTP server closed.');
+    try {
+      await mongoose.connection.close(false);
+      console.log('MongoDB connection closed.');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error closing MongoDB connection:', err);
+      process.exit(1);
+    }
+  });
+
+  setTimeout(() => {
+    console.error('Graceful shutdown timed out. Forcing exit.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Global error handlers
 process.on('unhandledRejection', (reason) => {
