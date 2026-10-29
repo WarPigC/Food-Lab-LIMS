@@ -131,11 +131,11 @@ jobs:
 
       - name: Verify healthcheck endpoint
         run: |
-          echo "Checking https://acrocsit.in/api/health..."
+          echo "Checking https://ftl.acrocsit.in/api/health..."
           MAX_ATTEMPTS=24
           DELAY_SECONDS=5
           for i in $(seq 1 $MAX_ATTEMPTS); do
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://acrocsit.in/api/health || true)
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://ftl.acrocsit.in/api/health || true)
             if [ "$HTTP_STATUS" = "200" ]; then
               echo "Health check succeeded with HTTP 200 on attempt $i."
               exit 0
