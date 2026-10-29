@@ -143,11 +143,19 @@ const generateWaterIso10500Report = async (job, reportType) => {
     return p1 + 'w:before="60" w:after="30"' + p3;
   });
 
-  // If not NABL, clear NABL logo/QR cell in header table
+  // If not NABL, remove NABL logo/QR cell in header table and expand middle cell
   if (!isNabl) {
     hdrXml = hdrXml.replace(
-      /(<w:tc>[\s\S]*?<w:t>TC-12434<\/w:t>[\s\S]*?<\/w:tc>)/,
-      '<w:tc><w:tcPr><w:tcW w:w="3119" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p/></w:tc>'
+      /<!-- NABL_CELL_START -->[\s\S]*?<!-- NABL_CELL_END -->/,
+      ''
+    );
+    hdrXml = hdrXml.replace(
+      /<w:gridCol w:w="6257"\s*\/>\s*<w:gridCol w:w="2650"\s*\/>/,
+      '<w:gridCol w:w="8907"/>'
+    );
+    hdrXml = hdrXml.replace(
+      /<w:tcW w:w="6257" w:type="dxa"\s*\/>/,
+      '<w:tcW w:w="8907" w:type="dxa"/>'
     );
   }
   zip.file('word/header1.xml', hdrXml);

@@ -1,4 +1,4 @@
-const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, WidthType, BorderStyle, AlignmentType, VerticalAlign, PageBreak, Header, Footer, SectionType, TabStopType, TabStopPosition, PageNumber } = require('docx');
+const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, WidthType, BorderStyle, AlignmentType, VerticalAlign, PageBreak, Header, Footer, SectionType, TabStopType, TabStopPosition, PageNumber, ExternalHyperlink } = require('docx');
 const fs = require('fs');
 const path = require('path');
 
@@ -67,7 +67,7 @@ const estimateResultRowHeight = (row, hasSpec) => {
 };
 
 // Fixed height estimates for non-result content (all include safety margin)
-const HEADER_HEIGHT = Math.ceil(1600 * SAFETY_FACTOR);
+const HEADER_HEIGHT = Math.ceil(1700 * SAFETY_FACTOR);
 const FTL_REF_HEIGHT = Math.ceil(340 * SAFETY_FACTOR);
 const TEST_REPORT_TITLE = Math.ceil(360 * SAFETY_FACTOR);
 const REPORT_ULR_LINE = Math.ceil(280 * SAFETY_FACTOR);
@@ -194,71 +194,117 @@ const buildHeaderTable = (isNabl) => {
   const nablLogoBuf = fs.existsSync(nablLogoPath) ? fs.readFileSync(nablLogoPath) : null;
   const nablQrcodeBuf = fs.existsSync(nablQrcodePath) ? fs.readFileSync(nablQrcodePath) : null;
 
-  // Compact line spacing: slightly increased for better breathing room (280 twips + 30 twips margins)
-  const LS = { before: 30, after: 30, line: 280 };
+  // Balanced line spacing and cell margins for 7-line layout
+  const LS = { before: 2, after: 2, line: 220 };
+  const cellMargins = { top: 16, bottom: 16, left: 30, right: 30 };
 
-  // --- Cell 1: Acropolis logo (fixed 20%) ---
-  const logoCell = createImageCell(logoBuf, 130, 75, BORDERS_ALL, AlignmentType.CENTER, 20);
+  const col1Width = 2100;
+  const col2Width = isNabl ? 6100 : 8700;
+  const col3Width = 2600;
+  const columnWidths = isNabl ? [col1Width, col2Width, col3Width] : [col1Width, col2Width];
 
-  // --- Cell 2: Text block ---
-  // Compact: merge phone lines, merge email+website onto one line
-  const textCellWidth = isNabl ? 55 : 80;
+  // --- Cell 1: Acropolis logo (cleanly sized for breathing room without overflow) ---
+  const logoCell = new TableCell({
+    children: [new Paragraph({
+      children: logoBuf ? [new ImageRun({ data: logoBuf, transformation: { width: 113, height: 67 }, type: "png" })] : [],
+      alignment: AlignmentType.CENTER
+    })],
+    borders: BORDERS_ALL,
+    verticalAlign: VerticalAlign.CENTER,
+    margins: cellMargins,
+    width: { size: col1Width, type: WidthType.DXA }
+  });
+
+  // --- Cell 2: Text block (14pt bold title, 10pt regular body on separate lines) ---
   const textCell = new TableCell({
     children: [
-      new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER, spacing: LS }),
-      new Paragraph({ children: [new TextRun({ text: "Acropolis Institute of Pharmaceutical Education and Research", font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: LS }),
-      new Paragraph({ children: [new TextRun({ text: "Mangliya Square, Indore Bypass Road, Indore M.P.-453771", font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: LS }),
-      new Paragraph({ children: [new TextRun({ text: "Mobile: +91 9201974674; Landline: 731-4730174, 175,176 & 184", font: "Times New Roman", size: 16 })], alignment: AlignmentType.CENTER, spacing: LS }),
-      new Paragraph({ children: [
-        new TextRun({ text: "Email ID:ftl@acropolis.edu.in", font: "Times New Roman", size: 16, color: "0000FF" }),
-        new TextRun({ text: "  |  ", font: "Times New Roman", size: 16 }),
-        new TextRun({ text: "Website: www.acrolabs.in", font: "Times New Roman", size: 16, color: "0000FF" })
-      ], alignment: AlignmentType.CENTER, spacing: LS })
+      new Paragraph({ children: [new TextRun({ text: "Food Testing Laboratory", bold: true, font: "Times New Roman", size: 28 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Acropolis Institute of Pharmaceutical Education and Research", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Mangliya Square, Indore Bypass Road, Indore M.P.-453771;", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Mobile: +91 9201974674", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({ children: [new TextRun({ text: "Landline: 731-4730174, 175,176 & 184", font: "Times New Roman", size: 20 })], alignment: AlignmentType.CENTER, spacing: LS }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Email ID:", font: "Times New Roman", size: 20 }),
+          new ExternalHyperlink({
+            children: [
+              new TextRun({
+                text: "ftl@acropolis.edu.in",
+                style: "Hyperlink",
+                font: "Times New Roman",
+                size: 20,
+                color: "0000FF",
+                underline: {}
+              })
+            ],
+            link: "mailto:ftl@acropolis.edu.in"
+          })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: LS
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Website: ", font: "Times New Roman", size: 20 }),
+          new ExternalHyperlink({
+            children: [
+              new TextRun({
+                text: "www.acrolabs.in",
+                style: "Hyperlink",
+                font: "Times New Roman",
+                size: 20,
+                color: "0000FF",
+                underline: {}
+              })
+            ],
+            link: "http://www.acrolabs.in"
+          })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: LS
+      })
     ],
-    verticalAlign: VerticalAlign.CENTER, borders: BORDERS_ALL,
-    width: { size: Math.round(PAGE_WIDTH_DXA * textCellWidth / 100), type: WidthType.DXA }
+    verticalAlign: VerticalAlign.CENTER,
+    borders: BORDERS_ALL,
+    margins: cellMargins,
+    width: { size: col2Width, type: WidthType.DXA }
   });
 
   const cells = [logoCell, textCell];
 
-  // --- Cell 3 (NABL only): Single cell with NABL logo + QR side-by-side ---
+  // --- Cell 3 (NABL only): NABL logo + QR increased by a bit with clean padding ---
   if (isNabl) {
-    const nablChildren = [];
-
-    // Both images INLINE in one paragraph, forces them side-by-side, never stacks
     const inlineImages = [];
     if (nablLogoBuf) {
-      inlineImages.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 65, height: 65 }, type: "png" }));
+      inlineImages.push(new ImageRun({ data: nablLogoBuf, transformation: { width: 67, height: 84 }, type: "png" }));
     }
-    // Add spacing between the two images
-    inlineImages.push(new TextRun({ text: "    ", font: "Times New Roman", size: 16 }));
+    inlineImages.push(new TextRun({ text: "   ", font: "Times New Roman", size: 20 }));
     if (nablQrcodeBuf) {
-      inlineImages.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 65, height: 65 }, type: "png" }));
+      inlineImages.push(new ImageRun({ data: nablQrcodeBuf, transformation: { width: 67, height: 80 }, type: "png" }));
     }
-    nablChildren.push(new Paragraph({
-      children: inlineImages,
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 0 }
-    }));
 
-    // TC-12434 centered in the left half of the cell (under NABL logo)
-    // Right indent shrinks the centering zone to align with the left image
-    nablChildren.push(new Paragraph({
-      children: [new TextRun({ text: "TC-12434", bold: true, font: "Times New Roman", size: 14 })],
-      alignment: AlignmentType.CENTER,
-      indent: { right: 1100 },
-      spacing: { before: 20, after: 0 }
-    }));
+    const nablChildren = [
+      new Paragraph({
+        children: inlineImages,
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 0, after: 0 }
+      })
+    ];
 
     cells.push(new TableCell({
       children: nablChildren,
       verticalAlign: VerticalAlign.CENTER,
       borders: BORDERS_ALL,
-      width: { size: Math.round(PAGE_WIDTH_DXA * 25 / 100), type: WidthType.DXA }
+      margins: cellMargins,
+      width: { size: col3Width, type: WidthType.DXA }
     }));
   }
 
-  return new Table({ rows: [new TableRow({ children: cells })], width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA } });
+  return new Table({
+    columnWidths,
+    rows: [new TableRow({ children: cells })],
+    width: { size: PAGE_WIDTH_DXA, type: WidthType.DXA }
+  });
 };
 
 const formatDate = (d) => {
@@ -548,7 +594,7 @@ const generateReport = async (job, reportType) => {
     // FTL reference
     children.push(new Paragraph({
       children: [new TextRun({ text: "FTL/AIPER/F/7.8-01", bold: true, font: "Times New Roman", size: 16 })],
-      alignment: AlignmentType.RIGHT, spacing: { after: 100 }
+      alignment: AlignmentType.RIGHT, spacing: { after: 40 }
     }));
 
     // Sticky Header
@@ -556,8 +602,8 @@ const generateReport = async (job, reportType) => {
 
     // TEST REPORT title
     children.push(new Paragraph({
-      children: [new TextRun({ text: "TEST REPORT", bold: true, font: "Times New Roman", size: 28 })],
-      alignment: AlignmentType.CENTER, spacing: { before: 80, after: 40 }
+      children: [new TextRun({ text: "TEST REPORT", bold: true, font: "Times New Roman", size: 26 })],
+      alignment: AlignmentType.CENTER, spacing: { before: 50, after: 30 }
     }));
 
     // Report No and ULR line (1-row, 2-cell borderless table matching Water ISO layout)
