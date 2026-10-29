@@ -211,16 +211,15 @@ export default function ReportPreview({ blob }) {
     
     const sections = container.querySelectorAll('section.docx');
     sections.forEach(sec => {
-      const firstTable = sec.querySelector('table');
-      if (!firstTable) return;
-      
-      const cells = firstTable.querySelectorAll('td');
-      cells.forEach(cell => {
+      const allCells = sec.querySelectorAll('td');
+      allCells.forEach(cell => {
         const images = cell.querySelectorAll('img');
         if (images.length >= 2) {
-          // Fix TC-12434 positioning only — no layout changes
+          // Ensure side-by-side display without vertical wrapping
+          cell.style.whiteSpace = 'nowrap';
           const allPs = cell.querySelectorAll('p');
           allPs.forEach(p => {
+            p.style.whiteSpace = 'nowrap';
             const spans = p.querySelectorAll('span');
             spans.forEach(s => {
               if (s.textContent.trim() === 'TC-12434') {
