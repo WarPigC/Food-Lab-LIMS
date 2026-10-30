@@ -355,12 +355,39 @@ export default function GroupSettings() {
   };
 
   const handleAddGlobalParameter = async () => {
-    if (!newParam.name.trim() || !newParam.unit.trim()) return;
+    const trimmedName = (newParam.name || "").trim();
+    const trimmedUnit = (newParam.unit || "").trim();
+
+    if (!trimmedName) {
+      toast.error("Parameter Name is required");
+      return;
+    }
+    if (!trimmedUnit) {
+      toast.error("Unit is required");
+      return;
+    }
+
+    const exists = globalParameters.some(
+      (p) => p.name?.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (exists) {
+      toast.error(`Parameter "${trimmedName}" already exists in the library`);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
-      await axios.post(`${API_URL}/api/parameters`, newParam, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        `${API_URL}/api/parameters`,
+        {
+          name: trimmedName,
+          type: newParam.type,
+          unit: trimmedUnit,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setNewParam({ name: "", type: "Chemical", unit: "" });
       setIsAddingParam(false);
       invalidateCache(CACHE_KEYS.GLOBAL_PARAMS);

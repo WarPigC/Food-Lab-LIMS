@@ -252,7 +252,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
 | SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ✅ Done |
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
-| SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ⬜ Upcoming |
+| SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ✅ Done |
 | SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ⬜ Upcoming |
 
 ---
@@ -743,6 +743,8 @@ Normalize input strings immediately by trimming before running regex checks; cat
 | SP2.P14.4 | **Frontend - CascadingParameterSelector unit validation**: Add validation for `unit.trim()` before calling the API |
 | SP2.P14.5 | **Frontend - GroupSettings client guard**: In `handleAddGlobalParameter`, trim inputs and check case-insensitively against `globalParameters`. If duplicate, show toast error `"Parameter already exists in the library"` |
 | SP2.P14.6 | **Testing**: Verify adding duplicate parameters with exact case, different case, leading/trailing spaces, and empty units in both Data Settings and Job Creation Form |
+
+> ✅ Completed: Backend routes trim name and unit before regex construction, catch MongoDB duplicate key code 11000 and return descriptive 400 Bad Request error. Frontend client guards in CascadingParameterSelector and GroupSettings prevent duplicates, auto-select existing parameter on collision, and validate unit inputs. All 7 test suites (49/49 tests) pass.
 
 ---
 
