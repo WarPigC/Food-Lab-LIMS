@@ -61,20 +61,38 @@ router.post('/', protect, async (req, res) => {
       return res.status(400).json({ message: 'name, type, and unit are all required' });
     }
 
+    const trimmedName = name.trim();
+    const trimmedUnit = unit.trim();
+    if (!trimmedName || !trimmedUnit) {
+      return res.status(400).json({ message: 'name and unit cannot be empty' });
+    }
+
     // Check if exists
-    const existing = await Parameter.findOne({ name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+    const existing = await Parameter.findOne({ 
+      name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } 
+    });
     if (existing) {
-      return res.status(400).json({ message: `Parameter "${name}" already exists in the library` });
+      return res.status(400).json({ message: `Parameter "${trimmedName}" already exists in the library` });
     }
 
     // Assign s_no manually to avoid pre-save race conditions
     const last = await Parameter.findOne({}, {}, { sort: { s_no: -1 } });
     const s_no = (last && last.s_no) ? last.s_no + 1 : 1;
 
-    const parameter = await Parameter.create({ name: name.trim(), type, unit: unit.trim(), s_no, specification: specification || '' });
+    const parameter = await Parameter.create({ 
+      name: trimmedName, 
+      type, 
+      unit: trimmedUnit, 
+      s_no, 
+      specification: specification || '' 
+    });
     invalidateByPrefix('parameters');
     res.status(201).json(parameter);
   } catch (err) {
+    if (err.code === 11000) {
+      const trimmedName = (req.body.name || '').trim();
+      return res.status(400).json({ message: `Parameter "${trimmedName}" already exists in the library` });
+    }
     res.status(500).json({ message: 'Error creating parameter', error: err.message });
   }
 });
@@ -87,26 +105,36 @@ router.put('/:id', protect, async (req, res) => {
 
     // Build update object
     const updateData = {};
-    if (unit !== undefined) updateData.unit = unit.trim();
+    if (unit !== undefined) {
+      const trimmedUnit = unit.trim();
+      if (!trimmedUnit) {
+        return res.status(400).json({ message: 'unit cannot be empty' });
+      }
+      updateData.unit = trimmedUnit;
+    }
     if (type !== undefined) updateData.type = type;
     if (specification !== undefined) updateData.specification = specification;
     if (name !== undefined) {
-      updateData.name = name.trim();
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return res.status(400).json({ message: 'name cannot be empty' });
+      }
+      updateData.name = trimmedName;
       
       // Check for name collision if name is being changed
       const existing = await Parameter.findOne({ 
-        name: { $regex: new RegExp(`^${updateData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
         _id: { $ne: parameterId }
       });
       if (existing) {
-        return res.status(400).json({ message: `Parameter "${updateData.name}" already exists in the library` });
+        return res.status(400).json({ message: `Parameter "${trimmedName}" already exists in the library` });
       }
     }
 
     const updated = await Parameter.findByIdAndUpdate(
       parameterId,
       updateData,
-      { new: true }
+      { new: true, returnDocument: 'after' }
     );
 
     if (!updated) {
@@ -116,6 +144,10 @@ router.put('/:id', protect, async (req, res) => {
     invalidateByPrefix('parameters');
     res.json(updated);
   } catch (err) {
+    if (err.code === 11000) {
+      const trimmedName = (req.body.name || '').trim();
+      return res.status(400).json({ message: `Parameter "${trimmedName}" already exists in the library` });
+    }
     res.status(500).json({ message: 'Error updating parameter', error: err.message });
   }
 });

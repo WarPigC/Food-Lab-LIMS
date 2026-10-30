@@ -250,13 +250,37 @@ const CascadingParameterSelector = ({
 
   const handleCreateParameter = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!newParamForm.name.trim()) {
+    const trimmedName = (newParamForm.name || '').trim();
+    const trimmedUnit = (newParamForm.unit || '').trim();
+
+    if (!trimmedName) {
       toast.error("Parameter Name is required");
       return;
     }
+    if (!trimmedUnit) {
+      toast.error("Unit is required");
+      return;
+    }
+
+    // Client-side duplicate check against global library
+    const existing = globalParameters.find(
+      p => p.name?.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (existing) {
+      toast.error(`Parameter "${trimmedName}" already exists in the library`);
+      addParameter(existing);
+      setIsCreatingNew(false);
+      setNewParamForm({ name: '', type: 'Micro', unit: '' });
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${API_URL}/api/parameters`, newParamForm, {
+      const res = await axios.post(`${API_URL}/api/parameters`, {
+        name: trimmedName,
+        type: newParamForm.type,
+        unit: trimmedUnit
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGlobalParameters(prev => [...prev, res.data].sort((a,b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
