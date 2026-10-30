@@ -147,6 +147,8 @@ export default function Dispatcher() {
   );
   const [submittingJobId, setSubmittingJobId] = useState(null);
   const [approvingJobId, setApprovingJobId] = useState(null);
+  const [amendmentAssignments, setAmendmentAssignments] = useState({});
+  const [submittingAmendmentId, setSubmittingAmendmentId] = useState(null);
 
   // Bulk dispatch state
   const [selectedJobIds, setSelectedJobIds] = useState(new Set());
@@ -266,15 +268,17 @@ export default function Dispatcher() {
   }, [dispatcherControls.searchQuery]);
 
   const filterActiveHeadJobs = (dataArray) => {
+    if (!dataArray || !Array.isArray(dataArray)) return [];
     const dept = user?.department ? user.department.toLowerCase() : "";
     return dataArray.filter((j) => {
       const dKey = dept === "chemical" ? "chemical" : dept;
       const dist = j.distribution ? j.distribution[dKey] : null;
       const headId = dist?.assignedHead?._id || dist?.assignedHead;
-      return (
-        ["PENDING", "PENDING_REVIEW", "REVIEW_APPROVED"].includes(dist?.status) &&
-        (!headId || headId === user?._id)
-      );
+      const isStatusActive = ["PENDING", "PENDING_REVIEW", "REVIEW_APPROVED"].includes(dist?.status) &&
+        (!headId || headId === user?._id);
+      const isAmendmentPending = j.pendingParamAmendments?.status === "PENDING_HEAD_REVIEW" &&
+        (j.pendingParamAmendments.parameters || []).some(p => p.type?.toLowerCase() === dKey);
+      return isStatusActive || isAmendmentPending;
     });
   };
 
@@ -342,6 +346,9 @@ export default function Dispatcher() {
     socket.on("TEST_SUBMITTED", updateBoth);
     socket.on("TEST_REVIEWED", updateBoth);
     socket.on("JOB_HELD", updateBoth);
+    socket.on("job:amendment-pending", updateBoth);
+    socket.on("job:amendment-approved", updateBoth);
+    socket.on("job:amendment-rejected", updateBoth);
 
     return () => {
       socket.off("JOB_CREATED", updateBoth);
@@ -352,8 +359,79 @@ export default function Dispatcher() {
       socket.off("TEST_SUBMITTED", updateBoth);
       socket.off("TEST_REVIEWED", updateBoth);
       socket.off("JOB_HELD", updateBoth);
+      socket.off("job:amendment-pending", updateBoth);
+      socket.off("job:amendment-approved", updateBoth);
+      socket.off("job:amendment-rejected", updateBoth);
     };
   }, [socket, user]);
+
+  const handleAssignAmendment = (jobId, paramId, analystId) => {
+    setAmendmentAssignments(prev => ({
+      ...prev,
+      [`${jobId}-${paramId}`]: analystId
+    }));
+  };
+
+  const handleApproveAmendment = async (job) => {
+    const dept = user?.department ? user.department.toLowerCase() : "";
+    const dKey = dept === "chemical" ? "chemical" : dept;
+    const stagedParams = (job.pendingParamAmendments?.parameters || []).filter(
+      p => p.type?.toLowerCase() === dKey
+    );
+
+    const missing = stagedParams.some(p => !amendmentAssignments[`${job._id}-${getParamId(p)}`]);
+    if (missing) {
+      toast.error("Please assign an analyst to all amended parameters.");
+      return;
+    }
+
+    const assignmentsPayload = stagedParams.map(p => ({
+      parameterId: getParamId(p),
+      analystId: amendmentAssignments[`${job._id}-${getParamId(p)}`]
+    }));
+
+    setSubmittingAmendmentId(job._id);
+    try {
+      await axios.post(
+        `${API_URL}/api/jobs/${job._id}/approve-amendment`,
+        { assignments: assignmentsPayload },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
+      fetchJobs();
+      toast.success("Parameter amendment approved and assigned.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error approving amendment");
+    } finally {
+      setSubmittingAmendmentId(null);
+    }
+  };
+
+  const handleRejectAmendment = async (job) => {
+    const reason = await modal.input({
+      title: "Reject Parameter Amendment",
+      body: "Please enter the reason for rejecting these amended parameters:",
+      placeholder: "e.g. Incompatible sample volume or out of testing scope...",
+      required: true
+    });
+    if (!reason || !reason.trim()) return;
+
+    setSubmittingAmendmentId(job._id);
+    try {
+      await axios.post(
+        `${API_URL}/api/jobs/${job._id}/reject-amendment`,
+        { reason: reason.trim() },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
+      fetchJobs();
+      toast.success("Parameter amendment rejected.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error rejecting amendment");
+    } finally {
+      setSubmittingAmendmentId(null);
+    }
+  };
 
 
   const getParamId = (p) => {
@@ -841,9 +919,28 @@ export default function Dispatcher() {
                           fontWeight: 700,
                           fontSize: "1rem",
                           fontFamily: "var(--font-mono)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          flexWrap: "wrap",
                         }}
                       >
                         {formatJobCode(job.jobCode)}
+                        {job.pendingParamAmendments?.status === "PENDING_HEAD_REVIEW" && (
+                          <span
+                            style={{
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              padding: "0.15rem 0.5rem",
+                              borderRadius: "4px",
+                              backgroundColor: "rgba(245, 158, 11, 0.15)",
+                              color: "#B45309",
+                              border: "1px solid rgba(245, 158, 11, 0.4)",
+                            }}
+                          >
+                            Amendment Pending
+                          </span>
+                        )}
                       </div>
                       <div
                         style={{
@@ -956,6 +1053,106 @@ export default function Dispatcher() {
 
                         return (
                           <>
+                            {/* Staged Parameter Amendment Review Card */}
+                            {job.pendingParamAmendments?.status === "PENDING_HEAD_REVIEW" && (() => {
+                              const stagedParams = (job.pendingParamAmendments.parameters || []).filter(
+                                (p) => p.type?.toLowerCase() === dKey
+                              );
+                              if (stagedParams.length === 0) return null;
+
+                              return (
+                                <div
+                                  style={{
+                                    marginBottom: "1.5rem",
+                                    padding: "1.25rem",
+                                    backgroundColor: "#FFFBEB",
+                                    border: "1px solid #F59E0B",
+                                    borderRadius: "var(--radius-md)",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                                    <div>
+                                      <h4 style={{ margin: 0, color: "#92400E", fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                        <AlertTriangle size={18} color="#D97706" />
+                                        Parameter Amendment Awaiting Review ({stagedParams.length})
+                                      </h4>
+                                      <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.8rem", color: "#B45309" }}>
+                                        Admin Officer added new parameters to this dispatched job. Please assign analysts or reject with a reason.
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
+                                    {stagedParams.map((p) => {
+                                      const pId = getParamId(p);
+                                      return (
+                                        <div
+                                          key={pId}
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            backgroundColor: "white",
+                                            padding: "0.6rem 1rem",
+                                            borderRadius: "var(--radius-sm)",
+                                            border: "1px solid #FDE68A",
+                                            gap: "1rem",
+                                          }}
+                                        >
+                                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                            <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{p.name}</span>
+                                            <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>({p.unit})</span>
+                                            <span style={{ fontSize: "0.7rem", padding: "0.1rem 0.4rem", backgroundColor: "#FEF3C7", color: "#92400E", borderRadius: "3px" }}>
+                                              Amended
+                                            </span>
+                                          </div>
+                                          <select
+                                            value={amendmentAssignments[`${job._id}-${pId}`] || ""}
+                                            onChange={(e) => handleAssignAmendment(job._id, pId, e.target.value)}
+                                            style={{ minWidth: "180px", padding: "0.4rem", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                                          >
+                                            <option value="" disabled>Select Analyst...</option>
+                                            {assistants.map((ast) => (
+                                              <option key={ast._id} value={ast._id}>
+                                                {ast.name}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+                                    <button
+                                      type="button"
+                                      disabled={submittingAmendmentId === job._id}
+                                      onClick={() => handleRejectAmendment(job)}
+                                      className="btn btn-secondary"
+                                      style={{
+                                        padding: "0.45rem 1rem",
+                                        fontSize: "0.82rem",
+                                        color: "#991B1B",
+                                        borderColor: "#F87171",
+                                        backgroundColor: "#FEF2F2",
+                                      }}
+                                    >
+                                      Reject Amendment
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={submittingAmendmentId === job._id}
+                                      onClick={() => handleApproveAmendment(job)}
+                                      className="btn btn-success"
+                                      style={{ padding: "0.45rem 1.25rem", fontSize: "0.82rem" }}
+                                    >
+                                      {submittingAmendmentId === job._id ? "Processing..." : "Approve & Assign"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {/* Parameter rows (Always visible) */}
                             <div
                               style={{

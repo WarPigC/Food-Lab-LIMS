@@ -554,7 +554,18 @@ export default function Jobs() {
     };
 
     // Set standard parameter states
-    setSelectedParams(mapParams(j.parameters));
+    const baseParams = mapParams(j.parameters);
+    const isAmendmentRejected = j.pendingParamAmendments?.status === "REJECTED";
+    if (isAmendmentRejected && j.pendingParamAmendments.parameters?.length > 0) {
+      const rejectedParams = mapParams(j.pendingParamAmendments.parameters);
+      const existingIds = new Set(baseParams.map(p => (p.parameterId || p._id)?.toString()));
+      for (const rp of rejectedParams) {
+        if (!existingIds.has((rp.parameterId || rp._id)?.toString())) {
+          baseParams.push(rp);
+        }
+      }
+    }
+    setSelectedParams(baseParams);
     setShowSpecifications(!!j.showSpecifications);
     setGroupMetadata(j.groupMetadata || null);
     setPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
@@ -1222,6 +1233,72 @@ export default function Jobs() {
                     >
                       Please correct the details below and resubmit the job.
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {editingJob?.pendingParamAmendments?.status === "REJECTED" && (
+                <div
+                  style={{
+                    padding: "1rem",
+                    backgroundColor: "#FEF2F2",
+                    border: "1px solid #F87171",
+                    borderRadius: "var(--radius-md)",
+                    marginBottom: "1.5rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
+                    <div style={{ color: "#EF4444", marginTop: "0.1rem" }}>
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ margin: "0 0 0.25rem 0", color: "#B91C1C" }}>
+                        Parameter Amendment Rejected by Head
+                      </h4>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.9rem",
+                          color: "#991B1B",
+                        }}
+                      >
+                        <strong>Reason:</strong> {editingJob.pendingParamAmendments.rejectionReason || "No reason provided"}
+                      </p>
+                      <p
+                        style={{
+                          margin: "0.4rem 0 0 0",
+                          fontSize: "0.8rem",
+                          color: "#7F1D1D",
+                        }}
+                      >
+                        The rejected parameters have been pre-filled in the parameter list below. You can modify them or discard them.
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const rejectedIds = new Set(
+                          (editingJob.pendingParamAmendments.parameters || []).map(p => (p._id || p.parameterId)?.toString())
+                        );
+                        setSelectedParams(prev => prev.filter(p => !rejectedIds.has((p.parameterId || p._id)?.toString())));
+                        toast.success("Rejected parameters discarded from form.");
+                      }}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: "0.35rem 0.8rem",
+                        fontSize: "0.8rem",
+                        color: "#991B1B",
+                        borderColor: "#F87171",
+                        backgroundColor: "#FFF",
+                      }}
+                    >
+                      Discard Rejected Parameters
+                    </button>
                   </div>
                 </div>
               )}

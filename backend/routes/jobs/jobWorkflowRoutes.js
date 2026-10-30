@@ -406,4 +406,230 @@ router.put('/:id/cancel', protect, authorize('ADMIN_OFFICER', 'ADMIN'), async (r
   }
 });
 
+// Approve Parameter Amendment and Assign to Analysts (HEAD, ADMIN)
+router.post('/:id/approve-amendment', protect, authorize('HEAD', 'ADMIN'), async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    if (job.pendingParamAmendments?.status !== 'PENDING_HEAD_REVIEW') {
+      return res.status(400).json({ message: 'No pending parameter amendments to approve' });
+    }
+
+    const { assignments } = req.body;
+    if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+      return res.status(400).json({ message: 'Assignments are required for all amended parameters' });
+    }
+
+    const stagedParams = job.pendingParamAmendments.parameters || [];
+    const assignmentMap = new Map();
+    for (const a of assignments) {
+      assignmentMap.set(a.parameterId.toString(), a.analystId);
+    }
+
+    // Verify all staged parameters have an analyst assigned
+    for (const sp of stagedParams) {
+      const spId = (sp.parameterId || sp._id).toString();
+      if (!assignmentMap.get(spId)) {
+        return res.status(400).json({ message: `Analyst assignment missing for parameter: ${sp.name}` });
+      }
+    }
+
+    // 1. Merge staged params into job.parameters
+    for (const sp of stagedParams) {
+      const exists = job.parameters.some(p => (p.parameterId || p._id).toString() === (sp.parameterId || sp._id).toString());
+      if (!exists) {
+        job.parameters.push(sp);
+      }
+    }
+
+    // 2. Group assignments by analystId
+    const byAnalyst = {};
+    for (const sp of stagedParams) {
+      const spId = (sp.parameterId || sp._id).toString();
+      const analystId = assignmentMap.get(spId);
+      if (!byAnalyst[analystId]) byAnalyst[analystId] = [];
+      byAnalyst[analystId].push(sp);
+    }
+
+    // 3. For each analyst, append to their existing TestInstance or create a new sub-instance
+    for (const [analystId, params] of Object.entries(byAnalyst)) {
+      const paramIds = params.map(p => (p.parameterId || p._id).toString());
+      const firstParamType = (params[0].type || '').toLowerCase();
+      const deptName = firstParamType === 'micro' ? 'micro' : 'chemical';
+
+      // Look for active instance for this analyst on this job
+      const existingInstance = await TestInstance.findOne({
+        jobId: job._id,
+        assignedTo: analystId,
+        status: { $in: ['PENDING', 'PENDING_HEAD_REVIEW'] }
+      });
+
+      const newResults = params.map(p => ({
+        parameterId: (p.parameterId || p._id).toString(),
+        name: p.name,
+        value: '',
+        unit: p.unit,
+        isSaved: false,
+        testMethod: '',
+        specification: p.specification || ''
+      }));
+
+      if (existingInstance) {
+        // Append to existing instance results
+        existingInstance.results.push(...newResults);
+        if (existingInstance.retestOnly && existingInstance.retestOnly.length > 0) {
+          existingInstance.retestOnly.push(...paramIds);
+        }
+        existingInstance.reviewHistory.push({
+          action: 'AMENDMENT_MERGED',
+          by: req.user._id,
+          role: 'HEAD',
+          note: `${params.length} amended parameter(s) added via Head approval`,
+          date: new Date()
+        });
+        await existingInstance.save();
+
+        await createNotification({
+          recipient: analystId,
+          type: 'INFO',
+          title: 'Parameters Added',
+          message: `${params.length} new parameter(s) added to your task ${existingInstance.testCode}.`,
+          relatedJobId: job._id,
+          relatedInstanceId: existingInstance._id,
+          link: '/assistant'
+        });
+      } else {
+        // No existing instance for this analyst. Find a sibling instance to get base test code
+        const baseInstance = await TestInstance.findOne({
+          jobId: job._id,
+          department: deptName
+        }) || await TestInstance.findOne({ jobId: job._id });
+
+        const deptCodeSuffix = deptName === 'micro' ? '1' : '2';
+        const defaultBase = `${job.jobCode}-${deptCodeSuffix}`;
+        const deptBase = baseInstance ? baseInstance.testCode.replace(/[a-z]$/, '') : defaultBase;
+
+        const existingCount = await TestInstance.countDocuments({
+          jobId: job._id,
+          testCode: { $regex: `^${deptBase.replace(/-/g, '\\-')}[a-z]` }
+        });
+
+        const newLetter = String.fromCharCode(97 + existingCount);
+        const newTestCode = `${deptBase}${newLetter}`;
+
+        const newInstance = new TestInstance({
+          jobId: job._id,
+          testCode: newTestCode,
+          clientName: job.clientName,
+          deadline: baseInstance?.deadline || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+          assignedTo: analystId,
+          department: deptName,
+          status: 'PENDING',
+          results: newResults,
+          retestOnly: paramIds,
+          reviewHistory: [{
+            action: 'AMENDMENT_MERGED',
+            by: req.user._id,
+            role: 'HEAD',
+            note: `${params.length} amended parameter(s) dispatched`,
+            date: new Date()
+          }],
+          createdBy: req.user._id
+        });
+        await newInstance.save();
+
+        await createNotification({
+          recipient: analystId,
+          type: 'ACTION_REQUIRED',
+          title: 'New Parameters Assigned',
+          message: `New amended parameters assigned to you under ${newTestCode}.`,
+          relatedJobId: job._id,
+          relatedInstanceId: newInstance._id,
+          link: '/assistant'
+        });
+      }
+    }
+
+    // 4. Clear staged container
+    job.pendingParamAmendments.status = 'NONE';
+    job.pendingParamAmendments.parameters = [];
+    job.pendingParamAmendments.rejectionReason = '';
+    job.pendingParamAmendments.reviewedBy = req.user._id;
+    job.pendingParamAmendments.reviewedAt = new Date();
+
+    job.history.push({
+      action: 'AMENDMENT_APPROVED',
+      by: req.user._id,
+      note: 'Parameter amendments approved and assigned by Head'
+    });
+
+    await job.save();
+
+    await notifyAdminOfficers({
+      type: 'SUCCESS',
+      title: 'Amendments Approved',
+      message: `Parameter amendments for job ${job.jobCode} were approved and dispatched by Head.`,
+      relatedJobId: job._id,
+      link: '/admin-officer/jobs'
+    });
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('job:amendment-approved', { jobId: job._id });
+      req.app.get('io').emit('JOB_UPDATED');
+    }
+
+    res.json({ message: 'Parameter amendments approved and assigned successfully', job });
+  } catch (error) {
+    res.status(500).json({ message: 'Error approving parameter amendment', error: error.message });
+  }
+});
+
+// Reject Parameter Amendment (HEAD, ADMIN)
+router.post('/:id/reject-amendment', protect, authorize('HEAD', 'ADMIN'), async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    if (job.pendingParamAmendments?.status !== 'PENDING_HEAD_REVIEW') {
+      return res.status(400).json({ message: 'No pending parameter amendments to reject' });
+    }
+
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
+
+    job.pendingParamAmendments.status = 'REJECTED';
+    job.pendingParamAmendments.rejectionReason = reason.trim();
+    job.pendingParamAmendments.reviewedBy = req.user._id;
+    job.pendingParamAmendments.reviewedAt = new Date();
+
+    job.history.push({
+      action: 'AMENDMENT_REJECTED',
+      by: req.user._id,
+      note: `Parameter amendments rejected by Head: ${job.pendingParamAmendments.rejectionReason}`
+    });
+
+    await job.save();
+
+    await notifyAdminOfficers({
+      type: 'WARNING',
+      title: 'Amendments Rejected',
+      message: `Parameter amendments for job ${job.jobCode} were rejected by Head. Reason: ${job.pendingParamAmendments.rejectionReason}`,
+      relatedJobId: job._id,
+      link: '/admin-officer/jobs'
+    });
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('job:amendment-rejected', { jobId: job._id, reason: job.pendingParamAmendments.rejectionReason });
+      req.app.get('io').emit('JOB_UPDATED');
+    }
+
+    res.json({ message: 'Parameter amendments rejected', job });
+  } catch (error) {
+    res.status(500).json({ message: 'Error rejecting parameter amendment', error: error.message });
+  }
+});
+
 module.exports = router;

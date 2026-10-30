@@ -72,3 +72,4 @@ describe('isSampleHandoverRequired', () => {
     expect(isSampleHandoverRequired(job5)).toBe(false);
   });
 });
+
