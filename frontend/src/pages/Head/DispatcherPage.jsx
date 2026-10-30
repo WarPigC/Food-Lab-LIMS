@@ -303,7 +303,11 @@ export default function Dispatcher() {
     setIsLoadingMore(true);
     try {
       const res = await axios.get(`${API_URL}/api/jobs?activeForHead=true&cursor=${jobsCursor}`);
-      setJobs(prev => [...prev, ...filterActiveHeadJobs(res.data.jobs || [])]);
+      setJobs(prev => {
+        const existingIds = new Set(prev.map(j => (j._id || j.id)?.toString()));
+        const incoming = filterActiveHeadJobs(res.data.jobs || []).filter(j => !existingIds.has((j._id || j.id)?.toString()));
+        return [...prev, ...incoming];
+      });
       setHasMoreJobs(res.data.hasMore);
       setJobsCursor(res.data.nextCursor);
     } catch (err) {
@@ -370,6 +374,17 @@ export default function Dispatcher() {
       ...prev,
       [`${jobId}-${paramId}`]: analystId
     }));
+  };
+
+  const handleAssignAllAmendments = (jobId, analystId, stagedParams) => {
+    if (!analystId) return;
+    setAmendmentAssignments(prev => {
+      const next = { ...prev };
+      stagedParams.forEach(p => {
+        next[`${jobId}-${getParamId(p)}`] = analystId;
+      });
+      return next;
+    });
   };
 
   const handleApproveAmendment = async (job) => {
@@ -1024,134 +1039,269 @@ export default function Dispatcher() {
                       backgroundColor: "var(--color-surface)",
                     }}
                   >
-                    {deptParams.length === 0 ? (
-                      <p
-                        style={{
-                          color: "var(--color-text-muted)",
-                          textAlign: "center",
-                          padding: "1rem",
-                        }}
-                      >
-                        No parameters for your department in this job.
-                      </p>
-                    ) : (
-                      (() => {
-                        const dept = user?.department
-                          ? user.department.toLowerCase()
-                          : "";
-                        const dKey = dept === "chemical" ? "chemical" : dept;
-                        const otherKey =
-                          dKey === "chemical" ? "micro" : "chemical";
-                        const distStatus = job.distribution[dKey].status;
-                        const isMultiDept =
-                          job.distribution.micro.required &&
-                          job.distribution.chemical.required;
+                    {(() => {
+                      const dept = user?.department
+                        ? user.department.toLowerCase()
+                        : "";
+                      const dKey = dept === "chemical" ? "chemical" : dept;
+                      const otherKey =
+                        dKey === "chemical" ? "micro" : "chemical";
+                      const distStatus = job.distribution?.[dKey]?.status;
+                      const isMultiDept =
+                        job.distribution?.micro?.required &&
+                        job.distribution?.chemical?.required;
 
-                        const isReviewing = distStatus === "PENDING_REVIEW";
-                        const isApproved = distStatus === "REVIEW_APPROVED";
-                        const isPending = distStatus === "PENDING";
+                      const isReviewing = distStatus === "PENDING_REVIEW";
+                      const isApproved = distStatus === "REVIEW_APPROVED";
+                      const isPending = distStatus === "PENDING";
 
+                      const stagedParams = (job.pendingParamAmendments?.status === "PENDING_HEAD_REVIEW")
+                        ? (job.pendingParamAmendments.parameters || []).filter(
+                            (p) => p.type?.toLowerCase() === dKey
+                          )
+                        : [];
+                      const isAmendmentReview = stagedParams.length > 0;
+
+                      if (deptParams.length === 0 && !isAmendmentReview) {
+                        return (
+                          <p
+                            style={{
+                              color: "var(--color-text-muted)",
+                              textAlign: "center",
+                              padding: "1rem",
+                            }}
+                          >
+                            No parameters for your department in this job.
+                          </p>
+                        );
+                      }
+
+                      if (isAmendmentReview) {
                         return (
                           <>
-                            {/* Staged Parameter Amendment Review Card */}
-                            {job.pendingParamAmendments?.status === "PENDING_HEAD_REVIEW" && (() => {
-                              const stagedParams = (job.pendingParamAmendments.parameters || []).filter(
-                                (p) => p.type?.toLowerCase() === dKey
-                              );
-                              if (stagedParams.length === 0) return null;
+                            {/* Parameter Amendment Alert Box */}
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: "0.75rem",
+                                padding: "0.85rem 1.25rem",
+                                backgroundColor: "#FFFBEB",
+                                border: "1px solid #F59E0B",
+                                borderRadius: "var(--radius-md)",
+                                marginBottom: "1.25rem",
+                              }}
+                            >
+                              <AlertTriangle size={20} color="#D97706" style={{ flexShrink: 0, marginTop: "2px" }} />
+                              <div>
+                                <h4 style={{ margin: 0, color: "#92400E", fontSize: "0.95rem", fontWeight: 700 }}>
+                                  Parameter Amendment Awaiting Review
+                                </h4>
+                                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", color: "#B45309" }}>
+                                  New parameters added, assign and dispatch with a reason.
+                                </p>
+                              </div>
+                            </div>
 
-                              return (
+                            {/* Parameter rows */}
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.5rem",
+                                marginBottom: "1.5rem",
+                              }}
+                            >
+                              {stagedParams.map((p) => {
+                                const pId = getParamId(p);
+                                return (
+                                  <div
+                                    key={pId}
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      backgroundColor: "var(--color-surface-hover)",
+                                      border: "1px solid transparent",
+                                      padding: "0.6rem 1rem",
+                                      borderRadius: "var(--radius-md)",
+                                      gap: "1rem",
+                                    }}
+                                  >
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                      <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
+                                        ({p.unit})
+                                      </span>
+                                      <span
+                                        style={{
+                                          fontSize: "0.72rem",
+                                          fontWeight: 700,
+                                          padding: "0.1rem 0.45rem",
+                                          borderRadius: "4px",
+                                          backgroundColor: "rgba(245, 158, 11, 0.15)",
+                                          color: "#B45309",
+                                          border: "1px solid rgba(245, 158, 11, 0.4)",
+                                        }}
+                                      >
+                                        Amended
+                                      </span>
+                                    </div>
+
+                                    <select
+                                      value={amendmentAssignments[`${job._id}-${pId}`] || ""}
+                                      onChange={(e) => handleAssignAmendment(job._id, pId, e.target.value)}
+                                      required
+                                      style={{ minWidth: "180px" }}
+                                    >
+                                      <option value="" disabled>
+                                        Select Analyst...
+                                      </option>
+                                      {assistants.map((ast) => (
+                                        <option key={ast._id} value={ast._id}>
+                                          {ast.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              })}
+
+                              {deptParams.map((p) => (
                                 <div
+                                  key={getParamId(p)}
                                   style={{
-                                    marginBottom: "1.5rem",
-                                    padding: "1.25rem",
-                                    backgroundColor: "#FFFBEB",
-                                    border: "1px solid #F59E0B",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    backgroundColor: p.isPanel
+                                      ? "rgba(52, 152, 219, 0.08)"
+                                      : "var(--color-surface-hover)",
+                                    border: p.isPanel
+                                      ? "1px solid rgba(52, 152, 219, 0.25)"
+                                      : "1px solid transparent",
+                                    padding: "0.6rem 1rem",
                                     borderRadius: "var(--radius-md)",
+                                    gap: "1rem",
                                   }}
                                 >
-                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                                    <div>
-                                      <h4 style={{ margin: 0, color: "#92400E", fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                        <AlertTriangle size={18} color="#D97706" />
-                                        Parameter Amendment Awaiting Review ({stagedParams.length})
-                                      </h4>
-                                      <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.8rem", color: "#B45309" }}>
-                                        Admin Officer added new parameters to this dispatched job. Please assign analysts or reject with a reason.
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
-                                    {stagedParams.map((p) => {
-                                      const pId = getParamId(p);
-                                      return (
-                                        <div
-                                          key={pId}
-                                          style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                            backgroundColor: "white",
-                                            padding: "0.6rem 1rem",
-                                            borderRadius: "var(--radius-sm)",
-                                            border: "1px solid #FDE68A",
-                                            gap: "1rem",
-                                          }}
-                                        >
-                                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                            <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{p.name}</span>
-                                            <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>({p.unit})</span>
-                                            <span style={{ fontSize: "0.7rem", padding: "0.1rem 0.4rem", backgroundColor: "#FEF3C7", color: "#92400E", borderRadius: "3px" }}>
-                                              Amended
-                                            </span>
-                                          </div>
-                                          <select
-                                            value={amendmentAssignments[`${job._id}-${pId}`] || ""}
-                                            onChange={(e) => handleAssignAmendment(job._id, pId, e.target.value)}
-                                            style={{ minWidth: "180px", padding: "0.4rem", borderRadius: "4px", border: "1px solid var(--color-border)" }}
-                                          >
-                                            <option value="" disabled>Select Analyst...</option>
-                                            {assistants.map((ast) => (
-                                              <option key={ast._id} value={ast._id}>
-                                                {ast.name}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-
-                                  <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                                    <button
-                                      type="button"
-                                      disabled={submittingAmendmentId === job._id}
-                                      onClick={() => handleRejectAmendment(job)}
-                                      className="btn btn-secondary"
-                                      style={{
-                                        padding: "0.45rem 1rem",
-                                        fontSize: "0.82rem",
-                                        color: "#991B1B",
-                                        borderColor: "#F87171",
-                                        backgroundColor: "#FEF2F2",
-                                      }}
-                                    >
-                                      Reject Amendment
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={submittingAmendmentId === job._id}
-                                      onClick={() => handleApproveAmendment(job)}
-                                      className="btn btn-success"
-                                      style={{ padding: "0.45rem 1.25rem", fontSize: "0.82rem" }}
-                                    >
-                                      {submittingAmendmentId === job._id ? "Processing..." : "Approve & Assign"}
-                                    </button>
+                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                    {p.isPanel && (
+                                      <span
+                                        style={{
+                                          fontSize: "0.72rem",
+                                          fontWeight: 700,
+                                          padding: "0.1rem 0.45rem",
+                                          borderRadius: "4px",
+                                          backgroundColor: "rgba(52, 152, 219, 0.15)",
+                                          color: "var(--color-primary)",
+                                        }}
+                                      >
+                                        Special Panel
+                                      </span>
+                                    )}
+                                    <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
+                                      ({p.unit})
+                                    </span>
                                   </div>
                                 </div>
-                              );
-                            })()}
+                              ))}
+                            </div>
+
+                            {/* Bulk assign */}
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "1rem",
+                                borderTop: "1px solid var(--color-border)",
+                                paddingTop: "1.5rem",
+                              }}
+                            >
+                              <div></div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.5rem",
+                                }}
+                              >
+                                <label
+                                  style={{
+                                    fontSize: "0.85rem",
+                                    color: "var(--color-text-muted)",
+                                  }}
+                                >
+                                  Bulk assign all to:
+                                </label>
+                                <select
+                                  onChange={(e) => {
+                                    handleAssignAllAmendments(job._id, e.target.value, stagedParams);
+                                    e.target.value = "";
+                                  }}
+                                  defaultValue=""
+                                  style={{ minWidth: "150px" }}
+                                >
+                                  <option value="" disabled>
+                                    Select analyst...
+                                  </option>
+                                  {assistants.map((ast) => (
+                                    <option key={ast._id} value={ast._id}>
+                                      {ast.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "0.5rem",
+                                alignItems: "flex-start",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleApproveAmendment(job)}
+                                className="btn btn-primary"
+                                disabled={submittingAmendmentId === job._id}
+                                style={{
+                                  padding: "0.6rem 1.5rem",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                {submittingAmendmentId === job._id ? (
+                                  <Spinner size="sm" message="Assigning..." color="#fff" />
+                                ) : (
+                                  "Approve & Assign"
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectAmendment(job)}
+                                className="btn btn-danger"
+                                disabled={submittingAmendmentId === job._id}
+                                style={{
+                                  padding: "0.6rem 1.5rem",
+                                  justifyContent: "center",
+                                  backgroundColor: "#DC2626",
+                                  borderColor: "#DC2626",
+                                  color: "#FFFFFF",
+                                }}
+                              >
+                                Reject Amendment
+                              </button>
+                            </div>
+                          </>
+                        );
+                      }
+
+                      return (
+                        <>
 
                             {/* Parameter rows (Always visible) */}
                             <div
@@ -1671,8 +1821,7 @@ export default function Dispatcher() {
                             )}
                           </>
                         );
-                      })()
-                    )}
+                      })()}
                     <AssignmentHistory testInstances={job.testInstances} />
                   </div>
                 )}

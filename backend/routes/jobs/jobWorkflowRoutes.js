@@ -475,30 +475,55 @@ router.post('/:id/approve-amendment', protect, authorize('HEAD', 'ADMIN'), async
         specification: p.specification || ''
       }));
 
-      if (existingInstance) {
-        // Append to existing instance results
-        existingInstance.results.push(...newResults);
-        if (existingInstance.retestOnly && existingInstance.retestOnly.length > 0) {
-          existingInstance.retestOnly.push(...paramIds);
-        }
-        existingInstance.reviewHistory.push({
-          action: 'AMENDMENT_MERGED',
-          by: req.user._id,
-          role: 'HEAD',
-          note: `${params.length} amended parameter(s) added via Head approval`,
-          date: new Date()
-        });
-        await existingInstance.save();
+      const paramNames = params.map(p => p.name).filter(Boolean).join(', ');
+      const amendmentNote = paramNames ? `${paramNames} added` : `${params.length} parameter(s) added`;
 
-        await createNotification({
-          recipient: analystId,
-          type: 'INFO',
-          title: 'Parameters Added',
-          message: `${params.length} new parameter(s) added to your task ${existingInstance.testCode}.`,
-          relatedJobId: job._id,
-          relatedInstanceId: existingInstance._id,
-          link: '/assistant'
-        });
+      if (existingInstance) {
+        // Prevent parameter duplication: check both parameterId and normalized name
+        const existingParamIds = new Set(existingInstance.results.map(r => (r.parameterId || r._id)?.toString()));
+        const existingNames = new Set(existingInstance.results.map(r => (r.name || '').toLowerCase().trim()).filter(Boolean));
+
+        const uniqueResults = newResults.filter(r =>
+          !existingParamIds.has((r.parameterId || r._id)?.toString()) &&
+          !existingNames.has((r.name || '').toLowerCase().trim())
+        );
+
+        if (uniqueResults.length > 0) {
+          existingInstance.results.push(...uniqueResults);
+
+          const addedParamIds = uniqueResults.map(r => (r.parameterId || r._id)?.toString());
+
+          // If instance was in PENDING_HEAD_REVIEW (analyst had submitted), pull status back
+          // to PENDING so analyst can input results, and add new params to retestOnly to preserve submitted work
+          if (existingInstance.status === 'PENDING_HEAD_REVIEW' || (existingInstance.retestOnly && existingInstance.retestOnly.length > 0)) {
+            const currentRetest = new Set((existingInstance.retestOnly || []).map(id => id.toString()));
+            for (const pid of addedParamIds) {
+              currentRetest.add(pid);
+            }
+            existingInstance.retestOnly = Array.from(currentRetest);
+            existingInstance.status = 'PENDING';
+          }
+
+          existingInstance.reviewHistory.push({
+            action: 'AMENDMENT_MERGED',
+            by: req.user._id,
+            role: 'HEAD',
+            note: amendmentNote,
+            date: new Date()
+          });
+          await existingInstance.save();
+
+          // Subtle info notification to analyst
+          await createNotification({
+            recipient: analystId,
+            type: 'INFO',
+            title: 'Task Updated',
+            message: `Task ${existingInstance.testCode} updated: ${uniqueResults.length === 1 ? 'a parameter was added' : `${uniqueResults.length} parameters were added`}.`,
+            relatedJobId: job._id,
+            relatedInstanceId: existingInstance._id,
+            link: '/assistant'
+          });
+        }
       } else {
         // No existing instance for this analyst. Find a sibling instance to get base test code
         const baseInstance = await TestInstance.findOne({
@@ -532,7 +557,7 @@ router.post('/:id/approve-amendment', protect, authorize('HEAD', 'ADMIN'), async
             action: 'AMENDMENT_MERGED',
             by: req.user._id,
             role: 'HEAD',
-            note: `${params.length} amended parameter(s) dispatched`,
+            note: amendmentNote,
             date: new Date()
           }],
           createdBy: req.user._id
@@ -551,7 +576,16 @@ router.post('/:id/approve-amendment', protect, authorize('HEAD', 'ADMIN'), async
       }
     }
 
-    // 4. Clear staged container
+    // 4. Update department distribution status to reflect active testing
+    const affectedDepts = new Set(stagedParams.map(p => (p.type || '').toLowerCase()));
+    for (const d of affectedDepts) {
+      const deptKey = d === 'micro' ? 'micro' : 'chemical';
+      if (job.distribution[deptKey]) {
+        job.distribution[deptKey].status = 'ASSIGNED_TO_ASSISTANT';
+      }
+    }
+
+    // 5. Clear staged container
     job.pendingParamAmendments.status = 'NONE';
     job.pendingParamAmendments.parameters = [];
     job.pendingParamAmendments.rejectionReason = '';

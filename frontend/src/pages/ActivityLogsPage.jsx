@@ -51,7 +51,11 @@ export default function ActivityLogsPage({
     try {
       const separator = fetchUrl.includes('?') ? '&' : '?';
       const res = await axios.get(`${fetchUrl}${separator}cursor=${jobsCursor}`);
-      setJobs((prev) => [...prev, ...(res.data.jobs || [])]);
+      setJobs((prev) => {
+        const existingIds = new Set(prev.map(j => (j._id || j.id)?.toString()));
+        const incoming = (res.data.jobs || []).filter(j => !existingIds.has((j._id || j.id)?.toString()));
+        return [...prev, ...incoming];
+      });
       setHasMoreJobs(res.data.hasMore);
       setJobsCursor(res.data.nextCursor);
     } catch (err) {

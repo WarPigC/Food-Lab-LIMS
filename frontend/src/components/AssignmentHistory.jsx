@@ -12,6 +12,7 @@ const ACTION_CONFIG = {
   ASSIGN:          { label: 'Dispatched',      color: '#3B82F6', Icon: CheckCircle },
   REASSIGN:        { label: 'Reassigned',       color: '#F59E0B', Icon: ArrowRightLeft },
   REASSIGN_MERGED: { label: 'Params merged in', color: '#8B5CF6', Icon: ArrowRightLeft },
+  AMENDMENT_MERGED:{ label: 'Parameter amended', color: '#8B5CF6', Icon: ArrowRightLeft },
   APPROVE:         { label: 'Approved',         color: '#10B981', Icon: CheckCircle },
   REJECT:          { label: 'Rejected',         color: '#EF4444', Icon: RotateCcw },
   RETURN:          { label: 'Returned',         color: '#F59E0B', Icon: RotateCcw },
@@ -188,7 +189,11 @@ export default function AssignmentHistory({ testInstances = [] }) {
                         borderLeft: `3px solid ${cfg.color}`,
                         padding: '0.3rem 0.6rem', borderRadius: '0 4px 4px 0', lineHeight: 1.45,
                       }}>
-                        {formatMessageTestCodes(entry.note)}
+                        {formatMessageTestCodes(
+                          entry.action === 'AMENDMENT_MERGED'
+                            ? entry.note.replace(/^\d+\s+amended parameter\(s\)\s+(?:added via Head approval|dispatched)$/i, 'Amended parameter added')
+                            : entry.note
+                        )}
                       </div>
                     )}
                   </div>

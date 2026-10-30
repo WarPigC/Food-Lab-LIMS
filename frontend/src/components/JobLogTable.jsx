@@ -388,9 +388,10 @@ export default function JobLogTable({
                             color: "white",
                             borderRadius: "4px",
                             fontWeight: 700,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          Params Rejected
+                          Parameter(s) Rejected
                         </span>
                       )}
                     </td>
@@ -697,9 +698,10 @@ export default function JobLogTable({
                           color: "white",
                           borderRadius: "4px",
                           fontWeight: 700,
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        Params Rejected
+                        Parameter(s) Rejected
                       </span>
                     )}
                   </div>

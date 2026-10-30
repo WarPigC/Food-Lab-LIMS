@@ -140,8 +140,24 @@ async function applyRemovals(job, removedParams, newParams) {
     });
 
     for (const inst of deptInstances) {
-      // Pull the parameter from results
-      inst.results = inst.results.filter(r => r.parameterId !== paramId);
+      // Pull the parameter from results (check both parameterId string/ObjectId and normalized name)
+      const targetName = (param.name || '').toLowerCase().trim();
+      inst.results = inst.results.filter(r => {
+        const rId = (r.parameterId || r._id)?.toString();
+        const rName = (r.name || '').toLowerCase().trim();
+        return rId !== paramId && (targetName === '' || rName !== targetName);
+      });
+
+      // Clean up retestOnly if the removed parameter was flagged for retesting
+      if (inst.retestOnly && inst.retestOnly.length > 0) {
+        inst.retestOnly = inst.retestOnly.filter(id => id.toString() !== paramId);
+      }
+
+      // If instance has no remaining parameters, mark CANCELLED so it does not block completion
+      if (inst.results.length === 0) {
+        inst.status = 'CANCELLED';
+        deletedInstances.push(inst);
+      }
       await inst.save();
     }
   }
