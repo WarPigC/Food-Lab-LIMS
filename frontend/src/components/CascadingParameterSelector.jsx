@@ -210,10 +210,16 @@ const CascadingParameterSelector = ({
     // Reset product category if it's no longer valid after subgroup removal
   };
 
+  const normalizeParamName = (s) => (s || '').toLowerCase().replace(/\s+/g, '');
+
   const filteredSuggestions = availableParameters.filter(p => {
     if (selectedParams.some(sp => getParamId(sp) === getParamId(p))) return false;
-    if (!searchTerm.trim()) return true;
-    return p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.trim();
+    if (!term) return true;
+    const pName = (p.name || '').toLowerCase();
+    const cleanTerm = term.toLowerCase().replace(/\s+/g, '');
+    const cleanPName = pName.replace(/\s+/g, '');
+    return pName.includes(term.toLowerCase()) || cleanPName.includes(cleanTerm);
   });
 
   // Reset active index when search term changes
@@ -262,12 +268,13 @@ const CascadingParameterSelector = ({
       return;
     }
 
-    // Client-side duplicate check against global library
+    // Client-side duplicate check against global library (whitespace and case-insensitive)
+    const norm = normalizeParamName(trimmedName);
     const existing = globalParameters.find(
-      p => p.name?.trim().toLowerCase() === trimmedName.toLowerCase()
+      p => normalizeParamName(p.name) === norm
     );
     if (existing) {
-      toast.error(`Parameter "${trimmedName}" already exists in the library`);
+      toast.error(`Parameter "${existing.name}" already exists in the library`);
       addParameter(existing);
       setIsCreatingNew(false);
       setNewParamForm({ name: '', type: 'Micro', unit: '' });

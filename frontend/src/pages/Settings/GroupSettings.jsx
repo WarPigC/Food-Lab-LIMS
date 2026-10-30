@@ -354,6 +354,8 @@ export default function GroupSettings() {
     }
   };
 
+  const normalizeParamName = (s) => (s || "").toLowerCase().replace(/\s+/g, "");
+
   const handleAddGlobalParameter = async () => {
     const trimmedName = (newParam.name || "").trim();
     const trimmedUnit = (newParam.unit || "").trim();
@@ -367,11 +369,12 @@ export default function GroupSettings() {
       return;
     }
 
-    const exists = globalParameters.some(
-      (p) => p.name?.trim().toLowerCase() === trimmedName.toLowerCase()
+    const norm = normalizeParamName(trimmedName);
+    const existing = globalParameters.find(
+      (p) => normalizeParamName(p.name) === norm
     );
-    if (exists) {
-      toast.error(`Parameter "${trimmedName}" already exists in the library`);
+    if (existing) {
+      toast.error(`Parameter "${existing.name}" already exists in the library`);
       return;
     }
 
@@ -420,6 +423,21 @@ export default function GroupSettings() {
   };
 
   const handleUpdateGlobalParameter = async (paramId, field, value) => {
+    if (field === "name") {
+      const trimmedName = (value || "").trim();
+      if (!trimmedName) {
+        toast.error("Parameter Name cannot be empty");
+        return;
+      }
+      const norm = normalizeParamName(trimmedName);
+      const existing = globalParameters.find(
+        (p) => (p._id || p.id) !== paramId && normalizeParamName(p.name) === norm
+      );
+      if (existing) {
+        toast.error(`Parameter "${existing.name}" already exists in the library`);
+        return;
+      }
+    }
     try {
       const token = localStorage.getItem("token");
       await axios.put(
@@ -441,7 +459,14 @@ export default function GroupSettings() {
   const groups = Array.from(new Set(data.map((d) => d.group))).sort();
 
   const filteredGlobalParams = globalParameters.filter(
-    (p) => !paramSearch || p.name.toLowerCase().includes(paramSearch.toLowerCase())
+    (p) => {
+      if (!paramSearch) return true;
+      const term = paramSearch.toLowerCase();
+      const pName = (p.name || "").toLowerCase();
+      const cleanTerm = term.replace(/\s+/g, "");
+      const cleanPName = pName.replace(/\s+/g, "");
+      return pName.includes(term) || cleanPName.includes(cleanTerm);
+    }
   );
   const totalParamPages = Math.ceil(filteredGlobalParams.length / PARAMS_PER_PAGE);
   const visibleGlobalParams = filteredGlobalParams.slice(
