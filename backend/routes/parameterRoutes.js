@@ -4,14 +4,20 @@ const Parameter = require('../models/Parameter');
 const Job = require('../models/Job');
 const { protect } = require('../middlewares/authMiddleware');
 const { cacheMiddleware, invalidateByPrefix } = require('../utils/serverCache');
+const { buildFlexibleParamRegex } = require('../utils/parameterUtils');
 
 // Get all parameters, optionally search by name (ranked by relevance)
 router.get('/', protect, cacheMiddleware('parameters'), async (req, res) => {
   try {
     const query = {};
     const searchTerm = req.query.search;
-    if (searchTerm) {
-      query.name = { $regex: searchTerm, $options: 'i' };
+    if (searchTerm && searchTerm.trim()) {
+      const cleanChars = searchTerm.trim().replace(/\s+/g, '').split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      if (cleanChars.length > 0) {
+        query.name = { $regex: cleanChars.join('\\s*'), $options: 'i' };
+      } else {
+        query.name = { $regex: searchTerm, $options: 'i' };
+      }
     }
     const parameters = await Parameter.find(query)
       .collation({ locale: 'en', strength: 2 })
@@ -20,19 +26,22 @@ router.get('/', protect, cacheMiddleware('parameters'), async (req, res) => {
     // Rank results by relevance if a search term was provided
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
+      const cleanTerm = term.replace(/\s+/g, '');
       parameters.sort((a, b) => {
         const aName = a.name.toLowerCase();
         const bName = b.name.toLowerCase();
+        const cleanA = aName.replace(/\s+/g, '');
+        const cleanB = bName.replace(/\s+/g, '');
 
-        // Tier 1: Exact match
-        const aExact = aName === term;
-        const bExact = bName === term;
+        // Tier 1: Exact match (case and whitespace normalized)
+        const aExact = aName === term || cleanA === cleanTerm;
+        const bExact = bName === term || cleanB === cleanTerm;
         if (aExact && !bExact) return -1;
         if (bExact && !aExact) return 1;
 
         // Tier 2: Starts with search term
-        const aPrefix = aName.startsWith(term);
-        const bPrefix = bName.startsWith(term);
+        const aPrefix = aName.startsWith(term) || cleanA.startsWith(cleanTerm);
+        const bPrefix = bName.startsWith(term) || cleanB.startsWith(cleanTerm);
         if (aPrefix && !bPrefix) return -1;
         if (bPrefix && !aPrefix) return 1;
 
@@ -67,12 +76,12 @@ router.post('/', protect, async (req, res) => {
       return res.status(400).json({ message: 'name and unit cannot be empty' });
     }
 
-    // Check if exists
+    // Check if exists (whitespace and case-insensitive)
     const existing = await Parameter.findOne({ 
-      name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } 
+      name: { $regex: buildFlexibleParamRegex(trimmedName) } 
     });
     if (existing) {
-      return res.status(400).json({ message: `Parameter "${trimmedName}" already exists in the library` });
+      return res.status(400).json({ message: `Parameter "${existing.name}" already exists in the library` });
     }
 
     // Assign s_no manually to avoid pre-save race conditions
@@ -121,13 +130,13 @@ router.put('/:id', protect, async (req, res) => {
       }
       updateData.name = trimmedName;
       
-      // Check for name collision if name is being changed
+      // Check for name collision if name is being changed (whitespace and case-insensitive)
       const existing = await Parameter.findOne({ 
-        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        name: { $regex: buildFlexibleParamRegex(trimmedName) },
         _id: { $ne: parameterId }
       });
       if (existing) {
-        return res.status(400).json({ message: `Parameter "${trimmedName}" already exists in the library` });
+        return res.status(400).json({ message: `Parameter "${existing.name}" already exists in the library` });
       }
     }
 

@@ -5,6 +5,7 @@ const Parameter = require('../models/Parameter');
 const Job = require('../models/Job');
 const { protect } = require('../middlewares/authMiddleware');
 const { invalidateByPrefix } = require('../utils/serverCache');
+const { buildFlexibleParamRegex } = require('../utils/parameterUtils');
 
 // ═══════════════════════════════════
 //  GROUPS
@@ -234,8 +235,8 @@ router.post('/subgroups/:id/parameters', protect, async (req, res) => {
     const subGroupDoc = await ParameterGroup.findById(req.params.id);
     if (!subGroupDoc) return res.status(404).json({ message: 'Subgroup not found' });
 
-    // Upsert the Parameter in the global parameters collection
-    let param = await Parameter.findOne({ name: { $regex: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+    // Upsert the Parameter in the global parameters collection (whitespace and case-insensitive)
+    let param = await Parameter.findOne({ name: { $regex: buildFlexibleParamRegex(name.trim()) } });
     if (!param) {
       const last = await Parameter.findOne({}, {}, { sort: { s_no: -1 } });
       const s_no = (last?.s_no || 0) + 1;
@@ -259,6 +260,9 @@ router.post('/subgroups/:id/parameters', protect, async (req, res) => {
 
     invalidateByPrefix('groups'); invalidateByPrefix('parameters'); res.status(201).json({ parameter: param, subGroup: subGroupDoc });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: `Parameter "${(req.body.name || '').trim()}" already exists in the library` });
+    }
     res.status(500).json({ message: 'Error adding parameter', error: err.message });
   }
 });

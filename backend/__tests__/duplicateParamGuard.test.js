@@ -205,4 +205,112 @@ describe('SP-2 P14: Duplicate Parameter Guard & Whitespace Trim Fix', () => {
     expect(successRes.body.name).toBe('Ferrous Iron');
     expect(successRes.body.unit).toBe('mg/L');
   });
+
+  it('rejects duplicate parameter with internal whitespace difference (e.g. "0.1%" vs "0.1 %")', async () => {
+    await Parameter.create({
+      s_no: 1,
+      name: '0.1 %',
+      type: 'Chemical',
+      unit: '%'
+    });
+
+    const res = await request(app)
+      .post('/api/parameters')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        name: '0.1%',
+        type: 'Chemical',
+        unit: '%'
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('already exists in the library');
+    expect(res.body.message).toContain('0.1 %');
+  });
+
+  it('rejects duplicate parameter with whitespace differences around punctuation and symbols', async () => {
+    await Parameter.create({
+      s_no: 1,
+      name: 'Arsenic (as As)',
+      type: 'Chemical',
+      unit: 'ppm'
+    });
+
+    const res = await request(app)
+      .post('/api/parameters')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        name: 'Arsenic(as As)',
+        type: 'Chemical',
+        unit: 'ppm'
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('already exists in the library');
+  });
+
+  it('rejects duplicate parameter with multiple internal spaces', async () => {
+    await Parameter.create({
+      s_no: 1,
+      name: 'Test for Starch',
+      type: 'Chemical',
+      unit: '-'
+    });
+
+    const res = await request(app)
+      .post('/api/parameters')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        name: 'Test   for   Starch',
+        type: 'Chemical',
+        unit: '-'
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('already exists in the library');
+  });
+
+  it('rejects update when renamed to existing parameter with internal whitespace variations', async () => {
+    const existingParam = await Parameter.create({
+      s_no: 1,
+      name: '0.1 %',
+      type: 'Chemical',
+      unit: '%'
+    });
+
+    const paramToUpdate = await Parameter.create({
+      s_no: 2,
+      name: 'Moisture',
+      type: 'Chemical',
+      unit: '%'
+    });
+
+    const res = await request(app)
+      .put(`/api/parameters/${paramToUpdate._id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        name: '0.1%'
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('already exists in the library');
+    expect(res.body.message).toContain('0.1 %');
+  });
+
+  it('finds and ranks parameter when searching with different whitespace (e.g. search "0.1%" matches "0.1 %")', async () => {
+    await Parameter.create({
+      s_no: 1,
+      name: '0.1 %',
+      type: 'Chemical',
+      unit: '%'
+    });
+
+    const res = await request(app)
+      .get('/api/parameters?search=0.1%')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(res.body[0].name).toBe('0.1 %');
+  });
 });
