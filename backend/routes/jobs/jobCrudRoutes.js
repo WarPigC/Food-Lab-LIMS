@@ -15,6 +15,62 @@ const { audit } = require('../../utils/auditLogger');
 const { computeDelta, applyAdditions, applyRemovals, invalidateCustomReports } = require('../../utils/parameterDelta');
 const { buildJobCode, getNextSerial, getNextUlr } = require('../../utils/serialUtils');
 const { isSampleHandoverRequired } = require('../../utils/sampleUtils');
+const { attemptUlrAssignment } = require('../../utils/ulrService');
+
+/**
+ * Helper to resolve parameter snapshotting from Special Profiles
+ */
+const resolveProfileParameters = async (incomingParams, profiles) => {
+  let params = (incomingParams || []).map(p => ({
+    ...p,
+    parameterId: p.parameterId || new mongoose.Types.ObjectId()
+  }));
+  if (profiles?.waterIso10500) {
+    const profile = await SpecialProfile.findOne({ key: 'waterIso10500' });
+    const profileParams = (profile?.parameters || [])
+      .filter(p => !p.isCategoryHeader)
+      .map(p => ({
+        parameterId: new mongoose.Types.ObjectId(),
+        name: p.name,
+        unit: p.unit,
+        type: 'Chemical',
+        specification: p.requirement || ''
+      }));
+    params = [...params, ...profileParams];
+  }
+  if (profiles?.pesticides) {
+    const profile = await SpecialProfile.findOne({ key: 'pesticides' });
+    if (profile?.parameters) {
+      const existingNames = new Set(params.map(p => (p.name || '').toLowerCase().trim()).filter(Boolean));
+      const pestParams = (profile.parameters || [])
+        .filter(p => !p.isCategoryHeader && !existingNames.has((p.name || '').toLowerCase().trim()))
+        .map(p => ({
+          parameterId: new mongoose.Types.ObjectId(),
+          name: p.name,
+          unit: p.unit,
+          type: 'Chemical',
+          specification: p.specification || ''
+        }));
+      params = [...params, ...pestParams];
+    }
+  }
+  if (profiles?.fattyAcids?.enabled) {
+    const profile = await SpecialProfile.findOne({ key: 'fattyAcids' });
+    const variant = profile?.variants?.find(v => v.key === profiles.fattyAcids.variant);
+    const existingNames = new Set(params.map(p => (p.name || '').toLowerCase().trim()).filter(Boolean));
+    const faParams = (variant?.parameters || [])
+      .filter(p => !existingNames.has((p.name || '').toLowerCase().trim()))
+      .map(p => ({
+        parameterId: new mongoose.Types.ObjectId(),
+        name: p.name,
+        unit: p.unit,
+        type: 'Chemical',
+        specification: p.specification || ''
+      }));
+    params = [...params, ...faParams];
+  }
+  return params;
+};
 
 /**
  * GET /api/jobs/next-sample-id
@@ -152,40 +208,6 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
     const activeSpecialProfiles = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
     const activeNablSpecialProfiles = nablSpecialProfiles || (nablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
     const activeNonNablSpecialProfiles = nonNablSpecialProfiles || (nonNablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
-
-    // Helper to resolve parameter snapshotting from Special Profiles
-    const resolveProfileParameters = async (incomingParams, profiles) => {
-      let params = (incomingParams || []).map(p => ({
-        ...p,
-        parameterId: p.parameterId || new mongoose.Types.ObjectId()
-      }));
-      if (profiles?.waterIso10500) {
-        const profile = await SpecialProfile.findOne({ key: 'waterIso10500' });
-        const profileParams = (profile?.parameters || [])
-          .filter(p => !p.isCategoryHeader)
-          .map(p => ({
-            parameterId: new mongoose.Types.ObjectId(),
-            name: p.name,
-            unit: p.unit,
-            type: 'Chemical',
-            specification: p.requirement || ''
-          }));
-        params = [...params, ...profileParams];
-      }
-      if (profiles?.fattyAcids?.enabled) {
-        const profile = await SpecialProfile.findOne({ key: 'fattyAcids' });
-        const variant = profile?.variants?.find(v => v.key === profiles.fattyAcids.variant);
-        const faParams = (variant?.parameters || []).map(p => ({
-          parameterId: new mongoose.Types.ObjectId(),
-          name: p.name,
-          unit: p.unit,
-          type: 'Chemical',
-          specification: p.specification || ''
-        }));
-        params = [...params, ...faParams];
-      }
-      return params;
-    };
 
     // customCreationDate is an optional YYYY-MM-DD string chosen by the officer.
     // It overrides the date prefix in the job code but does NOT affect the counter.
@@ -541,12 +563,24 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       isResubmitted = true;
     }
 
+    const activeSpecial = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined);
+    if (activeSpecial) job.specialProfiles = activeSpecial;
+
+    // Resolve profile parameters so that special profile additions (e.g. fattyAcids, pesticides) are captured in the parameter delta
+    let resolvedParameters = parameters;
+    if (resolvedParameters) {
+      const profilesForResolution = activeSpecial || job.specialProfiles;
+      if (profilesForResolution) {
+        resolvedParameters = await resolveProfileParameters(resolvedParameters, profilesForResolution);
+      }
+    }
+
     // --- Parameter Delta Engine ---
     // Detect if parameters were modified on a dispatched (in-progress) job
     let paramDelta = null;
     let paramModNotifications = [];
 
-    if (parameters) {
+    if (resolvedParameters) {
       // Compute delta BEFORE overwriting job.parameters
       const isDispatched = ['ASSIGNED_TO_ASSISTANT', 'COMPLETED', 'PENDING_HEAD_REVIEW'].includes(
         job.distribution.micro?.status
@@ -555,7 +589,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       );
 
       if (isDispatched) {
-        paramDelta = computeDelta(job.parameters || [], parameters);
+        paramDelta = computeDelta(job.parameters || [], resolvedParameters);
       }
 
       // If dispatched and parameters were added, stage them instead of mutating TestInstances
@@ -612,7 +646,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       }
 
       // Only include parameters that are approved (exclude staged additions from active job.parameters)
-      const approvedParameters = (parameters || []).filter(p => {
+      const approvedParameters = (resolvedParameters || []).filter(p => {
         const id = (p.parameterId || p._id || p.name)?.toString();
         return !stagedAddedIds.has(id);
       });
@@ -622,12 +656,10 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         parameterId: p.parameterId || new mongoose.Types.ObjectId()
       }));
       if (groupMetadata) job.groupMetadata = groupMetadata;
-      const activeSpecial = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined);
-      if (activeSpecial) job.specialProfiles = activeSpecial;
 
       const isSpecialChem = Boolean(job.specialProfiles?.pesticides || job.specialProfiles?.waterIso10500 || job.specialProfiles?.fattyAcids?.enabled);
-      const hasMicro = parameters.some(p => p.type === 'Micro');
-      const hasChemical = parameters.some(p => p.type === 'Chemical') || isSpecialChem;
+      const hasMicro = resolvedParameters.some(p => p.type === 'Micro');
+      const hasChemical = resolvedParameters.some(p => p.type === 'Chemical') || isSpecialChem;
 
       // Retain existing valid statuses, default to PENDING_REVIEW if newly required
       let microStatus = (job.distribution.micro?.status && job.distribution.micro.status !== 'RETURNED') ? job.distribution.micro.status : 'PENDING_REVIEW';
@@ -651,7 +683,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       // --- Apply delta mutations to TestInstances (only removals on dispatched jobs, additions are staged) ---
       if (paramDelta && paramDelta.removed.length > 0) {
         // REMOVALS: pull from TestInstances, handle zero-param cleanup
-        const { deactivatedDepts } = await applyRemovals(job, paramDelta.removed, parameters);
+        const { deactivatedDepts } = await applyRemovals(job, paramDelta.removed, resolvedParameters);
 
         for (const dept of deactivatedDepts) {
           if (dept === 'micro') { microStatus = 'PENDING'; }
@@ -712,6 +744,29 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         if (wasMicroRequired && wasChemicalRequired) {
           job.sampleTransferState = 'NOT_REQUIRED';
         }
+      }
+
+      // Check if department instances are already completed (e.g. if pending/rejected amendments previously blocked completion)
+      if (job.pendingParamAmendments?.status === 'NONE') {
+        const allInstances = await TestInstance.find({ jobId: job._id }).populate('createdBy', 'department');
+        const isDeptCompleted = (deptName) => {
+          const deptInstances = allInstances.filter(i => {
+            const instDept = i.department?.toLowerCase() || i.createdBy?.department?.toLowerCase() || (i.testCode?.includes('-1') ? 'micro' : i.testCode?.includes('-2') ? 'chemical' : '');
+            return instDept === deptName.toLowerCase();
+          });
+          if (deptInstances.length === 0) return false;
+          return deptInstances.every(i => i.status === 'COMPLETED');
+        };
+
+        if (job.distribution?.micro?.required && isDeptCompleted('micro')) {
+          job.distribution.micro.status = 'COMPLETED';
+        }
+        if (job.distribution?.chemical?.required && isDeptCompleted('chemical')) {
+          job.distribution.chemical.status = 'COMPLETED';
+        }
+
+        // Attempt ULR assignment if now fully tested
+        await attemptUlrAssignment(job, req.user);
       }
     }
 
@@ -791,7 +846,11 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         const siblingShowSpecs = isCurrentJobNabl ? nonNablShowSpecifications : nablShowSpecifications;
     
         if (siblingParams) {
-          sibling.parameters = siblingParams;
+          let resolvedSibParams = siblingParams;
+          if (siblingSpecial) {
+            resolvedSibParams = await resolveProfileParameters(resolvedSibParams, siblingSpecial);
+          }
+          sibling.parameters = resolvedSibParams;
           if (siblingGroupMeta !== undefined) sibling.groupMetadata = siblingGroupMeta;
           if (siblingSpecial) sibling.specialProfiles = siblingSpecial;
           if (siblingShowSpecs !== undefined) sibling.showSpecifications = siblingShowSpecs;

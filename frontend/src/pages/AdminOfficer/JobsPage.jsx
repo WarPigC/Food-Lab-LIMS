@@ -329,7 +329,11 @@ export default function Jobs() {
     setIsLoadingMore(true);
     try {
       const res = await axios.get(`${API_URL}/api/jobs?includeCancelled=true&cursor=${jobsCursor}`);
-      setJobs(prev => [...prev, ...(res.data.jobs || [])]);
+      setJobs(prev => {
+        const existingIds = new Set(prev.map(j => (j._id || j.id)?.toString()));
+        const incoming = (res.data.jobs || []).filter(j => !existingIds.has((j._id || j.id)?.toString()));
+        return [...prev, ...incoming];
+      });
       setHasMoreJobs(res.data.hasMore);
       setJobsCursor(res.data.nextCursor);
     } catch (err) {
@@ -1274,31 +1278,9 @@ export default function Jobs() {
                           color: "#7F1D1D",
                         }}
                       >
-                        The rejected parameters have been pre-filled in the parameter list below. You can modify them or discard them.
+                        The rejected parameters have been pre-filled in the parameter list below. You can modify or remove them as needed.
                       </p>
                     </div>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const rejectedIds = new Set(
-                          (editingJob.pendingParamAmendments.parameters || []).map(p => (p._id || p.parameterId)?.toString())
-                        );
-                        setSelectedParams(prev => prev.filter(p => !rejectedIds.has((p.parameterId || p._id)?.toString())));
-                        toast.success("Rejected parameters discarded from form.");
-                      }}
-                      className="btn btn-secondary"
-                      style={{
-                        padding: "0.35rem 0.8rem",
-                        fontSize: "0.8rem",
-                        color: "#991B1B",
-                        borderColor: "#F87171",
-                        backgroundColor: "#FFF",
-                      }}
-                    >
-                      Discard Rejected Parameters
-                    </button>
                   </div>
                 </div>
               )}

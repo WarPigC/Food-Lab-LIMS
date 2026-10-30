@@ -443,11 +443,15 @@ export default function ReviewQueue() {
                           const ACTION_LABELS = {
                             REASSIGN: 'Reassigned to Analyst',
                             REASSIGN_MERGED: 'Parameters added via reassign:',
+                            AMENDMENT_MERGED: 'Parameter amended',
                             APPROVE: 'Approved',
                             REJECT: 'Rejected',
                           };
                           const label = ACTION_LABELS[rh.action] || rh.action;
                           const isMerged = rh.action === 'REASSIGN_MERGED';
+                          const noteText = rh.action === 'AMENDMENT_MERGED' && rh.note
+                            ? rh.note.replace(/^\d+\s+amended parameter\(s\)\s+(?:added via Head approval|dispatched)$/i, 'Amended parameter added')
+                            : rh.note;
                           return (
                             <div
                               key={i}
@@ -459,9 +463,9 @@ export default function ReviewQueue() {
                             >
                               <strong>{rh.role}</strong>{" "}
                               <span style={{ color: "var(--color-text)" }}>{label}</span>{" "}
-                              {rh.note && (
+                              {noteText && (
                                 <span style={{ fontStyle: isMerged ? "normal" : "italic" }}>
-                                  {isMerged ? rh.note : `\u2014 ${rh.note}`}
+                                  {isMerged ? noteText : `\u2014 ${noteText}`}
                                 </span>
                               )}{" "}
                               {formatDateTime(rh.date)}

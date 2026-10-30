@@ -18,6 +18,12 @@ router.put('/instances/:id/save-progress', protect, authorize('ASSISTANT'), asyn
     if (!instance) return res.status(404).json({ message: 'Test not found or not assigned to you' });
     if (instance.status !== 'PENDING') return res.status(400).json({ message: 'Test is not in a submittable state' });
 
+    const Job = require('../../models/Job');
+    const job = await Job.findById(instance.jobId);
+    if (!job || job.status !== 'ACTIVE') {
+      return res.status(400).json({ message: 'Cannot submit results for a job that is on hold or cancelled' });
+    }
+
     instance.results = results;
     if (testingPeriod) {
       instance.testingPeriod = {
@@ -41,6 +47,12 @@ router.put('/instances/:id/results', protect, authorize('ASSISTANT'), async (req
 
     if (!instance) return res.status(404).json({ message: 'Test not found or not assigned to you' });
     if (instance.status !== 'PENDING') return res.status(400).json({ message: 'Test is not in a submittable state' });
+
+    const Job = require('../../models/Job');
+    const job = await Job.findById(instance.jobId);
+    if (!job || job.status !== 'ACTIVE') {
+      return res.status(400).json({ message: 'Cannot submit results for a job that is on hold or cancelled' });
+    }
 
     instance.results = results;
     if (testingPeriod) {
@@ -127,7 +139,10 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
         
         // Helper to check if all instances created by a specific department are completed
         const isDeptCompleted = (deptName) => {
-          const deptInstances = allInstances.filter(i => i.createdBy?.department?.toLowerCase() === deptName.toLowerCase());
+          const deptInstances = allInstances.filter(i => {
+            const instDept = i.department?.toLowerCase() || i.createdBy?.department?.toLowerCase() || (i.testCode?.includes('-1') ? 'micro' : i.testCode?.includes('-2') ? 'chemical' : '');
+            return instDept === deptName.toLowerCase();
+          });
           if (deptInstances.length === 0) return false;
           return deptInstances.every(i => i.status === 'COMPLETED');
         };
@@ -365,6 +380,7 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
                 clientName: instance.clientName,
                 deadline: instance.deadline,
                 assignedTo: analystId,
+                department: instance.department || (instance.testCode?.includes('-1') ? 'micro' : 'chemical'),
                 status: 'PENDING',
                 results: analystResults,
                 retestOnly: paramIds,

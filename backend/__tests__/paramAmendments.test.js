@@ -154,4 +154,91 @@ describe('SP-2 P13: Staged Parameter Amendments', () => {
     // Clean up
     await Job.deleteOne({ _id: job._id });
   });
+
+  test('Job completes when rejected parameter amendment is cleared and all department instances are completed', async () => {
+    const paramId = new mongoose.Types.ObjectId();
+    const rejectedParamId = new mongoose.Types.ObjectId();
+
+    const job = await Job.create({
+      jobCode: `TEST_COMP_${Date.now()}`,
+      sampleSerial: 9992,
+      clientName: 'Completion Test Corp',
+      customer: { customer_name: 'Completion Test Corp' },
+      sample: {
+        sample_name: 'Water',
+        sample_id: 'S-9992',
+        sample_quantity: '1 L',
+        sample_count: 1,
+        condition_on_receipt: 'Good',
+        received_date: new Date(),
+        nabl_type: 'Non Nabl'
+      },
+      parameters: [{
+        parameterId: paramId,
+        name: 'pH',
+        type: 'Chemical',
+        unit: 'pH'
+      }],
+      distribution: {
+        micro: { required: false },
+        chemical: { required: true, status: 'ASSIGNED_TO_ASSISTANT' }
+      },
+      createdBy: officerUser._id,
+      pendingParamAmendments: {
+        status: 'REJECTED',
+        parameters: [{
+          parameterId: rejectedParamId,
+          name: 'Lead',
+          type: 'Chemical',
+          unit: 'mg/L'
+        }],
+        rejectionReason: 'Not equipped for heavy metals'
+      }
+    });
+
+    const instance = await TestInstance.create({
+      jobId: job._id,
+      testCode: `${job.jobCode}-2`,
+      clientName: job.clientName,
+      deadline: new Date(),
+      assignedTo: analystA._id,
+      department: 'chemical',
+      status: 'COMPLETED',
+      results: [{
+        parameterId: paramId.toString(),
+        name: 'pH',
+        value: '7.2',
+        unit: 'pH'
+      }],
+      createdBy: headUser._id
+    });
+
+    // Verify before: isJobFullyTested should be false because of pendingParamAmendments.status === 'REJECTED'
+    expect(isJobFullyTested(job)).toBe(false);
+
+    // Now simulate clearing the rejected amendment (as done when admin officer saves edit without the rejected param)
+    job.pendingParamAmendments = { status: 'NONE', parameters: [], rejectionReason: '' };
+    
+    // Evaluate department completion
+    const allInstances = await TestInstance.find({ jobId: job._id }).populate('createdBy', 'department');
+    const isDeptCompleted = (deptName) => {
+      const deptInstances = allInstances.filter(i => {
+        const instDept = i.department?.toLowerCase() || i.createdBy?.department?.toLowerCase() || (i.testCode?.includes('-1') ? 'micro' : i.testCode?.includes('-2') ? 'chemical' : '');
+        return instDept === deptName.toLowerCase();
+      });
+      if (deptInstances.length === 0) return false;
+      return deptInstances.every(i => i.status === 'COMPLETED');
+    };
+
+    if (job.distribution.chemical.required && isDeptCompleted('chemical')) {
+      job.distribution.chemical.status = 'COMPLETED';
+    }
+
+    expect(job.distribution.chemical.status).toBe('COMPLETED');
+    expect(isJobFullyTested(job)).toBe(true);
+
+    // Clean up
+    await TestInstance.deleteOne({ _id: instance._id });
+    await Job.deleteOne({ _id: job._id });
+  });
 });
