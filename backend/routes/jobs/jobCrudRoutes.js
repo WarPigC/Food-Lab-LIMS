@@ -14,6 +14,7 @@ const { createNotification, notifyAdmins, notifyAdminOfficers } = require('../..
 const { audit } = require('../../utils/auditLogger');
 const { computeDelta, applyAdditions, applyRemovals, invalidateCustomReports } = require('../../utils/parameterDelta');
 const { buildJobCode, getNextSerial, getNextUlr } = require('../../utils/serialUtils');
+const { isSampleHandoverRequired } = require('../../utils/sampleUtils');
 
 /**
  * GET /api/jobs/next-sample-id
@@ -271,8 +272,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         groupMetadata: nablGroupMetadata,
         specialProfiles: activeNablSpecialProfiles,
         distribution: nablDist,
-        sampleTransferState: (nablDist.micro.required && nablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
-        sampleFlow: (nablDist.micro.required && nablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        sampleTransferState: isSampleHandoverRequired({ distribution: nablDist, sample }) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
+        sampleFlow: isSampleHandoverRequired({ distribution: nablDist, sample }) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         showSpecifications: nablShowSpecifications !== undefined ? nablShowSpecifications : showSpecifications,
         customCreationDate: customCreationDate ? new Date(customCreationDate) : undefined,
         createdBy: req.user._id,
@@ -296,8 +297,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         groupMetadata: nonNablGroupMetadata,
         specialProfiles: activeNonNablSpecialProfiles,
         distribution: nonNablDist,
-        sampleTransferState: (nonNablDist.micro.required && nonNablDist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
-        sampleFlow: (nonNablDist.micro.required && nonNablDist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        sampleTransferState: isSampleHandoverRequired({ distribution: nonNablDist, sample }) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
+        sampleFlow: isSampleHandoverRequired({ distribution: nonNablDist, sample }) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         showSpecifications: nonNablShowSpecifications !== undefined ? nonNablShowSpecifications : showSpecifications,
         customCreationDate: customCreationDate ? new Date(customCreationDate) : undefined,
         createdBy: req.user._id,
@@ -365,8 +366,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         groupMetadata,
         specialProfiles: activeSpecialProfiles,
         distribution: dist,
-        sampleTransferState: (dist.micro.required && dist.chemical.required) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
-        sampleFlow: (dist.micro.required && dist.chemical.required) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
+        sampleTransferState: isSampleHandoverRequired({ distribution: dist, sample }) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED',
+        sampleFlow: isSampleHandoverRequired({ distribution: dist, sample }) ? { type: 'SEQUENTIAL', firstDepartment: 'micro', transferDeadline: sampleFlow?.transferDeadline || null } : undefined,
         showSpecifications,
         customCreationDate: customCreationDate ? new Date(customCreationDate) : undefined,
         createdBy: req.user._id,
@@ -468,7 +469,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       
       // Reset sample transfer state
       const isMulti = job.distribution?.micro?.required && job.distribution?.chemical?.required;
-      job.sampleTransferState = isMulti ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
+      job.sampleTransferState = isSampleHandoverRequired(job) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
     }
 
     const { customer, sample, compliance, parameters, groupMetadata, specialProfiles, pesticidePanel, sampleFlow, assignedMicroHead, assignedChemicalHead, showSpecifications } = req.body;
@@ -583,7 +584,10 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         if (hasMicro) microStatus = 'PENDING_REVIEW';
         if (hasChemical) chemicalStatus = 'PENDING_REVIEW';
         job.headApproval = { micro: false, chemical: false };
-        job.sampleTransferState = (hasMicro && hasChemical) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
+        job.sampleTransferState = isSampleHandoverRequired({
+          distribution: { micro: { required: hasMicro }, chemical: { required: hasChemical } },
+          sample: job.sample
+        }) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
       }
 
       // --- Apply delta mutations to TestInstances (only on dispatched jobs) ---
@@ -663,7 +667,13 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         // If transitioning from single to multi dept, set transfer state
         if (!wasMicroRequired || !wasChemicalRequired) {
           if (!isResubmitted && job.sampleTransferState === 'NOT_REQUIRED') {
-            job.sampleTransferState = 'PENDING_TRANSFER';
+            const updatedJobShape = {
+              distribution: { micro: { required: hasMicro }, chemical: { required: hasChemical } },
+              sample: job.sample
+            };
+            if (isSampleHandoverRequired(updatedJobShape)) {
+              job.sampleTransferState = 'PENDING_TRANSFER';
+            }
           }
         }
       } else {
@@ -774,7 +784,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
           sibling.headApproval = { micro: false, chemical: false };
           
           const isSibMulti = sibling.distribution?.micro?.required && sibling.distribution?.chemical?.required;
-          sibling.sampleTransferState = isSibMulti ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
+          sibling.sampleTransferState = isSampleHandoverRequired(sibling) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
           
           siblingActionNote = 'Hold Released (Synced from sibling job edit)';
           

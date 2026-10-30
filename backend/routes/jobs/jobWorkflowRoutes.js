@@ -8,6 +8,7 @@ const { protect } = require('../../middlewares/authMiddleware');
 const { authorize } = require('../../middlewares/roleMiddleware');
 const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../../utils/notifier');
 const { audit } = require('../../utils/auditLogger');
+const { isSampleHandoverRequired } = require('../../utils/sampleUtils');
 
 // Return Job to Officer (HEAD only)
 // PUT — Head approves the job during joint review
@@ -36,7 +37,8 @@ router.put('/:id/approve-review', protect, authorize('HEAD'), async (req, res) =
       if (job.distribution.micro.required) job.distribution.micro.status = 'PENDING';
       if (job.distribution.chemical.required) job.distribution.chemical.status = 'PENDING';
       
-      if (!isMultiDept) {
+      const handoverNeeded = isSampleHandoverRequired(job);
+      if (!handoverNeeded) {
         job.sampleTransferState = 'NOT_REQUIRED';
       } else if (!job.siblingJobId) {
         job.sampleTransferState = 'PENDING_TRANSFER';
@@ -49,9 +51,9 @@ router.put('/:id/approve-review', protect, authorize('HEAD'), async (req, res) =
           
           if (siblingFullyApproved) {
             job.sampleTransferState = 'PENDING_TRANSFER';
-            // Unlock sibling if it was also waiting AND is also multi-dept
-            const siblingIsMultiDept = sibling.distribution.micro.required && sibling.distribution.chemical.required;
-            if (siblingIsMultiDept && (sibling.distribution.micro.status === 'PENDING' || sibling.distribution.chemical.status === 'PENDING')) {
+            // Unlock sibling if it was also waiting AND handover is required
+            const siblingHandoverNeeded = isSampleHandoverRequired(sibling);
+            if (siblingHandoverNeeded && (sibling.distribution.micro.status === 'PENDING' || sibling.distribution.chemical.status === 'PENDING')) {
               sibling.sampleTransferState = 'PENDING_TRANSFER';
               await sibling.save();
             }

@@ -742,9 +742,10 @@ export default function Dispatcher() {
               : "";
             const iAmChemical = myDept === "chemical";
             const transferState = job.sampleTransferState;
+            const multiSampleBypass = (job.sample?.sample_count ?? 1) > 1 || transferState === "NOT_REQUIRED";
 
             let canChemicalDispatch = true;
-            if (iAmChemical && isMultiDept) {
+            if (iAmChemical && isMultiDept && !multiSampleBypass) {
               if (
                 ["PENDING_APPROVAL", "PENDING_TRANSFER", "IN_TRANSIT"].includes(
                   transferState,
