@@ -558,8 +558,66 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         paramDelta = computeDelta(job.parameters || [], parameters);
       }
 
-      // Now update job.parameters
-      job.parameters = (parameters || []).map(p => ({
+      // If dispatched and parameters were added, stage them instead of mutating TestInstances
+      let stagedAddedIds = new Set();
+      if (isDispatched && paramDelta && paramDelta.added.length > 0) {
+        job.pendingParamAmendments = {
+          status: 'PENDING_HEAD_REVIEW',
+          parameters: paramDelta.added.map(p => ({
+            parameterId: p.parameterId || new mongoose.Types.ObjectId(),
+            name: p.name,
+            type: p.type,
+            unit: p.unit,
+            specification: p.specification || ''
+          })),
+          rejectionReason: '',
+          submittedBy: req.user._id,
+          submittedAt: new Date()
+        };
+
+        stagedAddedIds = new Set(
+          paramDelta.added.map(p => (p.parameterId || p._id || p.name).toString())
+        );
+
+        job.history.push({
+          action: 'AMENDMENT_SUBMITTED',
+          by: req.user._id,
+          note: `${paramDelta.added.length} parameter amendment(s) submitted for Head review`
+        });
+
+        // Notify department heads
+        const addedDepts = new Set(paramDelta.added.map(p => (p.type || '').toLowerCase()));
+        const heads = await User.find({ role: 'HEAD' });
+        for (const head of heads) {
+          const hDept = (head.department || '').toLowerCase().trim();
+          if (addedDepts.has(hDept)) {
+            await createNotification({
+              recipient: head._id,
+              type: 'ACTION_REQUIRED',
+              title: 'Parameter Amendment Pending Review',
+              message: `Job ${job.jobCode} has parameter amendments awaiting review.`,
+              relatedJobId: job._id,
+              link: '/head/dispatcher'
+            });
+          }
+        }
+        if (req.app.get('io')) {
+          req.app.get('io').emit('job:amendment-pending', { jobId: job._id });
+        }
+      } else if (job.pendingParamAmendments?.status === 'REJECTED' && (!paramDelta || paramDelta.added.length === 0)) {
+        // Discarded or resolved rejected parameters
+        job.pendingParamAmendments = { status: 'NONE', parameters: [], rejectionReason: '' };
+      } else if (!isDispatched) {
+        job.pendingParamAmendments = { status: 'NONE', parameters: [], rejectionReason: '' };
+      }
+
+      // Only include parameters that are approved (exclude staged additions from active job.parameters)
+      const approvedParameters = (parameters || []).filter(p => {
+        const id = (p.parameterId || p._id || p.name)?.toString();
+        return !stagedAddedIds.has(id);
+      });
+
+      job.parameters = approvedParameters.map(p => ({
         ...p,
         parameterId: p.parameterId || new mongoose.Types.ObjectId()
       }));
@@ -590,42 +648,14 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         }) ? 'PENDING_APPROVAL' : 'NOT_REQUIRED';
       }
 
-      // --- Apply delta mutations to TestInstances (only on dispatched jobs) ---
-      if (paramDelta && (paramDelta.added.length > 0 || paramDelta.removed.length > 0)) {
-        // ADDITIONS: inject into TestInstances, roll back completed ones
-        if (paramDelta.added.length > 0) {
-          const { rolledBackInstances, affectedDepts } = await applyAdditions(job, paramDelta.added);
-
-          // For added params in departments that were COMPLETED, roll distribution status back
-          for (const dept of affectedDepts) {
-            if (['COMPLETED', 'PENDING_HEAD_REVIEW'].includes(job.distribution[dept]?.status)) {
-              microStatus = dept === 'micro' ? 'ASSIGNED_TO_ASSISTANT' : microStatus;
-              chemicalStatus = dept === 'chemical' ? 'ASSIGNED_TO_ASSISTANT' : chemicalStatus;
-            }
-          }
-
-          // Queue notifications for rolled-back analysts
-          for (const inst of rolledBackInstances) {
-            paramModNotifications.push({
-              recipient: inst.assignedTo,
-              type: 'WARNING',
-              title: 'Parameters Modified',
-              message: `New parameters have been added to your assignment ${inst.testCode}. Please complete them.`,
-              relatedJobId: job._id,
-              relatedInstanceId: inst._id,
-              link: '/assistant'
-            });
-          }
-        }
-
+      // --- Apply delta mutations to TestInstances (only removals on dispatched jobs, additions are staged) ---
+      if (paramDelta && paramDelta.removed.length > 0) {
         // REMOVALS: pull from TestInstances, handle zero-param cleanup
-        if (paramDelta.removed.length > 0) {
-          const { deactivatedDepts } = await applyRemovals(job, paramDelta.removed, parameters);
+        const { deactivatedDepts } = await applyRemovals(job, paramDelta.removed, parameters);
 
-          for (const dept of deactivatedDepts) {
-            if (dept === 'micro') { microStatus = 'PENDING'; }
-            if (dept === 'chemical') { chemicalStatus = 'PENDING'; }
-          }
+        for (const dept of deactivatedDepts) {
+          if (dept === 'micro') { microStatus = 'PENDING'; }
+          if (dept === 'chemical') { chemicalStatus = 'PENDING'; }
         }
 
         // Invalidate custom reports (they're now stale)

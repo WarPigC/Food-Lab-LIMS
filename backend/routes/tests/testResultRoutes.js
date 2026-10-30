@@ -132,10 +132,14 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
           return deptInstances.every(i => i.status === 'COMPLETED');
         };
 
-        if (job.distribution.micro.required && isDeptCompleted('micro')) {
+        const hasPendingAmendments = job.pendingParamAmendments?.status && job.pendingParamAmendments.status !== 'NONE';
+        const pendingMicroAmendments = hasPendingAmendments && (job.pendingParamAmendments.parameters || []).some(p => p.type?.toLowerCase() === 'micro');
+        const pendingChemAmendments = hasPendingAmendments && (job.pendingParamAmendments.parameters || []).some(p => p.type?.toLowerCase() !== 'micro');
+
+        if (job.distribution.micro.required && isDeptCompleted('micro') && !pendingMicroAmendments) {
           job.distribution.micro.status = 'COMPLETED';
         }
-        if (job.distribution.chemical.required && (isDeptCompleted('chemical'))) {
+        if (job.distribution.chemical.required && (isDeptCompleted('chemical')) && !pendingChemAmendments) {
           job.distribution.chemical.status = 'COMPLETED';
         }
         

@@ -330,10 +330,14 @@ export default function JobLogTable({
                         expandedJobId === job._id
                           ? "none"
                           : "1px solid var(--color-border)",
-                      // Highlight the row being actively edited
+                      // Highlight the row being actively edited or with rejected parameter amendments
                       ...(editingJobId === job._id && {
                         backgroundColor: "rgba(245, 158, 11, 0.06)",
                         boxShadow: "inset 4px 0 0 var(--color-warning)",
+                      }),
+                      ...(job.pendingParamAmendments?.status === "REJECTED" && {
+                        backgroundColor: "rgba(239, 68, 68, 0.05)",
+                        boxShadow: "inset 4px 0 0 var(--color-danger)",
                       }),
                     }}
                     onClick={() => toggleExpand(job._id)}
@@ -372,6 +376,21 @@ export default function JobLogTable({
                           }}
                         >
                           CANCELLED
+                        </span>
+                      )}
+                      {job.pendingParamAmendments?.status === "REJECTED" && (
+                        <span
+                          style={{
+                            marginLeft: "0.5rem",
+                            fontSize: "0.7rem",
+                            padding: "0.1rem 0.4rem",
+                            backgroundColor: "var(--color-danger)",
+                            color: "white",
+                            borderRadius: "4px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          Params Rejected
                         </span>
                       )}
                     </td>
@@ -486,13 +505,19 @@ export default function JobLogTable({
                               onEditJob(job);
                             }}
                             style={{
-                              background: editingJobId === job._id
+                              background: job.pendingParamAmendments?.status === "REJECTED"
+                                ? "rgba(239, 68, 68, 0.15)"
+                                : editingJobId === job._id
                                 ? "rgba(245, 158, 11, 0.15)"
                                 : "none",
-                              border: editingJobId === job._id
+                              border: job.pendingParamAmendments?.status === "REJECTED"
+                                ? "1px solid var(--color-danger)"
+                                : editingJobId === job._id
                                 ? "1px solid rgba(245, 158, 11, 0.4)"
                                 : "none",
-                              color: editingJobId === job._id
+                              color: job.pendingParamAmendments?.status === "REJECTED"
+                                ? "var(--color-danger)"
+                                : editingJobId === job._id
                                 ? "var(--color-warning)"
                                 : "var(--color-primary)",
                               cursor: "pointer",
@@ -502,7 +527,13 @@ export default function JobLogTable({
                               alignItems: "center",
                               transition: "all 0.2s",
                             }}
-                            title={editingJobId === job._id ? "Currently Editing" : "Edit Job"}
+                            title={
+                              job.pendingParamAmendments?.status === "REJECTED"
+                                ? "Parameter Amendments Rejected - Click to Edit"
+                                : editingJobId === job._id
+                                ? "Currently Editing"
+                                : "Edit Job"
+                            }
                           >
                             <Edit size={16} />
                           </button>
@@ -615,14 +646,19 @@ export default function JobLogTable({
                 padding: "1.25rem",
                 boxShadow: "var(--shadow-sm)",
                 border:
-                  editingJobId === job._id
+                  job.pendingParamAmendments?.status === "REJECTED"
+                    ? "2px solid var(--color-danger)"
+                    : editingJobId === job._id
                     ? "2px solid var(--color-warning)"
                     : expandedJobId === job._id
                       ? "2px solid var(--color-primary)"
                       : "1px solid var(--color-border)",
-                backgroundColor: editingJobId === job._id
-                  ? "rgba(245, 158, 11, 0.04)"
-                  : "var(--color-surface)",
+                backgroundColor:
+                  job.pendingParamAmendments?.status === "REJECTED"
+                    ? "rgba(239, 68, 68, 0.04)"
+                    : editingJobId === job._id
+                    ? "rgba(245, 158, 11, 0.04)"
+                    : "var(--color-surface)",
               }}
             >
               <div
@@ -636,13 +672,36 @@ export default function JobLogTable({
                 <div>
                   <div
                     style={{
-                      fontFamily: "var(--font-mono)",
-                      fontWeight: 700,
-                      fontSize: "1.05rem",
-                      color: "var(--color-primary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      flexWrap: "wrap",
                     }}
                   >
-                    {formatJobCode(job.jobCode)}
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 700,
+                        fontSize: "1.05rem",
+                        color: "var(--color-primary)",
+                      }}
+                    >
+                      {formatJobCode(job.jobCode)}
+                    </span>
+                    {job.pendingParamAmendments?.status === "REJECTED" && (
+                      <span
+                        style={{
+                          fontSize: "0.7rem",
+                          padding: "0.1rem 0.4rem",
+                          backgroundColor: "var(--color-danger)",
+                          color: "white",
+                          borderRadius: "4px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        Params Rejected
+                      </span>
+                    )}
                   </div>
                   <div
                     style={{
@@ -745,21 +804,36 @@ export default function JobLogTable({
                       onClick={() => onEditJob(job)}
                       style={{
                         padding: "0.5rem",
-                        background: editingJobId === job._id
-                          ? "rgba(245, 158, 11, 0.15)"
-                          : "var(--color-surface-hover)",
-                        border: editingJobId === job._id
-                          ? "1px solid rgba(245, 158, 11, 0.4)"
-                          : "1px solid var(--color-border)",
+                        background:
+                          job.pendingParamAmendments?.status === "REJECTED"
+                            ? "rgba(239, 68, 68, 0.15)"
+                            : editingJobId === job._id
+                            ? "rgba(245, 158, 11, 0.15)"
+                            : "var(--color-surface-hover)",
+                        border:
+                          job.pendingParamAmendments?.status === "REJECTED"
+                            ? "1px solid var(--color-danger)"
+                            : editingJobId === job._id
+                            ? "1px solid rgba(245, 158, 11, 0.4)"
+                            : "1px solid var(--color-border)",
                         borderRadius: "6px",
-                        color: editingJobId === job._id
-                          ? "var(--color-warning)"
-                          : "var(--color-primary)",
+                        color:
+                          job.pendingParamAmendments?.status === "REJECTED"
+                            ? "var(--color-danger)"
+                            : editingJobId === job._id
+                            ? "var(--color-warning)"
+                            : "var(--color-primary)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
-                      title={editingJobId === job._id ? "Currently Editing" : "Edit Job"}
+                      title={
+                        job.pendingParamAmendments?.status === "REJECTED"
+                          ? "Parameter Amendments Rejected - Click to Edit"
+                          : editingJobId === job._id
+                          ? "Currently Editing"
+                          : "Edit Job"
+                      }
                     >
                       <Edit size={16} />
                     </button>

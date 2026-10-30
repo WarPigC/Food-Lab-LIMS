@@ -138,10 +138,20 @@ router.get('/', protect, async (req, res) => {
         const statusField = `distribution.${dept}.status`;
         const headField = `distribution.${dept}.assignedHead`;
         
-        query[statusField] = { $in: ['PENDING', 'PENDING_REVIEW', 'REVIEW_APPROVED'] };
         query.$or = [
-          { [headField]: null },
-          { [headField]: req.user._id }
+          {
+            [statusField]: { $in: ['PENDING', 'PENDING_REVIEW', 'REVIEW_APPROVED'] },
+            $or: [
+              { [headField]: null },
+              { [headField]: req.user._id }
+            ]
+          },
+          {
+            'pendingParamAmendments.status': 'PENDING_HEAD_REVIEW',
+            'pendingParamAmendments.parameters': {
+              $elemMatch: { type: new RegExp(`^${dept}$`, 'i') }
+            }
+          }
         ];
       }
     }

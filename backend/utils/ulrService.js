@@ -11,6 +11,9 @@ const { getNextUlr } = require('./serialUtils');
  * @returns {boolean}
  */
 function isJobFullyTested(job) {
+  if (job.pendingParamAmendments?.status && job.pendingParamAmendments.status !== 'NONE') {
+    return false;
+  }
   const microOk = !job.distribution?.micro?.required
     || job.distribution.micro.status === 'COMPLETED';
   const chemOk = !job.distribution?.chemical?.required

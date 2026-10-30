@@ -145,6 +145,9 @@ router.get('/report/:jobId', protect, async (req, res) => {
 
     let job = await getPopulatedJob(jobId);
     if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.pendingParamAmendments?.status && job.pendingParamAmendments.status !== 'NONE') {
+      return res.status(400).json({ message: 'Cannot export report: job has unresolved parameter amendments.' });
+    }
     job = await attachResultsToJob(job);
 
     // 1. Check for custom report in GridFS

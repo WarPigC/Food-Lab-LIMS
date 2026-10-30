@@ -37,6 +37,25 @@ const jobSchema = new mongoose.Schema({
     unit: { type: String },
     specification: { type: String, default: '' }
   }],
+  pendingParamAmendments: {
+    status: {
+      type: String,
+      enum: ['NONE', 'PENDING_HEAD_REVIEW', 'REJECTED'],
+      default: 'NONE'
+    },
+    parameters: [{
+      parameterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Parameter' },
+      name: { type: String },
+      type: { type: String, enum: ['Micro', 'Chemical'] },
+      unit: { type: String },
+      specification: { type: String, default: '' }
+    }],
+    rejectionReason: { type: String, default: '' },
+    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    submittedAt: { type: Date },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reviewedAt: { type: Date }
+  },
 
   // --- Customer Information ---
   customer: {
@@ -124,7 +143,7 @@ const jobSchema = new mongoose.Schema({
 
   // Job History Timeline
   history: [{
-    action: { type: String, enum: ['CREATED', 'DISPATCHED', 'RETURNED_TO_OFFICER', 'RESUBMITTED', 'RETEST_REQUESTED', 'COMPLETED', 'UPDATED', 'REVIEW_APPROVED', 'REPORT_UPLOADED', 'REPORT_REVERTED', 'ULR_ASSIGNED', 'HELD', 'HOLD_RELEASED'] },
+    action: { type: String, enum: ['CREATED', 'DISPATCHED', 'RETURNED_TO_OFFICER', 'RESUBMITTED', 'RETEST_REQUESTED', 'COMPLETED', 'UPDATED', 'REVIEW_APPROVED', 'REPORT_UPLOADED', 'REPORT_REVERTED', 'ULR_ASSIGNED', 'HELD', 'HOLD_RELEASED', 'AMENDMENT_SUBMITTED', 'AMENDMENT_APPROVED', 'AMENDMENT_REJECTED'] },
     by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     note: { type: String },
     timestamp: { type: Date, default: Date.now }
