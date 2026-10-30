@@ -250,7 +250,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P9 | F19 | Head Monitor Tab V1 — Cancel, Reassign & Live Progress | ⬜ Upcoming |
 | SP2.P10 | F20 | Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot | ⬜ Upcoming |
 | SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
-| SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ⬜ Upcoming |
+| SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ✅ Done |
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ⬜ Upcoming |
 | SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ⬜ Upcoming |
 | SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ⬜ Upcoming |
@@ -669,15 +669,17 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 
 **Fix**: Introduce a centralized helper `isSampleHandoverRequired(job)` returning `true` only when `micro.required && chemical.required && (sample.sample_count <= 1)`. When `sample.sample_count > 1`, set `sampleTransferState: 'NOT_REQUIRED'`, bypass outgoing/incoming transfer queues, unlock Chemical dispatch immediately upon joint review approval, and render parallel pipeline tracks in the timeline without an intermediate transfer connector.
 
-| Subphase | Task |
-|---|---|
-| SP2.P12.1 | **Backend - helper**: Create `isSampleHandoverRequired(job)` utility function checking multi-department requirement AND `(job.sample?.sample_count <= 1 || !job.sample?.sample_count)` |
-| SP2.P12.2 | **Backend - jobCrudRoutes**: In `POST /api/jobs` and `PUT /api/jobs/:id`, use `isSampleHandoverRequired` to set `sampleTransferState` to `'NOT_REQUIRED'` when `sample_count > 1` |
-| SP2.P12.3 | **Backend - jobWorkflowRoutes**: In `PUT /:id/approve-review`, if `!isSampleHandoverRequired(job)`, transition `sampleTransferState` to `'NOT_REQUIRED'` upon joint review approval, immediately enabling Chemical dispatch |
-| SP2.P12.4 | **Backend - sampleTransferRoutes**: In `GET /outgoing` and `GET /incoming`, exclude jobs where `sample.sample_count > 1` so they never appear in transfer queues |
-| SP2.P12.5 | **Frontend - DispatcherPage**: Update `canChemicalDispatch` logic to allow dispatch if `job.sample?.sample_count > 1` or `sampleTransferState === 'NOT_REQUIRED'`; hide the sample transfer warning banner when `sample_count > 1` |
-| SP2.P12.6 | **Frontend - JobTimeline**: Render parallel department tracks without an intermediate sample transfer connector box when `sample.sample_count > 1` |
-| SP2.P12.7 | **Testing**: Verify with multi-department job having `sample_count = 2`: confirm no transfer in queues, Chemical can dispatch immediately on review approval, and timeline displays clean parallel tracks |
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P12.1 | **Backend - helper**: Create `isSampleHandoverRequired(job)` utility function checking multi-department requirement AND `(job.sample?.sample_count <= 1 || !job.sample?.sample_count)` | ✅ Complete |
+| SP2.P12.2 | **Backend - jobCrudRoutes**: In `POST /api/jobs` and `PUT /api/jobs/:id`, use `isSampleHandoverRequired` to set `sampleTransferState` to `'NOT_REQUIRED'` when `sample_count > 1` | ✅ Complete |
+| SP2.P12.3 | **Backend - jobWorkflowRoutes**: In `PUT /:id/approve-review`, if `!isSampleHandoverRequired(job)`, transition `sampleTransferState` to `'NOT_REQUIRED'` upon joint review approval, immediately enabling Chemical dispatch | ✅ Complete |
+| SP2.P12.4 | **Backend - sampleTransferRoutes**: In `GET /outgoing` and `GET /incoming`, exclude jobs where `sample.sample_count > 1` so they never appear in transfer queues | ✅ Complete |
+| SP2.P12.5 | **Frontend - DispatcherPage**: Update `canChemicalDispatch` logic to allow dispatch if `job.sample?.sample_count > 1` or `sampleTransferState === 'NOT_REQUIRED'`; hide the sample transfer warning banner when `sample_count > 1` | ✅ Complete |
+| SP2.P12.6 | **Frontend - JobTimeline**: Render parallel department tracks without an intermediate sample transfer connector box when `sample.sample_count > 1` | ✅ Complete |
+| SP2.P12.7 | **Testing**: Verify with multi-department job having `sample_count = 2`: confirm no transfer in queues, Chemical can dispatch immediately on review approval, and timeline displays clean parallel tracks | ✅ Complete |
+
+> ✅ Completed (commit `SP-2 P12`). Files created: `backend/utils/sampleUtils.js`, `backend/__tests__/sampleHandover.test.js`. Files modified: `backend/routes/jobs/jobCrudRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/sampleTransferRoutes.js`, `frontend/src/pages/Head/DispatcherPage.jsx`, `frontend/src/components/JobTimeline.jsx`. Unit tests verified clean pass.
 
 ---
 

@@ -7,6 +7,7 @@ const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 const { createNotification, notifyAdminOfficers, notifyAdmins } = require('../utils/notifier');
 const { audit } = require('../utils/auditLogger');
+const { isSampleHandoverRequired } = require('../utils/sampleUtils');
 
 // GET transfer history for a job
 router.get('/', protect, async (req, res) => {
@@ -63,7 +64,11 @@ router.get('/outgoing', protect, authorize('HEAD', 'ADMIN', 'ADMIN_OFFICER'), as
       'distribution.micro.required': true,
       'distribution.chemical.required': true,
       'sampleTransferState': 'PENDING_TRANSFER',
-      'status': { $ne: 'CANCELLED' }
+      'status': { $ne: 'CANCELLED' },
+      $or: [
+        { 'sample.sample_count': { $exists: false } },
+        { 'sample.sample_count': { $lte: 1 } }
+      ]
     }).populate('siblingJobId', 'distribution').lean();
 
     // Filter: if job has a sibling that's also multi-dept, only include NABL
@@ -103,6 +108,10 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
 
     if (!job.distribution.micro.required || !job.distribution.chemical.required) {
       return res.status(400).json({ message: 'This job is not a multi-department job — no transfer needed' });
+    }
+
+    if (!isSampleHandoverRequired(job)) {
+      return res.status(400).json({ message: 'Sample transfer is not required for this job.' });
     }
 
     const dept = req.user.department ? req.user.department.toLowerCase().trim() : '';
