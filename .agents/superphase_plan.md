@@ -687,6 +687,7 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 
 **Files**:
 - `backend/models/Job.js`
+- `backend/models/TestInstance.js`
 - `backend/utils/parameterDelta.js`
 - `backend/utils/ulrService.js`
 - `backend/routes/jobs/jobCrudRoutes.js`
@@ -694,13 +695,14 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 - `backend/routes/jobs/jobListRoutes.js`
 - `backend/routes/tests/testResultRoutes.js`
 - `backend/routes/exportRoutes.js`
+- `backend/__tests__/paramAmendments.test.js`
 - `frontend/src/pages/Head/DispatcherPage.jsx`
 - `frontend/src/components/JobLogTable.jsx`
 - `frontend/src/pages/AdminOfficer/JobsPage.jsx`
 
 **Symptom**: When an Admin Officer edits an active dispatched job and adds parameters, `applyAdditions` pushes the new parameters into every active `TestInstance` belonging to that department. Multiple analysts receive identical parameters, and completed tests are rolled back to `PENDING`. Furthermore, Department Heads have no approval or assignment control over the new parameters.
 
-**Fix**: Introduce a staged container on the Job schema (`pendingParamAmendments`). New parameters on dispatched jobs do not touch active `TestInstance` records. The Head receives a dedicated Dispatcher card to Approve & Assign (to an existing or new analyst) or Reject with a reason. Upon rejection, the Admin Officer's job row highlights in red with a `[Params Rejected]` badge, and the rejected parameters pre-fill the form (zero re-typing). A 3-layer completion safety guard ensures the job cannot be marked completed, assigned a ULR, or exported until amendments are fully resolved.
+**Fix**: Introduce a staged container on the Job schema (`pendingParamAmendments`). New parameters on dispatched jobs do not touch active `TestInstance` records. The Head receives a dedicated Dispatcher card to Approve & Assign (to an existing or new analyst) or Reject with a reason. Upon rejection, the Admin Officer's job row highlights in red with a `[Params Rejected]` badge, and the rejected parameters pre-fill the form (zero re-typing). A 3-layer completion safety guard ensures the job cannot be marked completed, assigned a ULR, or exported until amendments are fully resolved. If parameter removal empties an analyst instance, the instance is cleanly marked `CANCELLED`. Approving an amendment for a previously completed department resets department status to `ASSIGNED_TO_ASSISTANT`.
 
 | Subphase | Task | Status |
 |---|---|---|
@@ -708,43 +710,56 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP2.P13.2 | **Backend - jobCrudRoutes**: In `PUT /api/jobs/:id`, stage added parameters into `pendingParamAmendments` instead of calling `applyAdditions`; notify Head | ✅ Complete |
 | SP2.P13.3 | **Backend - jobWorkflowRoutes**: Create `POST /api/jobs/:id/approve-amendment` (assigns params to analysts, merges to `job.parameters`, clears staging) and `POST /api/jobs/:id/reject-amendment` (stores rejection reason, notifies officer) | ✅ Complete |
 | SP2.P13.4 | **Backend - safety guards**: In `testResultRoutes.js` (completion check), `ulrService.js` (`isJobFullyTested`), and `exportRoutes.js` (report export), block finalization while `pendingParamAmendments.status !== 'NONE'` | ✅ Complete |
-| SP2.P13.5 | **Frontend - DispatcherPage**: Display dedicated "Parameter Amendment Awaiting Review" card with Approve & Assign dropdowns and Reject modal | ✅ Complete |
+| SP2.P13.5 | **Frontend - DispatcherPage**: Display dedicated "Parameter Amendment Awaiting Review" card with Approve & Assign dropdowns, bulk assignment, and Reject modal matching standard dispatcher card styling | ✅ Complete |
 | SP2.P13.6 | **Frontend - JobLogTable**: When `pendingParamAmendments.status === 'REJECTED'`, render solid red left accent bar, red `[Params Rejected]` badge, and highlighted red Edit button | ✅ Complete |
 | SP2.P13.7 | **Frontend - JobsPage**: On editing a rejected job, show red alert banner with Head's reason, pre-fill rejected parameters in selector (zero re-typing), and provide "Discard Rejected Parameters" action | ✅ Complete |
-| SP2.P13.8 | **Testing**: Verify full lifecycle: edit dispatched job -> Head rejects -> red alert appears on officer row -> officer opens form with pre-filled params -> completion guard blocks report -> officer discards -> guard releases and job completes | ✅ Complete |
+| SP2.P13.8 | **Backend - empty instance cancellation**: In `backend/utils/parameterDelta.js`, if parameter removal by Admin Officer strips all parameters from an analyst instance, mark instance `CANCELLED` so it does not block job completion | ✅ Complete |
+| SP2.P13.9 | **Backend - department status reactivation**: In `backend/routes/jobs/jobWorkflowRoutes.js`, when staged parameters are approved and assigned for a department previously marked `COMPLETED`, reset department distribution status to `ASSIGNED_TO_ASSISTANT` | ✅ Complete |
+| SP2.P13.10 | **Testing**: Verify full lifecycle: edit dispatched job -> Head rejects -> red alert appears on officer row -> officer opens form with pre-filled params -> completion guard blocks report -> officer discards -> guard releases and job completes | ✅ Complete |
 
-> ✅ Completed (commit `SP-2 P13`). Files created: `backend/__tests__/paramAmendments.test.js`. Files modified: `backend/models/Job.js`, `backend/models/TestInstance.js`, `backend/routes/jobs/jobCrudRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `backend/utils/ulrService.js`, `backend/routes/exportRoutes.js`, `frontend/src/pages/Head/DispatcherPage.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`. All test suites verified passing and frontend build clean.
+> ✅ Completed (commit `98cd4c5`). Files created: `backend/__tests__/paramAmendments.test.js`. Files modified: `backend/models/Job.js`, `backend/models/TestInstance.js`, `backend/routes/jobs/jobCrudRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `backend/utils/parameterDelta.js`, `backend/utils/ulrService.js`, `backend/routes/exportRoutes.js`, `frontend/src/pages/Head/DispatcherPage.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`. All test suites verified passing and frontend build clean.
 
 ---
 
 ### SP2.P14: B14 - Duplicate Parameter Guard & Whitespace Trim Fix
 
 **Files**:
+- `backend/utils/parameterUtils.js`
 - `backend/routes/parameterRoutes.js`
+- `backend/routes/dataSettingsRoutes.js`
+- `backend/__tests__/duplicateParamGuard.test.js`
 - `frontend/src/components/CascadingParameterSelector.jsx`
 - `frontend/src/pages/Settings/GroupSettings.jsx`
 
 **Symptom**:
-When adding a new parameter in Data Settings or in the Job Creation Form:
-1. If the user enters a parameter name with leading or trailing whitespace (e.g. `" Moisture"` or `"Moisture "`), the backend duplicate check regex `new RegExp('^' + name + '$', 'i')` does not match the existing trimmed `"Moisture"` record in the database.
+When adding or updating a parameter in Data Settings or in the Job Creation Form:
+1. If the user enters a parameter name with leading or trailing whitespace (e.g. `" Moisture"` or `"Moisture "`), regex checks without prior trimming failed to match existing trimmed records.
 2. The check passes, but `Parameter.create({ name: name.trim(), ... })` triggers a MongoDB `E11000 duplicate key error`.
-3. The catch block fails to recognize code 11000 as a duplicate collision and returns a `500 Server Error` instead of a clean 400 `"already exists"` message.
-4. Neither `CascadingParameterSelector.jsx` nor `GroupSettings.jsx` performs a client-side check against loaded parameters before dispatching an HTTP POST request.
-5. In `CascadingParameterSelector.jsx`, unit is not validated prior to submission, despite being required by the backend.
+3. Catch blocks failed to recognize code 11000 as a duplicate collision and returned a `500 Server Error` instead of a clean 400 `"already exists"` message.
+4. Internal whitespace variations (such as `"0.1%"` vs `"0.1 %"`, `"Arsenic(as As)"` vs `"Arsenic (as As)"`, or `"Test   for   Starch"` vs `"Test for Starch"`) bypassed exact string matching, permitting duplicate parameter creation.
+5. Parameter suggestion search failed to locate existing parameters with different internal spacing (e.g. searching `"0.1%"` did not show `"0.1 %"`).
+6. Neither `CascadingParameterSelector.jsx` nor `GroupSettings.jsx` performed a client-side check against loaded parameters before dispatching an HTTP POST request.
+7. In `CascadingParameterSelector.jsx`, unit was not validated prior to submission, despite being required by the backend.
 
 **Fix**:
-Normalize input strings immediately by trimming before running regex checks; catch MongoDB duplicate key code 11000 in error handlers and return a 400 status with a descriptive collision message; add instant client-side duplicate verification against the local `globalParameters` library before firing API calls; and validate unit inputs on the frontend.
+Implement deep whitespace normalization across the parameter lifecycle:
+1. Centralize normalization in `backend/utils/parameterUtils.js` with `buildFlexibleParamRegex` (generating character-level optional whitespace regex) and `normalizeParamName` (stripping all whitespace and lowercasing).
+2. Use `buildFlexibleParamRegex` in `parameterRoutes.js` (`POST`, `PUT`, `GET` search ranking) and `dataSettingsRoutes.js` to catch spacing variations across characters and symbols.
+3. Catch MongoDB duplicate key error 11000 on creation and updates, returning a descriptive 400 Bad Request error.
+4. Add client-side duplicate verification against the local `globalParameters` library before firing API calls in `CascadingParameterSelector` and `GroupSettings`; auto-select existing parameter on collision and report the existing name.
+5. Upgrade suggestion dropdown search and settings filter to match across internal whitespace differences.
+6. Enforce non-empty unit validation before submission.
 
-| Subphase | Task |
-|---|---|
-| SP2.P14.1 | **Backend - trimming & regex normalization**: In `POST /api/parameters` and `PUT /api/parameters/:id`, trim `name` and `unit` immediately; build the exact match regex using `trimmedName` |
-| SP2.P14.2 | **Backend - Mongo 11000 duplicate key error trap**: In error catch blocks for parameter creation and update, catch `err.code === 11000` and respond with `400 Bad Request` and `message: 'Parameter "${trimmedName}" already exists in the library'` |
-| SP2.P14.3 | **Frontend - CascadingParameterSelector client guard**: In `handleCreateParameter`, trim inputs and verify case-insensitively against `globalParameters`. If found, show toast error `"Parameter already exists in the library"`, automatically select the existing parameter, and close the creator |
-| SP2.P14.4 | **Frontend - CascadingParameterSelector unit validation**: Add validation for `unit.trim()` before calling the API |
-| SP2.P14.5 | **Frontend - GroupSettings client guard**: In `handleAddGlobalParameter`, trim inputs and check case-insensitively against `globalParameters`. If duplicate, show toast error `"Parameter already exists in the library"` |
-| SP2.P14.6 | **Testing**: Verify adding duplicate parameters with exact case, different case, leading/trailing spaces, and empty units in both Data Settings and Job Creation Form |
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P14.1 | **Backend - flexible regex & trimming**: In `backend/utils/parameterUtils.js`, create `buildFlexibleParamRegex` and `normalizeParamName`. In `parameterRoutes.js` and `dataSettingsRoutes.js`, trim inputs and construct whitespace-flexible regex to detect spacing variations (e.g. `"0.1%"` vs `"0.1 %"`, `"E.coli"` vs `"E. coli"`) | ✅ Complete |
+| SP2.P14.2 | **Backend - Mongo 11000 duplicate key error trap**: In error catch blocks for parameter creation and update, catch `err.code === 11000` and respond with `400 Bad Request` and `message: 'Parameter "${trimmedName}" already exists in the library'` | ✅ Complete |
+| SP2.P14.3 | **Frontend - CascadingParameterSelector client guard & suggestions**: In `handleCreateParameter`, normalize whitespace via `normalizeParamName` against `globalParameters`. If found, show toast error naming the existing parameter, automatically select the existing parameter, and close creator. In suggestions filter, match across internal whitespace | ✅ Complete |
+| SP2.P14.4 | **Frontend - CascadingParameterSelector unit validation**: Add validation for `unit.trim()` before calling the API | ✅ Complete |
+| SP2.P14.5 | **Frontend - GroupSettings client guard & rename protection**: In `handleAddGlobalParameter` and `handleUpdateGlobalParameter`, normalize whitespace against `globalParameters` to block duplicate creation and collisions on rename; update search filter | ✅ Complete |
+| SP2.P14.6 | **Testing**: Verify adding duplicate parameters with exact case, different case, leading/trailing spaces, internal whitespace variations (`"0.1%"` vs `"0.1 %"`), symbol spacing (`"Arsenic(as As)"` vs `"Arsenic (as As)"`), and empty units; test suite `duplicateParamGuard.test.js` passing 11/11 tests, all 7 backend suites passing 54/54 tests, frontend build clean | ✅ Complete |
 
-> ✅ Completed: Backend routes trim name and unit before regex construction, catch MongoDB duplicate key code 11000 and return descriptive 400 Bad Request error. Frontend client guards in CascadingParameterSelector and GroupSettings prevent duplicates, auto-select existing parameter on collision, and validate unit inputs. All 7 test suites (49/49 tests) pass.
+> ✅ Completed (commit `7388df3`). Files created: `backend/utils/parameterUtils.js`, `backend/__tests__/duplicateParamGuard.test.js`. Files modified: `backend/routes/parameterRoutes.js`, `backend/routes/dataSettingsRoutes.js`, `frontend/src/components/CascadingParameterSelector.jsx`, `frontend/src/pages/Settings/GroupSettings.jsx`. All 7 test suites (54/54 tests) pass, frontend build clean.
 
 ---
 
