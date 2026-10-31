@@ -255,6 +255,15 @@ export const setupApiMocks = async (page, overrides = {}) => {
       });
     }
 
+    // Password change
+    if (url.includes('/api/auth/change-password')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Password updated successfully' }),
+      });
+    }
+
     // Fallback for unhandled API calls
     return route.fulfill({
       status: 200,

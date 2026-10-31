@@ -72,7 +72,7 @@ router.put('/change-password', protect, async (req, res) => {
   }
 });
 // @route   PUT /api/auth/update-profile
-// @desc    Update email or password using current password authentication
+// @desc    Update email or password
 router.put('/update-profile', protect, async (req, res) => {
   try {
     const { currentPassword, newEmail, newPassword } = req.body;
@@ -82,16 +82,27 @@ router.put('/update-profile', protect, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (!(await user.comparePassword(currentPassword))) {
-      return res.status(401).json({ message: 'Incorrect current password' });
-    }
-
     if (newEmail) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required to update email' });
+      }
+      if (!(await user.comparePassword(currentPassword))) {
+        return res.status(401).json({ message: 'Incorrect current password' });
+      }
       user.email = newEmail;
     }
-    
+
     if (newPassword) {
+      if (currentPassword && !(await user.comparePassword(currentPassword))) {
+        return res.status(401).json({ message: 'Incorrect current password' });
+      }
       user.password = newPassword;
+      user.requiresPasswordChange = false;
+      audit('PASSWORD_CHANGED', {
+        message: `${user.name} changed their password`,
+        req,
+        target: { model: 'User', documentId: user._id.toString(), identifier: user.email }
+      });
     }
 
     await user.save();

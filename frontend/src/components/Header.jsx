@@ -16,17 +16,31 @@ export default function Header({ onToggleSidebar }) {
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
   const [updateError, setUpdateError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
 
   const menuRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const resetForm = () => {
+    setShowUpdateModal(false);
+    setCurrentPassword('');
+    setNewValue('');
+    setRepeatPassword('');
+    setUpdateError('');
+    setUpdateSuccess('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowRepeatPassword(false);
   };
 
   useEffect(() => {
@@ -40,30 +54,62 @@ export default function Header({ onToggleSidebar }) {
   }, []);
 
   const handleProfileUpdate = async () => {
-    if (!currentPassword || !newValue) {
-      setUpdateError('Please fill in all fields.');
-      return;
-    }
     setUpdateError('');
     setUpdateSuccess('');
-    setIsUpdating(true);
 
-    try {
-      const payload = { currentPassword };
-      if (updateType === 'email') payload.newEmail = newValue;
-      if (updateType === 'password') payload.newPassword = newValue;
+    if (updateType === 'password') {
+      if (!newValue || !repeatPassword) {
+        setUpdateError('Please fill in all fields.');
+        return;
+      }
+      if (newValue !== repeatPassword) {
+        setUpdateError('Passwords do not match.');
+        return;
+      }
 
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await axios.put(`${API_URL}/api/auth/update-profile`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      setIsUpdating(true);
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const res = await axios.put(`${API_URL}/api/auth/change-password`, { newPassword: newValue }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-      setUpdateSuccess(res.data.message);
-      setCurrentPassword('');
-      setNewValue('');
-      
-      // Update local storage if email changed
-      if (updateType === 'email') {
+        setUpdateSuccess(res.data.message || 'Password updated successfully');
+        setNewValue('');
+        setRepeatPassword('');
+
+        setTimeout(() => {
+          resetForm();
+        }, 1500);
+      } catch (err) {
+        setUpdateError(err.response?.data?.message || 'Failed to update password');
+      } finally {
+        setIsUpdating(false);
+      }
+      return;
+    }
+
+    if (updateType === 'email') {
+      if (!currentPassword || !newValue) {
+        setUpdateError('Please fill in all fields.');
+        return;
+      }
+
+      setIsUpdating(true);
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const res = await axios.put(`${API_URL}/api/auth/update-profile`, {
+          currentPassword,
+          newEmail: newValue
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setUpdateSuccess(res.data.message || 'Profile updated successfully');
+        setCurrentPassword('');
+        setNewValue('');
+
+        // Update local storage if email changed
         const storedUserStr = localStorage.getItem('user') || sessionStorage.getItem('user');
         if (storedUserStr) {
           const storedUser = JSON.parse(storedUserStr);
@@ -71,17 +117,15 @@ export default function Header({ onToggleSidebar }) {
           if (localStorage.getItem('user')) localStorage.setItem('user', JSON.stringify(storedUser));
           if (sessionStorage.getItem('user')) sessionStorage.setItem('user', JSON.stringify(storedUser));
         }
+
+        setTimeout(() => {
+          resetForm();
+        }, 1500);
+      } catch (err) {
+        setUpdateError(err.response?.data?.message || 'Failed to update profile');
+      } finally {
+        setIsUpdating(false);
       }
-
-      setTimeout(() => {
-        setShowUpdateModal(false);
-        setUpdateSuccess('');
-      }, 2000);
-
-    } catch (err) {
-      setUpdateError(err.response?.data?.message || 'Failed to update profile');
-    } finally {
-      setIsUpdating(false);
     }
   };
 
@@ -143,7 +187,7 @@ export default function Header({ onToggleSidebar }) {
         <LogOut size={20} />
       </button>
 
-      {/* ── PROFILE UPDATE MODAL ── */}
+      {/* Profile Update Modal */}
       {showUpdateModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -160,40 +204,99 @@ export default function Header({ onToggleSidebar }) {
             {updateSuccess && <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-success-light)', color: 'var(--color-success)', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.9rem' }}>{updateSuccess}</div>}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>Current Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <input type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required style={{ paddingRight: '2.5rem' }} />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)} 
-                    style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
-                  >
-                    {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>New {updateType === 'email' ? 'Email' : 'Password'} <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <input type={updateType === 'email' ? 'email' : (showNewPassword ? "text" : "password")} value={newValue} onChange={e => setNewValue(e.target.value)} required style={updateType === 'password' ? { paddingRight: '2.5rem' } : {}} />
-                  {updateType === 'password' && (
-                    <button 
-                      type="button" 
-                      onClick={() => setShowNewPassword(!showNewPassword)} 
-                      style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
-                    >
-                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  )}
-                </div>
-              </div>
+              {updateType === 'password' ? (
+                <>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+                      Change Password <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type={showNewPassword ? "text" : "password"} 
+                        value={newValue} 
+                        onChange={e => setNewValue(e.target.value)} 
+                        placeholder="Enter new password"
+                        required 
+                        style={{ paddingRight: '2.5rem' }} 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowNewPassword(!showNewPassword)} 
+                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                        aria-label={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+                      Repeat Password <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type={showRepeatPassword ? "text" : "password"} 
+                        value={repeatPassword} 
+                        onChange={e => setRepeatPassword(e.target.value)} 
+                        placeholder="Repeat new password"
+                        required 
+                        style={{ paddingRight: '2.5rem' }} 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowRepeatPassword(!showRepeatPassword)} 
+                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                        aria-label={showRepeatPassword ? "Hide password" : "Show password"}
+                      >
+                        {showRepeatPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+                      Current Password <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type={showCurrentPassword ? "text" : "password"} 
+                        value={currentPassword} 
+                        onChange={e => setCurrentPassword(e.target.value)} 
+                        required 
+                        style={{ paddingRight: '2.5rem' }} 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)} 
+                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                        aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                      >
+                        {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
+                      New Email <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
+                    <input 
+                      type="email" 
+                      value={newValue} 
+                      onChange={e => setNewValue(e.target.value)} 
+                      placeholder="Enter new email"
+                      required 
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
               <button
                 className="btn"
-                onClick={() => { setShowUpdateModal(false); setCurrentPassword(''); setNewValue(''); setUpdateError(''); setUpdateSuccess(''); setShowCurrentPassword(false); setShowNewPassword(false); }}
+                onClick={resetForm}
                 style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-main)', padding: '0.6rem 2rem', backgroundColor: 'transparent' }}
               >
                 Cancel
