@@ -7,8 +7,8 @@
 | SP | Name | Items | Status |
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
-| SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | ⬜ Active |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | Upcoming |
+| SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | 🔄 Ongoing |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -234,7 +234,7 @@ Dependencies within SP1 dictate this sequence:
 
 ---
 
-## SP2 — Core Stability (Active)
+## SP2: Core Stability (Partially Complete; Report Track Parallel)
 
 ### SP2 — Core Stability
 | Phase | ID | Title | Status |
@@ -249,7 +249,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P8 | F18 | Error Handling & Modal Overhaul | ✅ Done |
 | SP2.P9 | F19 | Head Monitor Tab V1: Withdraw, Migration & Live Progress | ✅ Done |
 | SP2.P10 | F20 | Head Monitor Tab V2: Unified Param Split/Merge & Progress Snapshot | ✅ Done |
-| SP2.P11 | F9 | New Addition of Special Group: Water 10500 | ⬜ Upcoming |
+| SP2.P11 | F9 | New Addition of Special Group: Water 10500 | 🔄 Parallel with SP3 |
 | SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ✅ Done |
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
 | SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ✅ Done |
@@ -845,6 +845,14 @@ Remove `group` and `subGroup` fields from `Parameter.js`; eliminate dead-weight 
 - `frontend/src/context/ModalContext.jsx`
 - `frontend/src/hooks/useModal.js`
 - `frontend/src/index.css`
+- `frontend/src/components/GlobalJobHistory.jsx`
+- `frontend/src/components/JobLogTable.jsx`
+- `frontend/src/components/ProfileUpdateModal.jsx`
+- `frontend/src/components/Header.jsx`
+- `frontend/src/components/CascadingParameterSelector.jsx`
+- `frontend/src/pages/Settings/GroupSettings.jsx`
+- `frontend/src/components/SystemErrorBridge.jsx`
+- `frontend/e2e/modal-custom.spec.js`
 
 **Background & Goal**:
 The current `ModalContext` implementation supports fixed views: `confirm`, `error`, and `input`. While this covers standard alerts and confirmations, complex workflows (e.g. custom multi-field forms, batch assignment pickers, profile updates, quick settings) require dedicated portals or bespoke modal state management. Extending `ModalContext` with `modal.custom` allows mounting arbitrary React components or render functions inside the managed daemon queue. Callers gain zero-portal boilerplate, queue synchronization, backdrop management, ESC key handling, and promise-based resolution (`const data = await modal.custom(...)`).
@@ -879,28 +887,26 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 
 ---
 
----
-
-### SP3 — UX Polish + Infrastructure
-| Phase | ID | Title |
-|---|---|---|
-| SP3.P1 | B4 | Analyst Task Modal Visibility (Narrow) |
-| SP3.P2 | B7 | Cancellation Modal Sentence Rework |
+## SP3: UX Polish + Infrastructure (Ongoing)
+| Phase | ID | Title | Status |
+|---|---|---|---|
+| SP3.P1 | B4 | Analyst Task Modal Visibility (Narrow) | ⬜ Upcoming |
+| SP3.P2 | B7 | Cancellation Modal Sentence Rework | ⬜ Upcoming |
 | SP3.P3 | **B8** | **Retest Route Auth Typo (Prod Blocker)** | ✅ Done |
-| SP3.P4 | **B9** | **Job Edit Wipes Parameters on Completed-Chemical Jobs** |
-| SP3.P5 | **B10** | **Selective Reassign Creates Duplicate TestInstance** |
-| SP3.P6 | C2 | Clean Up `/temp` |
-| SP3.P7 | C3 | HTTP Compression Middleware |
-| SP3.P8 | C4 | MongoDB Connection Pool Tuning |
-| SP3.P9 | C5 | Scope 50mb JSON Body Limit |
-| SP3.P10 | C6 | Socket.IO Auth Scope |
-| SP3.P11 | F7 | Dashboard History Revamp |
-| SP3.P12 | F3 | Transfer List Rework |
-| SP3.P13 | F6 | Job Grouping in Officer's Page |
-| SP3.P14 | F21 | OTP-Based Password Reset |
-| SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) |
-| SP3.P16 | F2-ext | PageHeader Integration — Admin Officer Job Distributor + Activity Logs |
-| SP3.P17 | B11 | History & Timeline Display Overhaul |
+| SP3.P4 | **B9** | **Job Edit Wipes Parameters on Completed-Chemical Jobs** | ⬜ Upcoming |
+| SP3.P5 | **B10** | **Selective Reassign Creates Duplicate TestInstance** | ⬜ Upcoming |
+| SP3.P6 | C2 | Clean Up `/temp` | ⬜ Upcoming |
+| SP3.P7 | C3 | HTTP Compression Middleware | ⬜ Upcoming |
+| SP3.P8 | C4 | MongoDB Connection Pool Tuning | ⬜ Upcoming |
+| SP3.P9 | C5 | Scope 50mb JSON Body Limit | ⬜ Upcoming |
+| SP3.P10 | C6 | Socket.IO Auth Scope | ⬜ Upcoming |
+| SP3.P11 | F7 | Dashboard History Revamp | ⬜ Upcoming |
+| SP3.P12 | F3 | Transfer List Rework | ⬜ Upcoming |
+| SP3.P13 | F6 | Job Grouping in Officer's Page | ⬜ Upcoming |
+| SP3.P14 | F21 | OTP-Based Password Reset | ⬜ Upcoming |
+| SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ⬜ Upcoming |
+| SP3.P16 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ⬜ Upcoming |
+| SP3.P17 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
 
 ---
 
