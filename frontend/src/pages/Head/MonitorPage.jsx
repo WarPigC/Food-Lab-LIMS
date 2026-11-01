@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useMemo, useCallback } from "react";
 import axios from "axios";
 import { useLocation } from "react-router-dom";
-import { Eye, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronRight, AlertCircle, Clock } from "lucide-react";
+import { RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronRight, AlertCircle, Clock } from "lucide-react";
 import API_URL from "../../utils/api";
 import Spinner from "../../components/Spinner";
 import PageHeader from "../../components/PageHeader";
@@ -201,11 +201,41 @@ export default function MonitorPage() {
       fetchMonitoringJobs();
     };
 
+    const handleTestSubmitted = (data) => {
+      invalidateCache(CACHE_KEYS.JOBS_MONITORING);
+      invalidateCache(CACHE_KEYS.JOBS_MONITORING_ALL);
+      setAllJobsLoaded(false);
+
+      if (data && data.jobId) {
+        const updateSubmitted = (prevJobs) =>
+          prevJobs
+            .map((job) => {
+              if (String(job._id) !== String(data.jobId)) return job;
+              const remainingInstances = (job.testInstances || []).filter(
+                (inst) => String(inst._id) !== String(data.instanceId)
+              );
+              return {
+                ...job,
+                testInstances: remainingInstances,
+              };
+            })
+            .filter((job) => job.testInstances && job.testInstances.length > 0);
+
+        setJobs(updateSubmitted);
+        setAllJobs(updateSubmitted);
+      }
+
+      fetchMonitoringJobs();
+    };
+
     socket.on("PARAM_SAVED", handleParamSaved);
     socket.on("job:monitor-withdrawn", handleMonitorWithdrawn);
     socket.on("instance:params-split", handleParamsSplit);
     socket.on("JOB_DISTRIBUTED", handleGeneralUpdate);
     socket.on("JOB_UPDATED", handleGeneralUpdate);
+    socket.on("TEST_SUBMITTED", handleTestSubmitted);
+    socket.on("TEST_REVIEWED", handleGeneralUpdate);
+    socket.on("JOB_HELD", handleGeneralUpdate);
 
     return () => {
       socket.off("PARAM_SAVED", handleParamSaved);
@@ -213,6 +243,9 @@ export default function MonitorPage() {
       socket.off("instance:params-split", handleParamsSplit);
       socket.off("JOB_DISTRIBUTED", handleGeneralUpdate);
       socket.off("JOB_UPDATED", handleGeneralUpdate);
+      socket.off("TEST_SUBMITTED", handleTestSubmitted);
+      socket.off("TEST_REVIEWED", handleGeneralUpdate);
+      socket.off("JOB_HELD", handleGeneralUpdate);
     };
   }, [socket, fetchMonitoringJobs]);
 
@@ -463,13 +496,11 @@ export default function MonitorPage() {
   };
 
   return (
-    <div style={{ maxWidth: "1250px", margin: "0 auto", paddingBottom: "3rem" }}>
+    <div style={{ paddingBottom: "3rem" }}>
       {/* Page Title */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ display: "flex", alignItems: "center", gap: "0.6rem", margin: 0 }}>
-          <Eye size={28} style={{ color: "var(--color-primary)" }} /> Job Monitor
-        </h1>
-      </div>
+      <h1 style={{ marginBottom: "1.5rem" }}>
+        Job Monitor
+      </h1>
 
       {/* Page Header (Search & Filter Controls) */}
       <PageHeader

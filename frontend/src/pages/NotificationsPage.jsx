@@ -165,7 +165,6 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex-row-responsive" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Bell size={28} style={{ color: 'var(--color-primary)' }} />
           <h1 style={{ margin: 0 }}>Notifications</h1>
           {unreadCount > 0 && (
             <span style={{

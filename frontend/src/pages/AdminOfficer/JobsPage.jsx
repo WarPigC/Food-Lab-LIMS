@@ -9,7 +9,7 @@ import Spinner from "../../components/Spinner";
 
 import {
   Play, Plus, Check, Clock, Edit, FileText, XCircle, Search, LogOut, ChevronDown,
-  ChevronRight, ArrowLeft, Download, Eye, LayoutDashboard, Users, Activity, AlertTriangle, RefreshCw, X, Shield,
+  ChevronRight, ArrowLeft, Download, Eye, LayoutDashboard, Users, AlertTriangle, RefreshCw, X, Shield,
   Calendar, Repeat2, PauseCircle
 } from "lucide-react";
 import JobLogTable from "../../components/JobLogTable";
@@ -1118,8 +1118,7 @@ export default function Jobs() {
           gap: "0.75rem",
         }}
       >
-        <h1 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Activity size={28} style={{ color: "var(--color-primary)" }} />
+        <h1>
           {editingJobId
             ? "Edit Job"
             : reopenParentId

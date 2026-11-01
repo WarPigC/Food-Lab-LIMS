@@ -249,7 +249,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P8 | F18 | Error Handling & Modal Overhaul | ✅ Done |
 | SP2.P9 | F19 | Head Monitor Tab V1: Withdraw, Migration & Live Progress | ✅ Done |
 | SP2.P10 | F20 | Head Monitor Tab V2: Unified Param Split/Merge & Progress Snapshot | ✅ Done |
-| SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
+| SP2.P11 | F9 | New Addition of Special Group: Water 10500 | ⬜ Upcoming |
 | SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ✅ Done |
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
 | SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ✅ Done |
@@ -587,7 +587,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 ---
 
-### SP2.P8: F18: Error Handling & Modal Overhaul (Active)
+### SP2.P8: F18: Error Handling & Modal Overhaul ✅
 
 **Files**:
 - `backend/server.js`
@@ -626,7 +626,7 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 ---
 
-### SP2.P9 — F19: Head Monitor Tab V1 — Cancel, Reassign & Live Progress
+### SP2.P9: F19: Head Monitor Tab V1: Cancel, Reassign & Live Progress ✅
 
 
 **What it is:** A new **Monitor** tab on the Head dashboard that covers the intermediate state between Dispatch and Review. Once a job is dispatched, it lives here until the analyst submits it for review.
@@ -639,8 +639,8 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 ```
 
 **Actions available on each Monitor card:**
-- **Cancel** — pulls the job back to the Dispatch queue. No re-approval needed. Head re-dispatches directly to any analyst.
-- **Reassign** — swaps the entire job mid-flight to a different analyst. No cancel required.
+- **Cancel / Withdraw**: pulls the job back to the Dispatch queue. No re-approval needed. Head re-dispatches directly to any analyst.
+- **Reassign**: swaps the entire job mid-flight to a different analyst. No cancel required.
 
 **Data behaviour on Cancel or Reassign:**
 - All of the previous analyst's saved results carry over to the new assignment.
@@ -652,51 +652,56 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 **Progress view (per-param ticks):**
 - Each Monitor card shows a per-param indicator: 🟢 saved / ⚪ not yet saved.
 - Updates in real-time via socket whenever the analyst saves a param (`PARAM_SAVED` event).
-- Head does NOT see the actual values — only completion status per param.
+- Head does NOT see the actual values, only completion status per param.
 
-| Subphase | Task |
-|---|---|
-| SP2.P9.1 | **Backend — fetch route**: `GET /api/jobs/monitoring` (Head-scoped) — returns all jobs with status `DISPATCHED` or `PENDING_HEAD_REVIEW` for the head's department, populated with `TestInstance` data (assignedTo name, results `isSaved` array) |
-| SP2.P9.2 | **Backend — cancel route**: `POST /api/jobs/:id/monitor-cancel` — resets job status to `APPROVED` (dispatch queue), sets `TestInstance.status` to `CANCELLED`, preserves all results data on the instance. Emits `job:monitor-cancelled` socket event |
-| SP2.P9.3 | **Backend — reassign route**: `PUT /api/jobs/:id/monitor-reassign` with `{ newAnalystId }` — updates `TestInstance.assignedTo`, resets all `result.isSaved` to `false`, adds `reviewHistory` entry, emits `job:monitor-reassigned` |
-| SP2.P9.4 | **Frontend — Monitor tab**: Add "Monitor" tab to Head dashboard between Dispatcher and Review Queue. Fetch via the monitoring route on mount |
-| SP2.P9.5 | **Frontend — Monitor card**: Show job code, sample name, NABL badge, deadline indicator, analyst name, and per-param save ticks (🟢/⚪) |
-| SP2.P9.6 | **Frontend — Cancel action**: Confirmation modal — "Cancel and return to dispatch? Analyst's saved progress will be preserved for the next assignment." On confirm, call monitor-cancel route; remove card from Monitor, job reappears in Dispatcher |
-| SP2.P9.7 | **Frontend — Reassign action**: Inline analyst picker (same department). Confirmation: "Reassign [job code] from [Analyst A] to [Analyst B]? Saved progress will carry over but analyst B must re-save all params before submitting." On confirm, call monitor-reassign route |
-| SP2.P9.8 | **Socket — analyst side**: `job:monitor-cancelled` — remove task card from old analyst's dashboard. `job:monitor-reassigned` — remove from old analyst, add to new analyst with pre-filled (but locked) results |
-| SP2.P9.9 | **Socket — head side**: Listen for `PARAM_SAVED` events (emitted when analyst saves a param) — update the per-param tick on the corresponding Monitor card in real-time |
-| SP2.P9.10 | **Analyst — pre-filled lock**: On a reassigned/re-dispatched task, pre-fill result values from carried-over data but set all `isSaved: false`. Submit button disabled until all params are re-saved. Display a subtle banner: "Results pre-filled from previous assignment — please review and save each parameter." |
-| SP2.P9.11 | Verify on mobile — Monitor cards scroll cleanly, per-param ticks readable, Cancel/Reassign modals don't overflow |
-
-> ✅ Completed (SP-2 P9 & P10 unified implementation). Created `frontend/src/pages/Head/MonitorPage.jsx` and `backend/__tests__/headMonitor.test.js`. Modified `backend/models/TestInstance.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/tests/testAssignmentRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `frontend/src/components/Sidebar.jsx`, `frontend/src/pages/HeadDashboard.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/e2e/head.spec.js`, `frontend/e2e/auth-and-layout.spec.js`, `frontend/e2e/helpers/auth.js`. All 11 backend test suites (91/91 tests) pass, Vite build clean, Playwright e2e tests pass.
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P9.1 | **Backend - fetch route**: `GET /api/jobs/monitoring` (Head-scoped): returns all jobs with active in-flight instances for the head's department, populated with `TestInstance` data | ✅ Complete |
+| SP2.P9.2 | **Backend - cancel route**: `POST /api/jobs/:id/monitor-withdraw`: resets job to dispatch queue, marks instances `CANCELLED`, preserves saved results data, emits `job:monitor-withdrawn` | ✅ Complete |
+| SP2.P9.3 | **Backend - reassign route**: `PUT /api/jobs/:id/monitor-reassign` with target analyst: updates `assignedTo`, resets `isSaved` to `false`, appends `reviewHistory`, emits socket event | ✅ Complete |
+| SP2.P9.4 | **Frontend - Monitor tab**: Add "Job Monitor" tab to Head dashboard between Review Queue and Dispatcher. Route `/head/monitor` | ✅ Complete |
+| SP2.P9.5 | **Frontend - Monitor card**: Job code, client name, analysts, deadline, and live progress pill | ✅ Complete |
+| SP2.P9.6 | **Frontend - Cancel action**: Confirmation modal with warning; withdraws dispatch and returns job to Dispatcher | ✅ Complete |
+| SP2.P9.7 | **Frontend - Reassign action**: Inline analyst picker per job; confirms and reassigns in-flight task | ✅ Complete |
+| SP2.P9.8 | **Socket - analyst side**: Remove cancelled task card from old analyst; inject carried-over locked task on new analyst | ✅ Complete |
+| SP2.P9.9 | **Socket - head side**: Listen for `PARAM_SAVED` and live update progress ticks and counts in real-time | ✅ Complete |
+| SP2.P9.10 | **Analyst - pre-filled lock**: On reassigned/re-dispatched task, pre-fill carried-over results with `isSaved: false`, locking Submit until re-saved | ✅ Complete |
+| SP2.P9.11 | Verify on mobile: Monitor cards scroll cleanly, progress ticks readable, modals fit viewports | ✅ Complete |
 
 ---
 
-### SP2.P10 — F20: Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot
+### SP2.P10: F20: Head Monitor Tab V2: Param Split/Merge & Progress Snapshot ✅
 
 **What it adds on top of V1:** Advanced job manipulation from within the Monitor tab.
 
 **Features:**
-- **Param split** — Head moves specific params from analyst A's instance to analyst B (who already has an active instance). Instead of reassigning the whole job, only selected params migrate. Directly prevents the B10 duplicate-instance bug for future cases.
-- **Param merge** — If two analysts both have instances for the same job, head can consolidate params from one into the other.
-- **Progress snapshot** — On card expand, show a param-by-param breakdown including: param name, analyst assigned, save status, and (optionally) the method used — but NOT the result values.
+- **Param split**: Head moves specific params from analyst A's instance to analyst B (who already has an active instance). Instead of reassigning the whole job, only selected params migrate. Directly prevents duplicate-instance bugs.
+- **Param merge**: If two analysts both have instances for the same job, head can consolidate params from one into the other.
+- **Progress snapshot**: On card expand, show a param-by-param breakdown including: param name, analyst assigned, save status, and method used, but NOT result values.
 
 **Data behaviour (same rules as V1):**
 - Moved params carry over with `isSaved: false` on the receiving analyst's instance.
 - Receiving analyst must re-save moved params before submitting.
-- Source analyst's instance: moved params are cleared (`value: ''`, `isSaved: false`) to prevent the Approved bleed-through seen in B10.
+- Source analyst's instance: moved params are cleared to prevent bleed-through.
 
-| Subphase | Task |
-|---|---|
-| SP2.P10.1 | **Backend — split route**: `PUT /api/jobs/:id/monitor-split` with `{ fromAnalystId, toAnalystId, paramIds }` — removes `paramIds` from source `TestInstance`, injects them (blank, `isSaved: false`) into target `TestInstance` (or creates new if target has no instance). Updates both instances' `retestOnly` if applicable |
-| SP2.P10.2 | **Frontend — split UI**: In Monitor card expand view, each param row shows which analyst has it + a "Move" button. Clicking opens an analyst picker for the target analyst |
-| SP2.P10.3 | **Frontend — progress snapshot**: Expanded card view shows param-level breakdown: param name, assigned analyst, save tick, method name (if saved). No result values exposed to head |
-| SP2.P10.4 | **Socket**: Emit `instance:params-split` — source analyst's task card removes moved params, target analyst's task card gains new params (pre-filled, locked) |
-| SP2.P10.5 | Test: split 1 param from analyst A to analyst B who already has an active instance — verify no new TestInstance created, B10 scenario cannot recur |
-| SP2.P10.6 | Test: split to an analyst with no existing instance — verify new instance IS created |
-| SP2.P10.7 | Verify progress snapshot shows correct per-param data after a split |
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P10.1 | **Backend - split route**: `PUT /api/jobs/:id/monitor-split` with `{ sourceAnalystId, targetAnalystId, parameterIds }`: moves params, merges into existing target instance or creates one, cancels source if empty | ✅ Complete |
+| SP2.P10.2 | **Frontend - split UI**: In Monitor card expand view, checkboxes per param, "Select All", and target analyst dropdown with "Move to Analyst" button | ✅ Complete |
+| SP2.P10.3 | **Frontend - progress snapshot**: Expanded card view shows param-level breakdown: param name, unit, assigned analyst, save status, and test method. Result values hidden from Head | ✅ Complete |
+| SP2.P10.4 | **Socket**: Emit `instance:params-split`: updates analyst tasks and head monitor in real-time | ✅ Complete |
+| SP2.P10.5 | Test: split 1 param to an analyst with an active instance: verify merged without duplicate instances | ✅ Complete |
+| SP2.P10.6 | Test: split to an analyst with no existing instance: verify new instance created | ✅ Complete |
+| SP2.P10.7 | Verify progress snapshot shows correct per-param data after a split | ✅ Complete |
 
-> ✅ Completed (SP-2 P9 & P10 unified implementation). Created `frontend/src/pages/Head/MonitorPage.jsx` and `backend/__tests__/headMonitor.test.js`. Modified `backend/models/TestInstance.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/tests/testAssignmentRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `frontend/src/components/Sidebar.jsx`, `frontend/src/pages/HeadDashboard.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/e2e/head.spec.js`, `frontend/e2e/auth-and-layout.spec.js`, `frontend/e2e/helpers/auth.js`. All 11 backend test suites (91/91 tests) pass, Vite build clean, Playwright e2e tests pass.
+> ✅ **Completed (SP-2 P9 & P10 unified implementation and post-P10 touch-ups)**.
+> - **Files Created**: `frontend/src/pages/Head/MonitorPage.jsx`, `backend/__tests__/headMonitor.test.js`.
+> - **Files Modified**: `backend/models/TestInstance.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/tests/testAssignmentRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `frontend/src/components/Sidebar.jsx`, `frontend/src/pages/HeadDashboard.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/src/pages/Head/DispatcherPage.jsx`, `frontend/src/pages/Head/TransferManagement.jsx`, `frontend/src/pages/Head/ReviewQueuePage.jsx`, `frontend/src/utils/cacheStorage.js`, `frontend/src/components/Spinner.jsx`, `frontend/src/index.css`.
+> - **Post-P10 Refinements**:
+>   - Replaced button text labels during active submissions with centered inline buffers (`<Spinner size="sm" color="#fff" />`) and double-click guards across Dispatcher, Monitor, Review Queue, and Transfer Management.
+>   - Optimized `cacheStorage.js` so large working queues (`aiper_jobs_monitoring`, `aiper_jobs_head_active`, `aiper_instances`) reside exclusively in `IndexedDB`, preventing `sessionStorage` 5MB quota exhaustion and eliminating synchronous parse delays on page reload.
+>   - Added immediate local state transition on HTTP 200 before background refetch to avoid button buffer reversion.
+> - **Test Suite Status**: All 11 backend test suites (91/91 tests) pass; clean Vite production build; all 15 Playwright e2e tests pass.
 
 ---
 

@@ -101,7 +101,11 @@ router.put('/instances/:id/results', protect, authorize('ASSISTANT'), async (req
     });
 
     if (req.app.get('io')) {
-      req.app.get('io').emit('TEST_SUBMITTED');
+      req.app.get('io').emit('TEST_SUBMITTED', {
+        instanceId: instance._id,
+        jobId: instance.jobId,
+        department: instance.department
+      });
     }
 
     audit('TEST_RESULTS_SUBMITTED', {

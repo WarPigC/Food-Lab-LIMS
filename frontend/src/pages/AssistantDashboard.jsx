@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import axios from 'axios';
-import { Play, Check, Clock, AlertTriangle, RotateCcw, Calendar, X, Edit, Trash2, Plus } from 'lucide-react';
+import { Play, Check, AlertTriangle, RotateCcw, Calendar, X, Edit, Trash2, Plus } from 'lucide-react';
 import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from '../utils/cache';
 import Spinner from '../components/Spinner';
 import { useSocket } from '../context/SocketContext';
@@ -511,9 +511,9 @@ export default function AssistantDashboard() {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Clock size={28} style={{ color: 'var(--color-primary)' }} /> Task Queue
+    <div>
+      <h1 style={{ marginBottom: '1.5rem' }}>
+        Task Queue
       </h1>
 
       {activeTask ? (

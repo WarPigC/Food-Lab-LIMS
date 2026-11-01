@@ -69,8 +69,8 @@ export default function BugReportPage() {
 
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Bug size={28} style={{ color: 'var(--color-primary)' }} /> Report an Issue
+      <h1 style={{ marginBottom: '0.5rem' }}>
+        Report an Issue
       </h1>
       <p style={{ color: 'var(--color-text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
         Help us improve! Your feedback is saved and reviewed by the development team.

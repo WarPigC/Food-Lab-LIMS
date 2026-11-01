@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Database, Settings, Hash, Download, ShieldCheck, Clock, CheckCircle, Sliders } from "lucide-react";
+import { Settings, Hash, Download, ShieldCheck, Clock, CheckCircle, Sliders } from "lucide-react";
 import GroupSettings from "./Settings/GroupSettings";
 import SerialSettings from "./Settings/SerialSettings";
 import SpecialProfileSettings from "./Settings/SpecialProfileSettings";
@@ -121,15 +121,8 @@ export default function DataSettings() {
 
   return (
     <div style={{ paddingBottom: "3rem" }}>
-      <h1
-        style={{
-          marginBottom: "1.5rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-        }}
-      >
-        <Database size={28} style={{ color: "var(--color-primary)" }} /> Data Settings
+      <h1 style={{ marginBottom: "1.5rem" }}>
+        Data Settings
       </h1>
 
       {/* Tabs, backup button pushed to the right */}

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { FileText } from "lucide-react";
 import JobLogTable from "../components/JobLogTable";
 import Spinner from "../components/Spinner";
 import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from "../utils/cache";
@@ -112,8 +111,8 @@ export default function ActivityLogsPage({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
-        <h1 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <FileText size={28} style={{ color: 'var(--color-primary)' }} /> {title}
+        <h1 style={{ marginBottom: '1.5rem' }}>
+          {title}
         </h1>
 
         {auditLoading && jobs.length === 0 ? (

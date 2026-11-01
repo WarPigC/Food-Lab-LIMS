@@ -10,7 +10,7 @@ import Spinner from "../../components/Spinner";
 import { 
   Play, Plus, Check, Clock, Edit, FileText, XCircle, Search, LogOut, ChevronDown, 
   ChevronRight, ArrowLeft, Download, Eye, LayoutDashboard, Users, Activity as ActivityIcon, RefreshCw, X, Shield,
-  ClipboardCheck, CheckCircle, RotateCcw } from "lucide-react";
+  CheckCircle, RotateCcw } from "lucide-react";
 import { useSocket } from "../../context/SocketContext";
 import { AuthContext } from "../../context/AuthContext";
 import { formatTestCode } from "../../utils/codeUtils";
@@ -322,15 +322,7 @@ export default function ReviewQueue() {
 
   return (
     <div>
-      <h1
-        style={{
-          marginBottom: "1.5rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-        }}
-      >
-        <ClipboardCheck size={28} style={{ color: "var(--color-primary)" }} />{" "}
+      <h1 style={{ marginBottom: "1.5rem" }}>
         Review Queue
       </h1>
 

@@ -476,16 +476,8 @@ export default function GroupSettings() {
 
   return (
     <div style={{ paddingBottom: "3rem" }}>
-      <h1
-        style={{
-          marginBottom: "1.5rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-        }}
-      >
-        <Database size={28} style={{ color: "var(--color-primary)" }} /> Data
-        Settings
+      <h1 style={{ marginBottom: "1.5rem" }}>
+        Data Settings
       </h1>
 
 
