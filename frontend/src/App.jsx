@@ -10,6 +10,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import NotificationsPage from './pages/NotificationsPage';
 import BugReportPage from './pages/BugReportPage';
+import ReAuthModal from './components/ReAuthModal';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -28,6 +29,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <ReAuthModal />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -69,14 +71,14 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* Notifications — all roles */}
+        {/* Notifications: all roles */}
         <Route path="/notifications" element={
           <ProtectedRoute allowedRoles={['ADMIN', 'ADMIN_OFFICER', 'HEAD', 'ASSISTANT']}>
             <NotificationsPage />
           </ProtectedRoute>
         } />
 
-        {/* Bug Reports — all roles */}
+        {/* Bug Reports: all roles */}
         <Route path="/report-bug" element={
           <ProtectedRoute allowedRoles={['ADMIN', 'ADMIN_OFFICER', 'HEAD', 'ASSISTANT']}>
             <BugReportPage />

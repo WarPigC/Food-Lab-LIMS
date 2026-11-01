@@ -8,7 +8,7 @@ const { sendOtpEmail } = require('../utils/brevoMailer');
 const { audit } = require('../utils/auditLogger');
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '12h' });
 };
 
 // @route   POST /api/auth/login
@@ -43,6 +43,48 @@ router.post('/login', async (req, res) => {
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// @route   POST /api/auth/renew-session
+// @desc    Re-authenticate and renew expired token without full re-login
+router.post('/renew-session', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (user && (await user.comparePassword(password))) {
+      audit('SESSION_RENEWED', {
+        message: `${user.name} (${user.role}) renewed session`,
+        user: { id: user._id, name: user.name, role: user.role },
+        req
+      });
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        branch: user.branch,
+        requiresPasswordChange: user.requiresPasswordChange,
+        lastBackupAt: user.lastBackupAt || null,
+        token: generateToken(user._id),
+      });
+    } else {
+      audit('RENEW_SESSION_FAILED', {
+        message: `Failed session renewal attempt for email: ${email}`,
+        user: { name: email, role: user ? user.role : 'UNKNOWN' },
+        req
+      });
+      res.status(401).json({ message: 'Invalid password' });
+    }
+  } catch (error) {
+    console.error('Renew session error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
@@ -154,7 +196,7 @@ router.post('/verify-otp', async (req, res) => {
     const record = await Otp.findOne({ email, code: otp });
     if (!record) return res.status(401).json({ message: 'Invalid or expired OTP.' });
 
-    // OTP is valid — delete it so it can't be reused
+    // OTP is valid, delete it so it cannot be reused
     await Otp.deleteOne({ _id: record._id });
 
     // Find user and issue JWT (direct login, no password reset)
