@@ -333,7 +333,14 @@ export default function AssistantDashboard() {
       if (negativeParams.length > 0) {
         issues.push(`Negative values: ${negativeParams.map(p => p.name).join(', ')}`);
       }
-      modal.error(`Some parameters have issues and won't be saved:\n\n${issues.join('\n')}\n\nAll other valid parameters will be saved.`);
+      const proceed = await modal.confirm({
+        variant: 'warning',
+        title: 'Partial Save Warning',
+        body: `Some parameters have issues and will be skipped:\n\n${issues.join('\n')}\n\nWould you like to save all other valid parameters now?`,
+        confirmLabel: 'Proceed & Save',
+        cancelLabel: 'Go Back & Fix'
+      });
+      if (!proceed) return;
     }
 
     if (isSubmitting) return;

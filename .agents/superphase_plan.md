@@ -7,7 +7,7 @@
 | SP | Name | Items | Status |
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
-| SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8 | ⬜ Active |
+| SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | ⬜ Active |
 | SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | Upcoming |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
@@ -254,6 +254,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
 | SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ✅ Done |
 | SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ✅ Done |
+| SP2.P16 | F23 | Dynamic Modal Engine (modal.custom) | ⬜ Upcoming |
 
 ---
 
@@ -826,6 +827,46 @@ Remove `group` and `subGroup` fields from `Parameter.js`; eliminate dead-weight 
 | SP2.P15.5 | **Testing**: Verify parameter creation, search, group management, and job creation to ensure no regressions after dropping `group` and `subGroup`; test suite `parameterSchemaCleanup.test.js` passing 8/8 tests, all 8 backend suites passing 62/62 tests, frontend build clean | ✅ Complete |
 
 > ✅ Completed. Files created: `temp/drop_parameter_group_fields.js`, `backend/__tests__/parameterSchemaCleanup.test.js`. Files modified: `backend/models/Parameter.js`, `backend/routes/dataSettingsRoutes.js`. All 8 backend test suites (62/62 tests) pass, frontend build clean.
+
+---
+
+### SP2.P16: F23 - Dynamic Modal Engine (modal.custom)
+
+**Files**:
+- `frontend/src/context/ModalContext.jsx`
+- `frontend/src/hooks/useModal.js`
+- `frontend/src/index.css`
+
+**Background & Goal**:
+The current `ModalContext` implementation supports fixed views: `confirm`, `error`, and `input`. While this covers standard alerts and confirmations, complex workflows (e.g. custom multi-field forms, batch assignment pickers, profile updates, quick settings) require dedicated portals or bespoke modal state management. Extending `ModalContext` with `modal.custom` allows mounting arbitrary React components or render functions inside the managed daemon queue. Callers gain zero-portal boilerplate, queue synchronization, backdrop management, ESC key handling, and promise-based resolution (`const data = await modal.custom(...)`).
+
+**Design Specification**:
+1. **API Exposure**:
+   Add `modal.custom(options)` in `useModal.js` mapping to `openModal("custom", options)`.
+2. **Options Supported**:
+   - `title`: Header string or ReactNode.
+   - `icon`: Optional custom Lucide icon or element.
+   - `wide`: Boolean flag to expand width (`.modal-card--wide`) or custom `maxWidth`.
+   - `content`: Render function `({ resolve, close }) => ReactNode` or static ReactNode.
+   - `showClose`: Boolean (default `true`) rendering a top-right `X` dismiss button.
+   - `dismissOnBackdrop`: Boolean (default `true`) allowing backdrop dismissal.
+   - `dismissOnEsc`: Boolean (default `true`) allowing Escape key dismissal.
+   - `className`: Optional extra class name for `.modal-card`.
+   - `footer`: Optional custom footer render function `({ resolve, close }) => ReactNode` or static ReactNode.
+3. **Queue & Keyboard Integration**:
+   - Sequential modal queue handles custom modals without stacking backdrops.
+   - Escape key dismisses custom modals by default (resolving with `null` or `false`).
+   - Backdrop click dismisses custom modals when enabled.
+
+| Subphase | Task |
+|---|---|
+| SP2.P16.1 | **Hook extension**: In `frontend/src/hooks/useModal.js`, expose `custom: (opts = {}) => openModal("custom", opts)` |
+| SP2.P16.2 | **Custom view component**: In `frontend/src/context/ModalContext.jsx`, create `<CustomModalView modal={modal} onResolve={onResolve} />` supporting title, custom icon, top-right close `X`, and render function content `({ resolve, close })` |
+| SP2.P16.3 | **Portal dispatch & event handling**: Wire `currentModal.type === "custom"` into `ModalPortal`, connecting backdrop click (`dismissOnBackdrop !== false`) and ESC keyboard dismissal (`dismissOnEsc !== false`) to resolve with `null` |
+| SP2.P16.4 | **Styling support**: In `frontend/src/index.css`, ensure header layout accommodates custom icons, titles, and top-right close buttons cleanly with responsive wrapping |
+| SP2.P16.5 | **Testing & Verification**: Verify `modal.custom` with sample dialogs, validating promise resolution with returned data, cancellation via ESC and backdrop, and clean transition in the modal queue |
+
+---
 
 ---
 

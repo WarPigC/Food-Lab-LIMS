@@ -1,10 +1,9 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Menu, ChevronDown, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, ChevronDown, Lock, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
-import axios from 'axios';
-import API_URL from '../utils/api';
+import ProfileUpdateModal from './ProfileUpdateModal';
 
 export default function Header({ onToggleSidebar }) {
   const { user, logout } = useContext(AuthContext);
@@ -12,35 +11,13 @@ export default function Header({ onToggleSidebar }) {
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [updateType, setUpdateType] = useState(''); // 'email' or 'password'
-  
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newValue, setNewValue] = useState('');
-  const [repeatPassword, setRepeatPassword] = useState('');
-  const [updateError, setUpdateError] = useState('');
-  const [updateSuccess, setUpdateSuccess] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
+  const [updateType, setUpdateType] = useState('password'); // 'email' or 'password'
 
   const menuRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const resetForm = () => {
-    setShowUpdateModal(false);
-    setCurrentPassword('');
-    setNewValue('');
-    setRepeatPassword('');
-    setUpdateError('');
-    setUpdateSuccess('');
-    setShowCurrentPassword(false);
-    setShowNewPassword(false);
-    setShowRepeatPassword(false);
   };
 
   useEffect(() => {
@@ -52,82 +29,6 @@ export default function Header({ onToggleSidebar }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleProfileUpdate = async () => {
-    setUpdateError('');
-    setUpdateSuccess('');
-
-    if (updateType === 'password') {
-      if (!newValue || !repeatPassword) {
-        setUpdateError('Please fill in all fields.');
-        return;
-      }
-      if (newValue !== repeatPassword) {
-        setUpdateError('Passwords do not match.');
-        return;
-      }
-
-      setIsUpdating(true);
-      try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await axios.put(`${API_URL}/api/auth/change-password`, { newPassword: newValue }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        setUpdateSuccess(res.data.message || 'Password updated successfully');
-        setNewValue('');
-        setRepeatPassword('');
-
-        setTimeout(() => {
-          resetForm();
-        }, 1500);
-      } catch (err) {
-        setUpdateError(err.response?.data?.message || 'Failed to update password');
-      } finally {
-        setIsUpdating(false);
-      }
-      return;
-    }
-
-    if (updateType === 'email') {
-      if (!currentPassword || !newValue) {
-        setUpdateError('Please fill in all fields.');
-        return;
-      }
-
-      setIsUpdating(true);
-      try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await axios.put(`${API_URL}/api/auth/update-profile`, {
-          currentPassword,
-          newEmail: newValue
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        setUpdateSuccess(res.data.message || 'Profile updated successfully');
-        setCurrentPassword('');
-        setNewValue('');
-
-        // Update local storage if email changed
-        const storedUserStr = localStorage.getItem('user') || sessionStorage.getItem('user');
-        if (storedUserStr) {
-          const storedUser = JSON.parse(storedUserStr);
-          storedUser.email = res.data.email;
-          if (localStorage.getItem('user')) localStorage.setItem('user', JSON.stringify(storedUser));
-          if (sessionStorage.getItem('user')) sessionStorage.setItem('user', JSON.stringify(storedUser));
-        }
-
-        setTimeout(() => {
-          resetForm();
-        }, 1500);
-      } catch (err) {
-        setUpdateError(err.response?.data?.message || 'Failed to update profile');
-      } finally {
-        setIsUpdating(false);
-      }
-    }
-  };
 
   return (
     <header className="app-header">
@@ -187,133 +88,11 @@ export default function Header({ onToggleSidebar }) {
         <LogOut size={20} />
       </button>
 
-      {/* Profile Update Modal */}
-      {showUpdateModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, backdropFilter: 'blur(4px)'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '2rem', animation: 'slideUp 0.3s ease', borderTop: '4px solid var(--color-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', color: 'var(--color-primary)' }}>
-              {updateType === 'email' ? <Mail size={32} /> : <Lock size={32} />}
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Change {updateType === 'email' ? 'Email' : 'Password'}</h2>
-            </div>
-
-            {updateError && <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-danger-light)', color: 'var(--color-danger)', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.9rem' }}>{updateError}</div>}
-            {updateSuccess && <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-success-light)', color: 'var(--color-success)', borderRadius: 'var(--radius-md)', marginBottom: '1rem', fontSize: '0.9rem' }}>{updateSuccess}</div>}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-              {updateType === 'password' ? (
-                <>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
-                      Change Password <span style={{ color: 'var(--color-danger)' }}>*</span>
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input 
-                        type={showNewPassword ? "text" : "password"} 
-                        value={newValue} 
-                        onChange={e => setNewValue(e.target.value)} 
-                        placeholder="Enter new password"
-                        required 
-                        style={{ paddingRight: '2.5rem' }} 
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => setShowNewPassword(!showNewPassword)} 
-                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
-                        aria-label={showNewPassword ? "Hide password" : "Show password"}
-                      >
-                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
-                      Repeat Password <span style={{ color: 'var(--color-danger)' }}>*</span>
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input 
-                        type={showRepeatPassword ? "text" : "password"} 
-                        value={repeatPassword} 
-                        onChange={e => setRepeatPassword(e.target.value)} 
-                        placeholder="Repeat new password"
-                        required 
-                        style={{ paddingRight: '2.5rem' }} 
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => setShowRepeatPassword(!showRepeatPassword)} 
-                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
-                        aria-label={showRepeatPassword ? "Hide password" : "Show password"}
-                      >
-                        {showRepeatPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
-                      Current Password <span style={{ color: 'var(--color-danger)' }}>*</span>
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input 
-                        type={showCurrentPassword ? "text" : "password"} 
-                        value={currentPassword} 
-                        onChange={e => setCurrentPassword(e.target.value)} 
-                        required 
-                        style={{ paddingRight: '2.5rem' }} 
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)} 
-                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
-                        aria-label={showCurrentPassword ? "Hide password" : "Show password"}
-                      >
-                        {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500, fontSize: '0.9rem' }}>
-                      New Email <span style={{ color: 'var(--color-danger)' }}>*</span>
-                    </label>
-                    <input 
-                      type="email" 
-                      value={newValue} 
-                      onChange={e => setNewValue(e.target.value)} 
-                      placeholder="Enter new email"
-                      required 
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button
-                className="btn"
-                onClick={resetForm}
-                style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-main)', padding: '0.6rem 2rem', backgroundColor: 'transparent' }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleProfileUpdate}
-                style={{ padding: '0.6rem 2rem' }}
-                disabled={isUpdating}
-              >
-                {isUpdating ? 'Updating...' : 'Update'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <ProfileUpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        updateType={updateType}
+      />
     </header>
   );
 }
