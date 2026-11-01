@@ -18,10 +18,13 @@ const IDB_KEYS = new Set([
 
 /**
  * Read a value from the appropriate storage backend.
+ * Large volatile data is read from IndexedDB; small metadata from sessionStorage.
  * Returns the parsed object, or null if not found.
  */
 export async function cacheGet(key) {
   if (IDB_KEYS.has(key)) {
+    // Clear any obsolete duplicate entry in sessionStorage
+    try { sessionStorage.removeItem(key); } catch {}
     try {
       const val = await get(key);
       return val ?? null;
@@ -44,6 +47,8 @@ export async function cacheGet(key) {
  */
 export async function cacheSet(key, value) {
   if (IDB_KEYS.has(key)) {
+    // Clear any obsolete duplicate entry in sessionStorage to protect quota
+    try { sessionStorage.removeItem(key); } catch {}
     try {
       await set(key, value);
     } catch (e) {
@@ -69,13 +74,14 @@ export async function cacheDel(...keysToDelete) {
     } else {
       sessionStorage.removeItem(key);
     }
+    try { sessionStorage.removeItem(key); } catch { /* ignore */ }
   }
 }
 
 /**
  * Synchronously check if a key is cached.
  * Returns true only for sessionStorage keys (sync check).
- * For IDB keys, always returns false — the async read in fetchWithCache handles it.
+ * For IDB keys, returns false; the async read in fetchWithCache handles it.
  */
 export function isCached(key) {
   if (IDB_KEYS.has(key)) return false;

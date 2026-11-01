@@ -57,26 +57,28 @@ export default function MonitorPage() {
       setJobs(data.jobs);
       setHasMoreJobs(Boolean(data.hasMore));
       setJobsCursor(data.nextCursor || null);
+      setLoading(false);
     } else if (Array.isArray(data)) {
       setJobs(data);
+      setLoading(false);
     }
   }, []);
 
   // Fetch monitoring jobs with cache
-  const fetchMonitoringJobs = useCallback(async () => {
-    try {
-      await fetchWithCache(
-        `${API_URL}/api/jobs/monitoring`,
-        CACHE_KEYS.JOBS_MONITORING,
-        handleJobsData,
-        { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      );
-    } catch (err) {
-      console.error("Error fetching monitoring jobs:", err);
-      toast.error(err.response?.data?.message || "Failed to load monitoring jobs");
-    } finally {
-      setLoading(false);
-    }
+  const fetchMonitoringJobs = useCallback(() => {
+    return fetchWithCache(
+      `${API_URL}/api/jobs/monitoring`,
+      CACHE_KEYS.JOBS_MONITORING,
+      handleJobsData,
+      { Authorization: `Bearer ${localStorage.getItem("token")}` }
+    )
+      .catch((err) => {
+        console.error("Error fetching monitoring jobs:", err);
+        toast.error(err.response?.data?.message || "Failed to load monitoring jobs");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [handleJobsData, toast]);
 
   // Load more jobs (infinite scroll)
@@ -338,6 +340,7 @@ export default function MonitorPage() {
 
   // Withdraw Action Handler
   const handleWithdraw = async (job) => {
+    if (withdrawingJobId) return;
     const confirmed = await modal.confirm({
       title: "Withdraw Dispatch",
       body: `Are you sure you want to withdraw job ${formatJobCode(job.jobCode)} back to the dispatch queue? Saved progress will be preserved for re-dispatch.`,
@@ -374,6 +377,7 @@ export default function MonitorPage() {
 
   // Move Parameters Action Handler (supports moving multi-selected params to target analyst)
   const handleMoveParams = async (job) => {
+    if (movingJobId) return;
     const selectedSet = checkedParams[job._id] || new Set();
     const selectedParamIds = Array.from(selectedSet);
     const targetId = targetAssistants[job._id];
@@ -465,9 +469,6 @@ export default function MonitorPage() {
         <h1 style={{ display: "flex", alignItems: "center", gap: "0.6rem", margin: 0 }}>
           <Eye size={28} style={{ color: "var(--color-primary)" }} /> Job Monitor
         </h1>
-        <p style={{ margin: "0.35rem 0 0 0", color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
-          Live parameter progress, analyst migration, and dispatch controls for in-flight jobs.
-        </p>
       </div>
 
       {/* Page Header (Search & Filter Controls) */}
@@ -483,7 +484,7 @@ export default function MonitorPage() {
       />
 
       {/* Main Content List */}
-      {loading ? (
+      {loading && currentList.length === 0 ? (
         <div className="card" style={{ padding: "3rem", textAlign: "center" }}>
           <Spinner message="Loading monitored jobs..." />
         </div>
@@ -633,13 +634,15 @@ export default function MonitorPage() {
                         borderRadius: "var(--radius-sm)",
                         display: "inline-flex",
                         alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: "155px",
                         gap: "0.4rem",
                         cursor: "pointer",
                       }}
                       title="Pull job back to dispatch queue"
                     >
                       {withdrawingJobId === job._id ? (
-                        <Spinner size="sm" message="Withdrawing..." color="#B45309" />
+                        <Spinner size="sm" color="#B45309" />
                       ) : (
                         <>
                           <RotateCcw size={14} /> Withdraw Dispatch
@@ -894,11 +897,13 @@ export default function MonitorPage() {
                                 fontWeight: 600,
                                 display: "inline-flex",
                                 alignItems: "center",
+                                justifyContent: "center",
+                                minWidth: "155px",
                                 gap: "0.4rem",
                               }}
                             >
                               {movingJobId === job._id ? (
-                                <Spinner size="sm" message="Moving..." color="#fff" />
+                                <Spinner size="sm" color="#fff" />
                               ) : (
                                 <>
                                   Move to Analyst <ArrowRight size={16} />

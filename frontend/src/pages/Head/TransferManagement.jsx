@@ -84,6 +84,7 @@ export default function TransferManagement() {
           "Sample hand-over recorded! The other department has been notified.",
         );
         setOutgoingJobs((prev) => prev.filter((j) => j._id !== id));
+        await invalidateCache(CACHE_KEYS.JOBS, CACHE_KEYS.JOBS_HEAD_ACTIVE, CACHE_KEYS.TRANSFERS_IN, CACHE_KEYS.TRANSFERS_OUT);
       } else if (type === "receive") {
         await axios.put(
           `${API_URL}/api/sample-transfers/${id}/receive`,
@@ -101,9 +102,9 @@ export default function TransferManagement() {
         toast.success(
           "Sample receipt confirmed! The job is now available in your dispatcher.",
         );
-        invalidateCache(CACHE_KEYS.JOBS);
+        await invalidateCache(CACHE_KEYS.JOBS, CACHE_KEYS.JOBS_HEAD_ACTIVE, CACHE_KEYS.TRANSFERS_IN, CACHE_KEYS.TRANSFERS_OUT);
       }
-      fetchTransfers();
+      await fetchTransfers();
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
@@ -115,6 +116,7 @@ export default function TransferManagement() {
   };
 
   const handleSendTransferClick = async (jobId) => {
+    if (transferLoading) return;
     const confirmed = await modal.confirm({
       title: "Hand Over Sample",
       body: "You are handing over this sample to the other department. This action will be recorded and cannot be undone.",
@@ -128,6 +130,7 @@ export default function TransferManagement() {
   };
 
   const handleReceiveTransferClick = async (transferId) => {
+    if (transferLoading) return;
     const confirmed = await modal.confirm({
       title: "Confirm Sample Receipt",
       body: "You are confirming receipt of this sample. The job will become available in your dispatcher.",
@@ -177,9 +180,15 @@ export default function TransferManagement() {
                     onClick={() => handleReceiveTransferClick(transfer._id)}
                     disabled={transferLoading}
                     className="btn btn-primary"
-                    style={{ padding: "0.6rem 1.2rem", display: "flex", alignItems: "center", gap: "0.4rem" }}
+                    style={{ padding: "0.6rem 1.2rem", display: "flex", alignItems: "center", justifyContent: "center", minWidth: "150px", gap: "0.4rem" }}
                   >
-                    <Check size={16} /> {transferLoading ? "Processing..." : "Confirm Receipt"}
+                    {transferLoading ? (
+                      <Spinner size="sm" color="#fff" />
+                    ) : (
+                      <>
+                        <Check size={16} /> Confirm Receipt
+                      </>
+                    )}
                   </button>
                 </div>
               ))}
@@ -218,9 +227,15 @@ export default function TransferManagement() {
                       onClick={() => handleSendTransferClick(job._id)}
                       disabled={transferLoading}
                       className="btn"
-                      style={{ padding: "0.6rem 1.2rem", display: "flex", alignItems: "center", gap: "0.4rem", backgroundColor: "var(--color-primary)", color: "white" }}
+                      style={{ padding: "0.6rem 1.2rem", display: "flex", alignItems: "center", justifyContent: "center", minWidth: "165px", gap: "0.4rem", backgroundColor: "var(--color-primary)", color: "white" }}
                     >
-                      <ArrowRightLeft size={16} /> {transferLoading ? "Processing..." : "Hand Over Sample"}
+                      {transferLoading ? (
+                        <Spinner size="sm" color="#fff" />
+                      ) : (
+                        <>
+                          <ArrowRightLeft size={16} /> Hand Over Sample
+                        </>
+                      )}
                     </button>
                   </div>
                 );

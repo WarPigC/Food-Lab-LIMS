@@ -50,27 +50,25 @@ export default function ReviewQueue() {
   // Selective reassignment state: { [parameterId]: { selected: bool, assignedTo: userId } }
   const [paramSelections, setParamSelections] = useState({});
 
-  const fetchReviewItems = async () => {
-    try {
-      await fetchWithCache(
-        `${API_URL}/api/tests/instances`,
-        CACHE_KEYS.INSTANCES,
-        (data) => {
-          // Handle both old array shape and new paginated shape
-          const list = data.instances || data;
-          setInstances(Array.isArray(list) ? list.filter((i) => i.status === "PENDING_HEAD_REVIEW") : []);
-          if (data.hasMore !== undefined) {
-            setHasMoreInstances(data.hasMore);
-            setInstancesCursor(data.nextCursor || null);
-          }
-          setInstancesPage(1);
-        },
-      );
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setReviewLoading(false);
-    }
+  const fetchReviewItems = () => {
+    return fetchWithCache(
+      `${API_URL}/api/tests/instances`,
+      CACHE_KEYS.INSTANCES,
+      (data) => {
+        // Handle both old array shape and new paginated shape
+        const list = data.instances || data;
+        setInstances(Array.isArray(list) ? list.filter((i) => i.status === "PENDING_HEAD_REVIEW") : []);
+        if (data.hasMore !== undefined) {
+          setHasMoreInstances(data.hasMore);
+          setInstancesCursor(data.nextCursor || null);
+        }
+        setInstancesPage(1);
+      },
+    )
+      .catch(console.error)
+      .finally(() => {
+        setReviewLoading(false);
+      });
   };
 
   const loadMoreInstances = async () => {
@@ -126,15 +124,17 @@ export default function ReviewQueue() {
 
 
   const handleApprove = async (id) => {
+    if (submittingReviewId) return;
     setSubmittingReviewId(id);
     try {
       await axios.put(`${API_URL}/api/tests/instances/${id}/review`, {
         action: "APPROVE",
       });
       toast.success("Approved and Completed. Report Generated.");
-      invalidateCache(CACHE_KEYS.INSTANCES, CACHE_KEYS.JOBS, CACHE_KEYS.STATS);
-      fetchReviewItems();
+      setInstances((prev) => prev.filter((i) => i._id !== id));
       setSelectedInstance(null);
+      await invalidateCache(CACHE_KEYS.INSTANCES, CACHE_KEYS.JOBS, CACHE_KEYS.STATS);
+      await fetchReviewItems();
     } catch (err) {
       console.error(err);
       handleApiError(err, "Failed to approve test instance", toast);
@@ -198,6 +198,7 @@ export default function ReviewQueue() {
       return toast.error("Please select at least one parameter to reassign.");
     }
 
+    if (submittingReviewId) return;
     setSubmittingReviewId(id);
     try {
       await axios.put(`${API_URL}/api/tests/instances/${id}/review`, {
@@ -207,8 +208,8 @@ export default function ReviewQueue() {
       });
       toast.success(`Sent ${selected.length} parameter(s) for retest.`);
       exitReassignMode();
-      invalidateCache(CACHE_KEYS.INSTANCES, CACHE_KEYS.JOBS, CACHE_KEYS.STATS);
-      fetchReviewItems();
+      await invalidateCache(CACHE_KEYS.INSTANCES, CACHE_KEYS.JOBS, CACHE_KEYS.STATS);
+      await fetchReviewItems();
       setSelectedInstance(null);
     } catch (err) {
       console.error(err);
@@ -760,11 +761,7 @@ export default function ReviewQueue() {
                             }}
                           >
                             {submittingReviewId === inst._id ? (
-                              <Spinner
-                                size="sm"
-                                message="Reassigning..."
-                                color="#fff"
-                              />
+                              <Spinner size="sm" color="#fff" />
                             ) : (
                               <>
                                 <RotateCcw
@@ -797,11 +794,7 @@ export default function ReviewQueue() {
                           style={{ flex: 1, justifyContent: "center" }}
                         >
                           {submittingReviewId === inst._id ? (
-                            <Spinner
-                              size="sm"
-                              message="Processing..."
-                              color="#fff"
-                            />
+                            <Spinner size="sm" color="#fff" />
                           ) : (
                             <>
                               <CheckCircle

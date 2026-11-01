@@ -294,7 +294,7 @@ export default function Dispatcher() {
   };
 
   const fetchJobs = () => {
-    fetchWithCache(`${API_URL}/api/jobs?activeForHead=true`, CACHE_KEYS.JOBS_HEAD_ACTIVE, handleJobsData)
+    return fetchWithCache(`${API_URL}/api/jobs?activeForHead=true`, CACHE_KEYS.JOBS_HEAD_ACTIVE, handleJobsData)
       .catch(console.error)
       .finally(() => setDispatchLoading(false));
   };
@@ -389,6 +389,7 @@ export default function Dispatcher() {
   };
 
   const handleApproveAmendment = async (job) => {
+    if (submittingAmendmentId) return;
     const dept = user?.department ? user.department.toLowerCase() : "";
     const dKey = dept === "chemical" ? "chemical" : dept;
     const stagedParams = (job.pendingParamAmendments?.parameters || []).filter(
@@ -413,8 +414,8 @@ export default function Dispatcher() {
         { assignments: assignmentsPayload },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-      invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
-      fetchJobs();
+      await invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
+      await fetchJobs();
       toast.success("Parameter amendment approved and assigned.");
     } catch (err) {
       console.error(err);
@@ -425,6 +426,7 @@ export default function Dispatcher() {
   };
 
   const handleRejectAmendment = async (job) => {
+    if (submittingAmendmentId) return;
     const reason = await modal.input({
       title: "Reject Parameter Amendment",
       body: "Please enter the reason for rejecting these amended parameters:",
@@ -440,8 +442,8 @@ export default function Dispatcher() {
         { reason: reason.trim() },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-      invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
-      fetchJobs();
+      await invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
+      await fetchJobs();
       toast.success("Parameter amendment rejected.");
     } catch (err) {
       console.error(err);
@@ -515,6 +517,7 @@ export default function Dispatcher() {
   };
 
   const handleSubmit = async (job) => {
+    if (submittingJobId) return;
     const deptParams = getDeptParams(job);
     const dDate = deadlineDates[job._id];
     const dTime = deadlineTimes[job._id];
@@ -1275,10 +1278,11 @@ export default function Dispatcher() {
                                 style={{
                                   padding: "0.6rem 1.5rem",
                                   justifyContent: "center",
+                                  minWidth: "150px",
                                 }}
                               >
                                 {submittingAmendmentId === job._id ? (
-                                  <Spinner size="sm" message="Assigning..." color="#fff" />
+                                  <Spinner size="sm" color="#fff" />
                                 ) : (
                                   "Approve & Assign"
                                 )}
@@ -1440,11 +1444,11 @@ export default function Dispatcher() {
                                   <button
                                     disabled={approvingJobId === job._id}
                                     onClick={async () => {
-                                      if (approvingJobId === job._id) return;
+                                      if (approvingJobId) return;
                                       
                                       setApprovingJobId(job._id);
                                       try {
-                                        await axios.put(
+                                        const res = await axios.put(
                                           `${API_URL}/api/jobs/${job._id}/approve-review`,
                                           {},
                                           {
@@ -1453,8 +1457,29 @@ export default function Dispatcher() {
                                             },
                                           },
                                         );
-                                        invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
-                                        fetchJobs();
+                                        toast.success("Job approved successfully.");
+
+                                        // Update local job state immediately so card reflects REVIEW_APPROVED without delay
+                                        const updatedJob = res.data?.job || res.data;
+                                        setJobs((prevJobs) =>
+                                          prevJobs.map((j) => {
+                                            if (j._id !== job._id) return j;
+                                            if (updatedJob && updatedJob._id) return { ...j, ...updatedJob };
+                                            return {
+                                              ...j,
+                                              distribution: {
+                                                ...j.distribution,
+                                                [dKey]: {
+                                                  ...j.distribution?.[dKey],
+                                                  status: "REVIEW_APPROVED",
+                                                },
+                                              },
+                                            };
+                                          })
+                                        );
+
+                                        await invalidateCache(CACHE_KEYS.JOBS_HEAD_ACTIVE);
+                                        await fetchJobs();
                                       } catch (err) {
                                         toast.error(
                                           err.response?.data?.message ||
@@ -1469,11 +1494,13 @@ export default function Dispatcher() {
                                       padding: "0.6rem 1.5rem",
                                       display: "flex",
                                       alignItems: "center",
+                                      justifyContent: "center",
+                                      minWidth: "140px",
                                       gap: "0.5rem",
                                     }}
                                   >
                                     {approvingJobId === job._id ? (
-                                      <Spinner size="sm" message="Approving..." color="#fff" />
+                                      <Spinner size="sm" color="#fff" />
                                     ) : (
                                       <><ClipboardCheck size={18} /> Approve Job</>
                                     )}
@@ -1791,12 +1818,12 @@ export default function Dispatcher() {
                                           style={{
                                             padding: "0.6rem 1.5rem",
                                             justifyContent: "center",
+                                            minWidth: "140px",
                                           }}
                                         >
                                           {submittingJobId === job._id ? (
                                             <Spinner
                                               size="sm"
-                                              message="Dispatching..."
                                               color="#fff"
                                             />
                                           ) : (
