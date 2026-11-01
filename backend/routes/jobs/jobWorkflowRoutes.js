@@ -666,4 +666,265 @@ router.post('/:id/reject-amendment', protect, authorize('HEAD', 'ADMIN'), async 
   }
 });
 
+// POST /api/jobs/:id/monitor-withdraw
+// Head pulls in-flight test back to dispatch queue; marks active TestInstances as CANCELLED (preserving results)
+router.post('/:id/monitor-withdraw', protect, authorize('HEAD'), async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    const dept = req.user.department ? req.user.department.toLowerCase() : '';
+    if (!['micro', 'chemical'].includes(dept)) {
+      return res.status(403).json({ message: 'Invalid department' });
+    }
+
+    if (!job.distribution || !job.distribution[dept] || !job.distribution[dept].required) {
+      return res.status(400).json({ message: 'This job does not require testing for your department' });
+    }
+
+    if (job.distribution[dept].status !== 'ASSIGNED_TO_ASSISTANT') {
+      return res.status(400).json({ message: 'Job is not in a withdrawable state' });
+    }
+
+    const instances = await TestInstance.find({
+      jobId: job._id,
+      department: dept,
+      status: 'PENDING'
+    });
+
+    if (instances.length === 0) {
+      return res.status(400).json({ message: 'No active dispatched tasks found to withdraw' });
+    }
+
+    const { note } = req.body;
+    const withdrawNote = note && note.trim() ? note.trim() : 'Withdrawn by Department Head back to dispatch queue';
+    const affectedInstanceIds = [];
+    const affectedAnalystIds = [];
+
+    for (const inst of instances) {
+      inst.status = 'CANCELLED';
+      inst.reviewHistory.push({
+        action: 'MONITOR_WITHDRAW',
+        by: req.user._id,
+        role: 'HEAD',
+        note: withdrawNote
+      });
+      await inst.save();
+      affectedInstanceIds.push(inst._id.toString());
+      if (inst.assignedTo) {
+        affectedAnalystIds.push(inst.assignedTo.toString());
+      }
+    }
+
+    job.distribution[dept].status = 'PENDING';
+    job.history.push({
+      action: 'UPDATED',
+      by: req.user._id,
+      note: `${dept.toUpperCase()} HEAD withdrew dispatch, returning job to dispatch queue`
+    });
+    await job.save();
+
+    for (const analystId of [...new Set(affectedAnalystIds)]) {
+      await createNotification({
+        recipient: analystId,
+        type: 'WARNING',
+        title: 'Test Withdrawn',
+        message: `Test assignment for job ${job.jobCode} was withdrawn by ${dept.toUpperCase()} HEAD.`,
+        relatedJobId: job._id,
+        link: '/assistant'
+      });
+    }
+
+    audit('MONITOR_WITHDRAW', {
+      req,
+      message: `${dept.toUpperCase()} HEAD withdrew dispatch for job ${job.jobCode}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+    });
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('job:monitor-withdrawn', {
+        jobId: job._id,
+        department: dept,
+        affectedInstanceIds,
+        analystIds: affectedAnalystIds
+      });
+      req.app.get('io').emit('JOB_UPDATED');
+    }
+
+    res.json({ message: 'Job successfully withdrawn and returned to dispatch queue', job });
+  } catch (error) {
+    res.status(500).json({ message: 'Error withdrawing job', error: error.message });
+  }
+});
+
+// PUT /api/jobs/:id/monitor-split
+// Head moves one or more parameters from source analyst to target analyst mid-flight
+router.put('/:id/monitor-split', protect, authorize('HEAD'), async (req, res) => {
+  try {
+    const { fromAnalystId, toAnalystId, paramIds } = req.body;
+
+    if (!fromAnalystId || !toAnalystId || !paramIds || !Array.isArray(paramIds) || paramIds.length === 0) {
+      return res.status(400).json({ message: 'fromAnalystId, toAnalystId, and a non-empty paramIds array are required' });
+    }
+
+    if (String(fromAnalystId) === String(toAnalystId)) {
+      return res.status(400).json({ message: 'Source and target analysts must be different' });
+    }
+
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    const dept = req.user.department ? req.user.department.toLowerCase() : '';
+    if (!['micro', 'chemical'].includes(dept)) {
+      return res.status(403).json({ message: 'Invalid department' });
+    }
+
+    if (!job.distribution || !job.distribution[dept] || !job.distribution[dept].required) {
+      return res.status(400).json({ message: 'This job does not require testing for your department' });
+    }
+
+    if (job.distribution[dept].status !== 'ASSIGNED_TO_ASSISTANT') {
+      return res.status(400).json({ message: 'Job is not active in monitoring' });
+    }
+
+    const targetUser = await User.findById(toAnalystId);
+    if (!targetUser || targetUser.role !== 'ASSISTANT' || targetUser.department.toLowerCase() !== dept) {
+      return res.status(400).json({ message: 'Target analyst must be an assistant in your department' });
+    }
+
+    const sourceInstance = await TestInstance.findOne({
+      jobId: job._id,
+      assignedTo: fromAnalystId,
+      department: dept,
+      status: 'PENDING'
+    });
+
+    if (!sourceInstance) {
+      return res.status(404).json({ message: 'Active source test instance not found for this analyst' });
+    }
+
+    const sourceParamMap = new Map();
+    sourceInstance.results.forEach(r => sourceParamMap.set(String(r.parameterId), r));
+
+    const movingParams = [];
+    for (const pId of paramIds) {
+      const param = sourceParamMap.get(String(pId));
+      if (!param) {
+        return res.status(400).json({ message: `Parameter ${pId} not found on source instance` });
+      }
+      movingParams.push(param.toObject ? param.toObject() : param);
+    }
+
+    let targetInstance = await TestInstance.findOne({
+      jobId: job._id,
+      assignedTo: toAnalystId,
+      department: dept,
+      status: 'PENDING'
+    });
+
+    if (targetInstance) {
+      // Merge path: add to existing target instance (deduping)
+      for (const mp of movingParams) {
+        const alreadyHas = targetInstance.results.some(r => String(r.parameterId) === String(mp.parameterId));
+        if (!alreadyHas) {
+          targetInstance.results.push({
+            parameterId: mp.parameterId,
+            name: mp.name,
+            value: mp.value || '',
+            unit: mp.unit,
+            testMethod: mp.testMethod || '',
+            specification: mp.specification || '',
+            isPanel: mp.isPanel || false,
+            panelName: mp.panelName || '',
+            isSaved: false
+          });
+        }
+      }
+      await targetInstance.save();
+    } else {
+      // Create path: generate new instance for target analyst
+      const deptSuffix = (dept === 'micro') ? '1' : '2';
+      const baseTestCode = `${job.jobCode}-${deptSuffix}`;
+      const existingCount = await TestInstance.countDocuments({
+        testCode: { $regex: `^${baseTestCode.replace(/-/g, '\\-')}` }
+      });
+      const letter = String.fromCharCode(97 + existingCount);
+      const testCode = `${baseTestCode}${letter}`;
+
+      targetInstance = await TestInstance.create({
+        jobId: job._id,
+        testCode,
+        clientName: (job.customer && job.customer.customer_name) || job.clientName || '',
+        deadline: sourceInstance.deadline,
+        department: dept,
+        assignedTo: toAnalystId,
+        results: movingParams.map(p => ({
+          parameterId: p.parameterId,
+          name: p.name,
+          value: p.value || '',
+          unit: p.unit,
+          testMethod: p.testMethod || '',
+          specification: p.specification || '',
+          isPanel: p.isPanel || false,
+          panelName: p.panelName || '',
+          isSaved: false
+        })),
+        createdBy: req.user._id,
+        status: 'PENDING'
+      });
+    }
+
+    // Remove moved parameters from source instance
+    const stringParamIds = paramIds.map(String);
+    sourceInstance.results = sourceInstance.results.filter(r => !stringParamIds.includes(String(r.parameterId)));
+    if (sourceInstance.retestOnly && sourceInstance.retestOnly.length > 0) {
+      sourceInstance.retestOnly = sourceInstance.retestOnly.filter(pId => !stringParamIds.includes(String(pId)));
+    }
+
+    if (sourceInstance.results.length === 0) {
+      sourceInstance.status = 'CANCELLED';
+    }
+    await sourceInstance.save();
+
+    audit('MONITOR_SPLIT', {
+      req,
+      message: `${dept.toUpperCase()} HEAD moved ${paramIds.length} parameter(s) from analyst to analyst for job ${job.jobCode}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+    });
+
+    await createNotification({
+      recipient: fromAnalystId,
+      type: 'INFO',
+      title: 'Parameters Reassigned',
+      message: `${paramIds.length} parameter(s) for job ${job.jobCode} were reassigned to another analyst.`,
+      relatedJobId: job._id
+    });
+
+    await createNotification({
+      recipient: toAnalystId,
+      type: 'ACTION_REQUIRED',
+      title: 'New Parameters Assigned',
+      message: `You have received ${paramIds.length} parameter(s) for job ${job.jobCode}.`,
+      relatedJobId: job._id,
+      link: '/assistant'
+    });
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('instance:params-split', {
+        jobId: job._id,
+        fromAnalystId,
+        toAnalystId,
+        paramIds,
+        sourceInstanceId: sourceInstance._id,
+        targetInstanceId: targetInstance._id
+      });
+      req.app.get('io').emit('JOB_UPDATED');
+    }
+
+    res.json({ message: 'Parameters successfully moved', sourceInstance, targetInstance });
+  } catch (error) {
+    res.status(500).json({ message: 'Error splitting parameters', error: error.message });
+  }
+});
+
 module.exports = router;

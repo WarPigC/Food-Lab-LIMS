@@ -148,11 +148,11 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
 
     // Before processing individual analysts, fetch ALL HELD instances for this department.
     // This allows us to rescue data for parameters that the Head might be reassigning
-    // from Analyst A to Analyst B after an unhold.
+    // from Analyst A to Analyst B after an unhold or withdraw.
     const allHeldInstances = await TestInstance.find({
       jobId,
       department: dept,
-      status: 'HELD'
+      status: { $in: ['HELD', 'CANCELLED'] }
     }).sort({ _id: -1 });
 
     const savedDataMap = {};
@@ -163,7 +163,11 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
           // allHeldInstances is sorted by _id descending (newest first).
           // We only take the value if we haven't already found a newer one.
           if (!savedDataMap[paramId]) {
-            savedDataMap[paramId] = r.toObject ? r.toObject() : r;
+            savedDataMap[paramId] = {
+              ...(r.toObject ? r.toObject() : r),
+              instanceStatus: inst.status,
+              originalAssignedTo: inst.assignedTo ? String(inst.assignedTo) : null
+            };
           }
         }
       }
@@ -180,11 +184,14 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
       const params = rawParams.map(p => {
         const saved = savedDataMap[String(p.parameterId)];
         if (saved) {
+          // If rescued from a CANCELLED instance (withdrawn), or reassigned to a different analyst,
+          // reset isSaved to false so the analyst must review and explicitly re-save each parameter.
+          const isResetRequired = saved.instanceStatus === 'CANCELLED' || String(astId) !== saved.originalAssignedTo;
           return {
             ...p,
             value: saved.value || p.value,
             testMethod: saved.testMethod || p.testMethod,
-            isSaved: saved.isSaved || false
+            isSaved: isResetRequired ? false : (saved.isSaved || false)
           };
         }
         return p;

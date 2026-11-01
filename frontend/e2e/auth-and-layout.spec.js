@@ -61,9 +61,10 @@ test.describe('Authentication and Layout Shell', () => {
 
     await expect(sidebar.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: 'Review Queue' })).toBeVisible();
-    await expect(sidebar.getByRole('link', { name: 'Assistants' })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: 'Monitor' })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: 'Job Dispatcher' })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: 'Data Settings' })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: 'Assistants' })).toBeVisible();
     await expect(sidebar.getByRole('link', { name: 'Activity Logs' })).toBeVisible();
   });
 

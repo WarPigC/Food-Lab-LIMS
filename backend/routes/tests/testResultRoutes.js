@@ -33,6 +33,20 @@ router.put('/instances/:id/save-progress', protect, authorize('ASSISTANT'), asyn
     }
     await instance.save();
 
+    if (req.app.get('io')) {
+      req.app.get('io').emit('PARAM_SAVED', {
+        instanceId: instance._id,
+        jobId: instance.jobId,
+        department: instance.department,
+        paramResults: instance.results.map(r => ({
+          parameterId: r.parameterId,
+          isSaved: r.isSaved,
+          value: r.value,
+          testMethod: r.testMethod
+        }))
+      });
+    }
+
     res.json(instance);
   } catch (err) {
     res.status(500).json({ message: 'Error saving progress' });
@@ -139,10 +153,12 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
         
         // Helper to check if all instances created by a specific department are completed
         const isDeptCompleted = (deptName) => {
-          const deptInstances = allInstances.filter(i => {
-            const instDept = i.department?.toLowerCase() || i.createdBy?.department?.toLowerCase() || (i.testCode?.includes('-1') ? 'micro' : i.testCode?.includes('-2') ? 'chemical' : '');
-            return instDept === deptName.toLowerCase();
-          });
+          const deptInstances = allInstances
+            .filter(i => {
+              const instDept = i.department?.toLowerCase() || i.createdBy?.department?.toLowerCase() || (i.testCode?.includes('-1') ? 'micro' : i.testCode?.includes('-2') ? 'chemical' : '');
+              return instDept === deptName.toLowerCase();
+            })
+            .filter(i => i.status !== 'CANCELLED');
           if (deptInstances.length === 0) return false;
           return deptInstances.every(i => i.status === 'COMPLETED');
         };

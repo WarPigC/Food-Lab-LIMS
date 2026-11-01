@@ -1023,23 +1023,25 @@ export default function Dispatcher() {
                         </span>
                       </div>
                     </div>
-                    {isExpanded ? (
-                      <ChevronDown size={20} color="var(--color-primary)" />
-                    ) : (
-                      <ChevronRight size={20} color="var(--color-text-muted)" />
-                    )}
+                    <div
+                      className={`card-accordion-chevron ${isExpanded ? "expanded" : ""}`}
+                      style={{ color: isExpanded ? "var(--color-primary)" : "var(--color-text-muted)" }}
+                    >
+                      <ChevronRight size={20} />
+                    </div>
                   </div>
                 </div>
 
                 {/* Expanded Dispatch Form */}
-                {isExpanded && (
-                  <div
-                    style={{
-                      padding: "1.5rem",
-                      borderTop: "1px solid var(--color-border)",
-                      backgroundColor: "var(--color-surface)",
-                    }}
-                  >
+                <div className={`card-accordion-wrapper ${isExpanded ? "expanded" : ""}`}>
+                  <div className="card-accordion-inner">
+                    <div
+                      style={{
+                        padding: "1.5rem",
+                        borderTop: "1px solid var(--color-border)",
+                        backgroundColor: "var(--color-surface)",
+                      }}
+                    >
                     {(() => {
                       const dept = user?.department
                         ? user.department.toLowerCase()
@@ -1824,8 +1826,9 @@ export default function Dispatcher() {
                         );
                       })()}
                     <AssignmentHistory testInstances={job.testInstances} />
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

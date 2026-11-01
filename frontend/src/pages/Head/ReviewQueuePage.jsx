@@ -384,12 +384,12 @@ export default function ReviewQueue() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    borderBottom: "1px solid var(--color-border)",
                     cursor: "pointer",
                     backgroundColor:
                       selectedInstance === inst._id
                         ? "var(--color-surface-hover)"
                         : "transparent",
+                    transition: "background-color 0.2s",
                   }}
                   onClick={() =>
                     setSelectedInstance(
@@ -413,12 +413,21 @@ export default function ReviewQueue() {
                       Analyst: {inst.assignedTo?.name} · Client: {inst.clientName}
                     </div>
                   </div>
-                  <span className="badge badge-warning">Awaiting Review</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                    <span className="badge badge-warning">Awaiting Review</span>
+                    <div
+                      className={`card-accordion-chevron ${selectedInstance === inst._id ? "expanded" : ""}`}
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
+                      <ChevronRight size={18} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Expanded detail */}
-                {selectedInstance === inst._id && (
-                  <div style={{ padding: "1.5rem" }}>
+                <div className={`card-accordion-wrapper ${selectedInstance === inst._id ? "expanded" : ""}`}>
+                  <div className="card-accordion-inner">
+                    <div style={{ padding: "1.5rem", borderTop: "1px solid var(--color-border)" }}>
                     {/* Review history */}
                     {inst.reviewHistory && inst.reviewHistory.length > 0 && (
                       <div
@@ -822,8 +831,9 @@ export default function ReviewQueue() {
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

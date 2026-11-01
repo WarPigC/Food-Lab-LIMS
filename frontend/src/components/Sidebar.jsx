@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { Activity, Users, FileText, LayoutDashboard, Settings, ClipboardCheck, Bug, X, Database } from 'lucide-react';
+import { Activity, Users, FileText, LayoutDashboard, Settings, ClipboardCheck, Bug, X, Database, Eye } from 'lucide-react';
 import logo from '../assets/Acropolis20Logo.png';
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -28,9 +28,10 @@ export default function Sidebar({ isOpen, onClose }) {
         return [
           { to: '/head', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
           { to: '/head/review', icon: <ClipboardCheck size={20} />, label: 'Review Queue' },
-          { to: '/head/assistants', icon: <Users size={20} />, label: 'Assistants' },
+          { to: '/head/monitor', icon: <Eye size={20} />, label: 'Monitor' },
           { to: '/head/dispatcher', icon: <Activity size={20} />, label: 'Job Dispatcher' },
           { to: '/head/data-settings', icon: <Database size={20} />, label: 'Data Settings' },
+          { to: '/head/assistants', icon: <Users size={20} />, label: 'Assistants' },
           { to: '/head/audit', icon: <FileText size={20} />, label: 'Activity Logs' },
         ];
       case 'ASSISTANT':

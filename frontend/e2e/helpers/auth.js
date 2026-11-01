@@ -78,6 +78,50 @@ export const setupApiMocks = async (page, overrides = {}) => {
       });
     }
 
+    // Monitoring
+    if (url.includes('/api/jobs/monitoring')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          jobs: [
+            {
+              ...mockJobs[0],
+              testInstances: [
+                {
+                  _id: 'inst-mon-1',
+                  testCode: '2604230001-1',
+                  status: 'PENDING',
+                  deadline: '2026-05-01T10:00:00.000Z',
+                  assignedTo: mockUsers[4],
+                  results: [
+                    { parameterId: 'p-1', name: 'Total Plate Count', unit: 'CFU/g', isSaved: true, testMethod: 'IS 5402', value: '150' },
+                    { parameterId: 'p-2', name: 'Yeast & Mould', unit: 'CFU/g', isSaved: false, testMethod: '', value: '' }
+                  ]
+                }
+              ]
+            }
+          ]
+        })
+      });
+    }
+
+    if (url.includes('/monitor-withdraw')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Withdrawn successfully' })
+      });
+    }
+
+    if (url.includes('/monitor-split')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Split successfully' })
+      });
+    }
+
     // Jobs
     if (url.includes('/api/jobs')) {
       if (method === 'GET') {

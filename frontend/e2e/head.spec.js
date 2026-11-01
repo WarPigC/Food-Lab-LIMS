@@ -31,6 +31,35 @@ test.describe('Department Head Experience', () => {
     await expect(page.getByText('0.02')).toBeVisible();
   });
 
+  test('should render Job Monitor with in-flight jobs, ticks, and controls', async ({ page }) => {
+    await page.goto('/head/monitor');
+
+    await expect(page.getByRole('heading', { name: 'Job Monitor' })).toBeVisible();
+    await expect(page.getByPlaceholder('Search...')).toBeVisible();
+
+    // Verify card header elements
+    await expect(page.getByText('2604230001')).toBeVisible();
+    await expect(page.getByText(/1 \/ 2 saved/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Withdraw Dispatch/i })).toBeVisible();
+
+    // Expand card by clicking header
+    await page.getByText('2604230001').click();
+
+    // Verify parameter table
+    await expect(page.getByText('Select All Parameters in Job (2)')).toBeVisible();
+    await expect(page.getByText('Total Plate Count')).toBeVisible();
+    await expect(page.getByText('Yeast & Mould')).toBeVisible();
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await expect(page.getByText('In Progress')).toBeVisible();
+
+    // Select all parameters in job via checkbox
+    await page.getByText('Select All Parameters in Job (2)').click();
+
+    // Verify sticky Move footer appears
+    await expect(page.getByText('2 parameter(s) selected')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Move to Analyst/i })).toBeVisible();
+  });
+
   test('should render Job Dispatcher with sample transfers and job list', async ({ page }) => {
     await page.goto('/head/dispatcher');
 
@@ -86,6 +115,9 @@ test.describe('Department Head Experience', () => {
     await expect(page.getByText('Water ISO 10500:2012').first()).toBeVisible();
     await expect(page.getByText('Food Pesticides Residues').first()).toBeVisible();
     await expect(page.getByText('Fatty Acid Profile').first()).toBeVisible();
+
+    // Water ISO is locked national standard, select Food Pesticides to see editable controls
+    await page.getByText('Food Pesticides Residues').first().click();
 
     // Verify parameter table
     await expect(page.getByRole('button', { name: /Add Parameter/i })).toBeVisible();

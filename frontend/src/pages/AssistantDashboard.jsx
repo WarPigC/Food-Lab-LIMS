@@ -35,6 +35,11 @@ export default function AssistantDashboard() {
   const [sampleDescription, setSampleDescription] = useState('');
   const descDebounceRef = useRef(null);
   const isTypingDescRef = useRef(false);
+  const activeTaskRef = useRef(activeTask);
+
+  useEffect(() => {
+    activeTaskRef.current = activeTask;
+  }, [activeTask]);
 
   const formatJobCode = formatTestCode;
 
@@ -136,6 +141,41 @@ export default function AssistantDashboard() {
     socket.on('JOB_UPDATED', updateTasks);
     socket.on('JOB_DELETED', updateTasks);
     socket.on('JOB_HELD', updateTasks);
+
+    const handleMonitorWithdrawn = (data) => {
+      const currentActive = activeTaskRef.current;
+      if (currentActive && (data?.affectedInstanceIds?.includes(currentActive._id?.toString()) || String(currentActive.jobId?._id || currentActive.jobId) === String(data?.jobId))) {
+        closeTask();
+        toast.warning('Your current task was withdrawn by the Department Head.');
+      }
+      updateTasks();
+    };
+
+    const handleParamsSplit = (data) => {
+      const currentActive = activeTaskRef.current;
+      if (currentActive && (String(currentActive._id) === String(data?.sourceInstanceId) || String(currentActive._id) === String(data?.targetInstanceId))) {
+        updateTasks();
+        axios.get(`${API_URL}/api/tests/instances`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }).then((res) => {
+          const updated = (res.data || []).find(t => String(t._id) === String(currentActive._id));
+          if (!updated || updated.status === 'CANCELLED' || !updated.results || updated.results.length === 0) {
+            closeTask();
+            toast.warning('All parameters in this task were reassigned to another analyst.');
+          } else {
+            setActiveTask(updated);
+            setResultsData(updated.results || []);
+            toast.info('Parameters in your task have been updated by Head.');
+          }
+        }).catch(console.error);
+      } else {
+        updateTasks();
+      }
+    };
+
+    socket.on('job:monitor-withdrawn', handleMonitorWithdrawn);
+    socket.on('instance:params-split', handleParamsSplit);
+
     socket.on('SAMPLE_DESCRIPTION_UPDATED', ({ jobId, description }) => {
       // Update the open task's description if it matches (and the analyst isn't currently typing)
       if (activeTask && activeTask.jobId?.toString() === jobId && !isTypingDescRef.current) {
@@ -154,6 +194,8 @@ export default function AssistantDashboard() {
       socket.off('JOB_UPDATED', updateTasks);
       socket.off('JOB_DELETED', updateTasks);
       socket.off('JOB_HELD', updateTasks);
+      socket.off('job:monitor-withdrawn', handleMonitorWithdrawn);
+      socket.off('instance:params-split', handleParamsSplit);
       socket.off('SAMPLE_DESCRIPTION_UPDATED');
     };
   }, [socket]);

@@ -7,6 +7,7 @@ import Dashboard from "./Head/HeadStats";
 import Assistants from "./Head/AssistantsPage";
 import Dispatcher from "./Head/DispatcherPage";
 import ReviewQueue from "./Head/ReviewQueuePage";
+import Monitor from "./Head/MonitorPage";
 import API_URL from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import { CACHE_KEYS } from "../utils/cache";
@@ -30,8 +31,9 @@ export default function HeadDashboard() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
-      <Route path="/dispatcher" element={<Dispatcher />} />
       <Route path="/review" element={<ReviewQueue />} />
+      <Route path="/monitor" element={<Monitor />} />
+      <Route path="/dispatcher" element={<Dispatcher />} />
       <Route path="/assistants" element={<Assistants />} />
 
       <Route path="/audit" element={<Audit />} />

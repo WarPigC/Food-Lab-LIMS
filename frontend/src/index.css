@@ -1159,6 +1159,40 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   gap: 0.5rem;
 }
 
+/* Card Accordion Collapse / Expand Animation */
+.card-accordion-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  will-change: grid-template-rows, opacity;
+  transition: opacity 0.15s ease-out,
+              grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+}
+.card-accordion-wrapper.expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.25s ease-out;
+}
+.card-accordion-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.card-accordion-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-accordion-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.param-table-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 42px;
+}
+
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }

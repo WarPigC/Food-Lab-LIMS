@@ -4,6 +4,7 @@ const Job = require('../../models/Job');
 const TestInstance = require('../../models/TestInstance');
 const SampleTransfer = require('../../models/SampleTransfer');
 const { protect } = require('../../middlewares/authMiddleware');
+const { authorize } = require('../../middlewares/roleMiddleware');
 const { cacheMiddleware } = require('../../utils/serverCache');
 
 // GET /api/jobs/validate-ulr?number=26
@@ -113,6 +114,77 @@ router.get('/stats', protect, cacheMiddleware('jobs_stats'), async (req, res) =>
     res.json({ ongoingJobs, completedJobs });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching stats' });
+  }
+});
+
+// GET /api/jobs/monitoring
+// Returns in-flight dispatched jobs with active PENDING instances for the Head's department
+router.get('/monitoring', protect, authorize('HEAD', 'ADMIN'), async (req, res) => {
+  try {
+    const dept = req.user.department ? req.user.department.toLowerCase() : '';
+    let query = { status: 'ACTIVE' };
+
+    if (req.user.role === 'HEAD') {
+      if (!['micro', 'chemical'].includes(dept)) {
+        return res.json({ jobs: [], hasMore: false, nextCursor: null });
+      }
+      query[`distribution.${dept}.required`] = true;
+      query[`distribution.${dept}.status`] = 'ASSIGNED_TO_ASSISTANT';
+    } else {
+      // ADMIN role fallback
+      query.$or = [
+        { 'distribution.micro.status': 'ASSIGNED_TO_ASSISTANT' },
+        { 'distribution.chemical.status': 'ASSIGNED_TO_ASSISTANT' }
+      ];
+    }
+
+    const limit = Math.min(parseInt(req.query.limit) || 20, 1000);
+    const cursor = req.query.cursor;
+
+    if (cursor) {
+      query._id = { ...(query._id || {}), $lt: cursor };
+    }
+
+    const jobs = await Job.find(query)
+      .populate('createdBy', 'name email')
+      .populate('parameters.parameterId', 'name unit type')
+      .populate('distribution.micro.assignedHead', 'name email')
+      .populate('distribution.chemical.assignedHead', 'name email')
+      .populate('history.by', 'name')
+      .sort({ _id: -1 })
+      .limit(limit + 1);
+
+    const hasMore = jobs.length > limit;
+    const pageJobs = hasMore ? jobs.slice(0, limit) : jobs;
+    const nextCursor = hasMore ? pageJobs[pageJobs.length - 1]._id : null;
+
+    const jobsWithInstances = await Promise.all(pageJobs.map(async (job) => {
+      let instQuery = { jobId: job._id, status: 'PENDING' };
+      if (req.user.role === 'HEAD' && dept) {
+        instQuery.department = dept;
+      }
+      const instances = await TestInstance.find(instQuery)
+        .populate('assignedTo', 'name email department')
+        .populate('createdBy', 'name department')
+        .sort({ createdAt: 1 });
+
+      const jobObj = job.toObject();
+      return {
+        ...jobObj,
+        testInstances: instances
+      };
+    }));
+
+    // Exclude jobs that have no active in-progress PENDING instances
+    const activeJobs = jobsWithInstances.filter(j => j.testInstances && j.testInstances.length > 0);
+
+    res.json({
+      jobs: activeJobs,
+      hasMore,
+      nextCursor
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching monitoring jobs', error: error.message });
   }
 });
 

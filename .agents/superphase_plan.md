@@ -247,8 +247,8 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P6 | F2 | Head Pages, Search, Filter & Sort | ✅ Done |
 | SP2.P7 | F16 | Hide Test Code Suffixes in UI | ✅ Done |
 | SP2.P8 | F18 | Error Handling & Modal Overhaul | ✅ Done |
-| SP2.P9 | F19 | Head Monitor Tab V1 — Cancel, Reassign & Live Progress | ⬜ Upcoming |
-| SP2.P10 | F20 | Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot | ⬜ Upcoming |
+| SP2.P9 | F19 | Head Monitor Tab V1: Withdraw, Migration & Live Progress | ✅ Done |
+| SP2.P10 | F20 | Head Monitor Tab V2: Unified Param Split/Merge & Progress Snapshot | ✅ Done |
 | SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
 | SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ✅ Done |
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
@@ -668,6 +668,8 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP2.P9.10 | **Analyst — pre-filled lock**: On a reassigned/re-dispatched task, pre-fill result values from carried-over data but set all `isSaved: false`. Submit button disabled until all params are re-saved. Display a subtle banner: "Results pre-filled from previous assignment — please review and save each parameter." |
 | SP2.P9.11 | Verify on mobile — Monitor cards scroll cleanly, per-param ticks readable, Cancel/Reassign modals don't overflow |
 
+> ✅ Completed (SP-2 P9 & P10 unified implementation). Created `frontend/src/pages/Head/MonitorPage.jsx` and `backend/__tests__/headMonitor.test.js`. Modified `backend/models/TestInstance.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/tests/testAssignmentRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `frontend/src/components/Sidebar.jsx`, `frontend/src/pages/HeadDashboard.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/e2e/head.spec.js`, `frontend/e2e/auth-and-layout.spec.js`, `frontend/e2e/helpers/auth.js`. All 11 backend test suites (91/91 tests) pass, Vite build clean, Playwright e2e tests pass.
+
 ---
 
 ### SP2.P10 — F20: Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot
@@ -693,6 +695,8 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 | SP2.P10.5 | Test: split 1 param from analyst A to analyst B who already has an active instance — verify no new TestInstance created, B10 scenario cannot recur |
 | SP2.P10.6 | Test: split to an analyst with no existing instance — verify new instance IS created |
 | SP2.P10.7 | Verify progress snapshot shows correct per-param data after a split |
+
+> ✅ Completed (SP-2 P9 & P10 unified implementation). Created `frontend/src/pages/Head/MonitorPage.jsx` and `backend/__tests__/headMonitor.test.js`. Modified `backend/models/TestInstance.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/tests/testAssignmentRoutes.js`, `backend/routes/tests/testResultRoutes.js`, `frontend/src/components/Sidebar.jsx`, `frontend/src/pages/HeadDashboard.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/e2e/head.spec.js`, `frontend/e2e/auth-and-layout.spec.js`, `frontend/e2e/helpers/auth.js`. All 11 backend test suites (91/91 tests) pass, Vite build clean, Playwright e2e tests pass.
 
 ---
 

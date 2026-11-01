@@ -12,6 +12,8 @@ const IDB_KEYS = new Set([
   'aiper_my_tasks',
   'aiper_transfers_in',
   'aiper_transfers_out',
+  'aiper_jobs_monitoring',
+  'aiper_jobs_monitoring_all',
 ]);
 
 /**

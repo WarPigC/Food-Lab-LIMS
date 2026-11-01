@@ -65,4 +65,6 @@ export const CACHE_KEYS = {
   GLOBAL_PARAMS: 'aiper_global_params',
   JOBS_HEAD_ALL: 'aiper_jobs_head_all',           // full active head jobs, fetched once on first search activation in Dispatcher
   INSTANCES_HEAD_ALL: 'aiper_instances_head_all', // full PENDING_HEAD_REVIEW instances, fetched once on first search activation in Review Queue
+  JOBS_MONITORING: 'aiper_jobs_monitoring',       // in-flight monitoring jobs
+  JOBS_MONITORING_ALL: 'aiper_jobs_monitoring_all', // all in-flight monitoring jobs for search
 };
