@@ -8,6 +8,12 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // In-place re-authentication modal state.
+  // Note: Managed directly here rather than via ModalContext because:
+  // 1. AuthProvider sits above ModalProvider in main.jsx, so useModal() is not accessible here.
+  // 2. ModalContext only supports confirm/error/input; not custom credential forms with inline errors.
+  // 3. ModalContext dismisses on backdrop click; re-auth must be non-dismissible to prevent data loss.
   const [isReAuthOpen, setIsReAuthOpen] = useState(false);
 
   const isReAuthOpenRef = useRef(false);

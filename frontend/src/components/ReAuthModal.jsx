@@ -1,3 +1,28 @@
+/**
+ * ReAuthModal Component
+ *
+ * NOTE ON ARCHITECTURAL DESIGN (Do not remove or refactor to ModalContext):
+ * This modal is intentionally implemented as a dedicated React Portal component
+ * rather than dispatching through ModalContext.openModal(). Do not attempt to merge
+ * this into ModalContext because:
+ *
+ * 1. Provider Hierarchy: AuthProvider wraps ModalProvider in main.jsx. Because
+ *    AuthProvider sits higher in the React tree, AuthContext (and its Axios interceptor)
+ *    cannot call useModal().
+ *
+ * 2. Fixed Modal Types: ModalContext only handles confirm, error, and basic single-input
+ *    dialogues. It does not support credential flows with masked password toggles,
+ *    active user badges, inline validation errors without closing, and a fallback logout button.
+ *
+ * 3. Modal Dismissal Safety: Built-in modals in ModalContext dismiss when clicking the backdrop.
+ *    A session expiration modal must never close on an accidental backdrop click, otherwise
+ *    the user would remain stranded with an expired token and lose unsaved form data.
+ *
+ * Styling note: This component directly uses the built-in modal CSS classes (.modal-overlay,
+ * .modal-card, .modal-header, .modal-title, .modal-body, .modal-footer, .modal-btn, .modal-input-field)
+ * so it stays 100% consistent with the AIPER design system.
+ */
+
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Lock, Eye, EyeOff, LogOut, RefreshCw, AlertCircle, ShieldAlert } from 'lucide-react';
@@ -40,7 +65,7 @@ export default function ReAuthModal() {
 
     try {
       await renewSession(password);
-      toast.success('Session renewed for 12 hours. You can continue your work.');
+      toast.success('Session renewed');
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Invalid password. Please try again.';
       setErrorMessage(msg);

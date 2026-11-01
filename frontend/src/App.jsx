@@ -29,6 +29,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      {/* In-place re-authentication modal; dedicated portal to preserve form state (see ReAuthModal.jsx) */}
       <ReAuthModal />
       <Routes>
         <Route path="/login" element={<Login />} />
