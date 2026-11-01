@@ -19,6 +19,7 @@ import CascadingParameterSelector from "../../components/CascadingParameterSelec
 import SpecialProfilesSection from "../../components/SpecialProfilesSection";
 import { useToast } from "../../hooks/useToast";
 import { useModal } from "../../hooks/useModal";
+import { handleApiError } from "../../utils/errorHandler";
 
 function buildJobCodePreview(serial, dateStr) {
   if (!serial) return "…";
@@ -1030,9 +1031,7 @@ export default function Jobs() {
       toast.success(editingJobId ? "Job updated successfully!" : "Job created successfully!");
     } catch (err) {
       console.error(err);
-      toast.error(
-        "Error saving job: " + (err.response?.data?.message || err.message),
-      );
+      handleApiError(err, "Error saving job", toast);
     } finally {
       setIsSubmitting(false);
       setLoadingJobId(null);
@@ -1064,9 +1063,7 @@ export default function Jobs() {
       toast.success("Job put on hold successfully.");
     } catch (err) {
       console.error(err);
-      toast.error(
-        "Error holding job: " + (err.response?.data?.message || err.message),
-      );
+      handleApiError(err, "Error holding job", toast);
     } finally {
       setLoadingJobId(null);
     }
@@ -1096,9 +1093,7 @@ export default function Jobs() {
       toast.success("Job cancelled successfully.");
     } catch (err) {
       console.error(err);
-      toast.error(
-        "Error cancelling job: " + (err.response?.data?.message || err.message),
-      );
+      handleApiError(err, "Error cancelling job", toast);
     } finally {
       setLoadingJobId(null);
     }

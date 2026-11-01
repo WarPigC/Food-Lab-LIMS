@@ -1350,6 +1350,74 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   overflow-y: auto;
 }
 
+.modal-debug-container {
+  margin-top: -0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.modal-debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.modal-debug-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.825rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm, 4px);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.modal-debug-toggle:hover {
+  color: var(--color-text-main);
+  background-color: var(--color-surface-hover, rgba(255, 255, 255, 0.05));
+}
+
+.modal-debug-copy-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.775rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm, 4px);
+  transition: all 0.15s ease;
+}
+
+.modal-debug-copy-btn:hover {
+  color: var(--color-text-main);
+  border-color: var(--color-text-muted);
+}
+
+.modal-debug-panel {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.775rem;
+  color: var(--color-text-muted);
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
 .modal-input-container {
   margin-bottom: 1.5rem;
 }

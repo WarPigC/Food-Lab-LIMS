@@ -20,6 +20,7 @@ import PageHeader from "../../components/PageHeader";
 import { useListControls } from "../../hooks/useListControls";
 import { testCodeRoot } from "../../utils/siblingUtils";
 import { useToast } from "../../hooks/useToast";
+import { handleApiError } from "../../utils/errorHandler";
 
 export default function ReviewQueue() {
   const { user } = useContext(AuthContext);
@@ -136,7 +137,7 @@ export default function ReviewQueue() {
       setSelectedInstance(null);
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to approve test instance");
+      handleApiError(err, "Failed to approve test instance", toast);
     } finally {
       setSubmittingReviewId(null);
     }
@@ -211,7 +212,7 @@ export default function ReviewQueue() {
       setSelectedInstance(null);
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to reassign parameters");
+      handleApiError(err, "Failed to reassign parameters", toast);
     } finally {
       setSubmittingReviewId(null);
     }

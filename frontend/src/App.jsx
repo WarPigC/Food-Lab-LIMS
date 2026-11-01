@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import NotificationsPage from './pages/NotificationsPage';
 import BugReportPage from './pages/BugReportPage';
 import ReAuthModal from './components/ReAuthModal';
+import SystemErrorBridge from './components/SystemErrorBridge';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
@@ -29,6 +30,8 @@ function App() {
 
   return (
     <ErrorBoundary>
+      {/* Global Axios error bridge to ModalContext daemon */}
+      <SystemErrorBridge />
       {/* In-place re-authentication modal; dedicated portal to preserve form state (see ReAuthModal.jsx) */}
       <ReAuthModal />
       <Routes>

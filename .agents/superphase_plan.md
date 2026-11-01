@@ -246,7 +246,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P5 | F13 | Analyst Reassignment History Tracking | ✅ Done |
 | SP2.P6 | F2 | Head Pages, Search, Filter & Sort | ✅ Done |
 | SP2.P7 | F16 | Hide Test Code Suffixes in UI | ✅ Done |
-| SP2.P8 | F18 | Error Handling & Modal Overhaul | ⬜ Upcoming |
+| SP2.P8 | F18 | Error Handling & Modal Overhaul | ✅ Done |
 | SP2.P9 | F19 | Head Monitor Tab V1 — Cancel, Reassign & Live Progress | ⬜ Upcoming |
 | SP2.P10 | F20 | Head Monitor Tab V2 — Param Split/Merge & Progress Snapshot | ⬜ Upcoming |
 | SP2.P11 | F9 | New Addition of Special Group — Water 10500 | ⬜ Upcoming |
@@ -583,6 +583,45 @@ Full flow tested: Om Prakash had 5 params. HEAD selective-reassigned 2 → Visha
 
 > ✅ **COMPLETE** (commit `852196d`). Verified clean build with `npm run build`.
 > Files changed: `frontend/src/pages/Head/ReviewQueuePage.jsx`, `frontend/src/components/AssignmentHistory.jsx`.
+
+---
+
+### SP2.P8: F18: Error Handling & Modal Overhaul (Active)
+
+**Files**:
+- `backend/server.js`
+- `backend/utils/errorHandler.js` (created)
+- `backend/middlewares/requestLogger.js`
+- `backend/__tests__/globalErrorHandler.test.js` (created)
+- `frontend/src/context/ModalContext.jsx`
+- `frontend/src/context/AuthContext.jsx`
+- `frontend/src/utils/errorHandler.js` (created)
+- `frontend/src/components/SystemErrorBridge.jsx` (created)
+- `frontend/src/App.jsx`
+- `frontend/src/index.css`
+
+**Symptom**:
+1. When gateway errors (502 Bad Gateway from Caddy or reverse proxy), service outages (503), timeouts (504), or network disconnections occur, Axios receives plain text or HTML responses. Because `err.response?.data?.message` is undefined, frontend catch blocks fall back to misleading messages (e.g. "Failed to save job") making users believe they made input errors when the server is unreachable.
+2. In-place re-authentication for 401 token expiration has been established, but non-401 system failures (502, 503, 504, 500, network dropouts) lack structured recovery actions and technical diagnostics.
+3. The Modal Daemon (`ModalContext.jsx`) `ErrorModalView` only supports a basic warning text and a generic "Go Back & Fix" button, lacking a simple "Retry" mechanism, expandable technical details, or copyable debug info for bug reports.
+4. Backend Express has no global error handling middleware `(err, req, res, next)` to normalize uncaught exceptions or Mongoose validation/cast errors. Unhandled errors risk hanging or returning unformatted responses, and `SystemLog` does not record error stacks or request contexts for API errors.
+
+**Fix**:
+1. Build backend error normalization in `backend/utils/errorHandler.js` and mount an Express global error middleware in `backend/server.js`. Standardize all error responses to `{ success: false, message, error, code }`, handle Mongoose Validation/Cast errors and duplicate keys (code 11000) as clean 400 Bad Requests, and log full error stacks and request context to `SystemLog` (`logError('API_ERROR')`).
+2. Overhaul `ErrorModalView` in `ModalContext.jsx` to support an actionable "Retry" button, an expandable "Technical Details" accordion (endpoint, method, status code, error text, timestamp), a "Copy Debug Info" button with clipboard feedback, and styled console logging.
+3. Add a global Axios system error interceptor in `frontend/src/utils/errorHandler.js` bridging through `<SystemErrorBridge />` in `App.jsx`. It catches 502, 503, 504, 500, and Network errors, triggers the Error Modal with a direct "Retry" callback, and tags `error.handled = true`.
+4. Provide a shared `handleApiError(err, fallbackMessage, toast)` helper to suppress duplicate toasts when an error has already been handled by the modal daemon.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P8.1 | **Backend - error normalizer & middleware**: Create `backend/utils/errorHandler.js` with `normalizeError(err)`. Mount global Express error middleware in `backend/server.js` catching unhandled errors, formatting `{ success: false, message, error, code }`, logging 5xx to `SystemLog`, and handling unknown `/api/*` 404s | ✅ Complete |
+| SP2.P8.2 | **Backend - unit tests**: Create `backend/__tests__/globalErrorHandler.test.js` validating Mongoose ValidationError, CastError, duplicate key 11000, 500 unhandled exceptions, and `SystemLog` persistence | ✅ Complete |
+| SP2.P8.3 | **Frontend - Modal Daemon Error view overhaul**: In `ModalContext.jsx`, upgrade `ErrorModalView` to support `retryAction` ("Retry" button), `debugInfo` object, collapsible Technical Details drawer, and "Copy Debug Info" clipboard button. Add styles in `index.css` | ✅ Complete |
+| SP2.P8.4 | **Frontend - Global Axios error interceptor & bridge**: In `frontend/src/utils/errorHandler.js`, intercept 502/503/504/500/Network errors, format plain-language explanations, wire the "Retry" button to re-invoke the failed request, output styled `console.error` table, and tag `err.handled = true`. Mount `<SystemErrorBridge />` in `App.jsx` | ✅ Complete |
+| SP2.P8.5 | **Frontend - local toast coordination helper**: In `frontend/src/utils/errorHandler.js`, export `handleApiError` to prevent duplicate red toasts when errors are handled by modal; wire into form submission handlers | ✅ Complete |
+| SP2.P8.6 | **Testing & Verification**: Run all backend test suites (`npm test`), verify clean frontend build (`npm run build`), test 502 simulation with retry and copy debug info | ✅ Complete |
+
+> ✅ Completed (commit `SP-2 P8`). Files created: `backend/utils/errorHandler.js`, `backend/__tests__/globalErrorHandler.test.js`, `frontend/src/utils/errorHandler.js`, `frontend/src/components/SystemErrorBridge.jsx`. Files modified: `backend/server.js`, `backend/middlewares/requestLogger.js`, `frontend/src/context/ModalContext.jsx`, `frontend/src/App.jsx`, `frontend/src/index.css`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`, `frontend/src/pages/Head/DispatcherPage.jsx`, `frontend/src/pages/Head/ReviewQueuePage.jsx`, `frontend/src/pages/AssistantDashboard.jsx`. All 10 backend test suites (78/78 tests) pass, frontend build clean.
 
 ---
 

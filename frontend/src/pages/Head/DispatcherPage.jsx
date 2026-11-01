@@ -23,6 +23,7 @@ import { useListControls } from "../../hooks/useListControls";
 import { jobCodeComparator } from "../../utils/siblingUtils";
 import { useToast } from "../../hooks/useToast";
 import { useModal } from "../../hooks/useModal";
+import { handleApiError } from "../../utils/errorHandler";
 
 import { Info, ClipboardList, ShieldCheck } from "lucide-react";
 
@@ -416,7 +417,8 @@ export default function Dispatcher() {
       fetchJobs();
       toast.success("Parameter amendment approved and assigned.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error approving amendment");
+      console.error(err);
+      handleApiError(err, "Error approving amendment", toast);
     } finally {
       setSubmittingAmendmentId(null);
     }
@@ -442,7 +444,8 @@ export default function Dispatcher() {
       fetchJobs();
       toast.success("Parameter amendment rejected.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error rejecting amendment");
+      console.error(err);
+      handleApiError(err, "Error rejecting amendment", toast);
     } finally {
       setSubmittingAmendmentId(null);
     }
@@ -554,7 +557,7 @@ export default function Dispatcher() {
       fetchJobs();
     } catch (err) {
       console.error(err);
-      toast.error("Error: " + (err.response?.data?.message || err.message));
+      handleApiError(err, "Error dispatching job", toast);
     } finally {
       setSubmittingJobId(null);
     }
@@ -585,9 +588,7 @@ export default function Dispatcher() {
       fetchJobs();
     } catch (err) {
       console.error(err);
-      toast.error(
-        "Error returning job: " + (err.response?.data?.message || err.message),
-      );
+      handleApiError(err, "Error returning job", toast);
     } finally {
       setIsReturning(false);
     }

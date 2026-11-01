@@ -32,8 +32,15 @@ function requestLogger(req, res, next) {
       }
     };
 
-    // Log failed requests as warnings
+    // Log failed requests as warnings (unless 5xx was already logged by globalErrorHandler)
     if (res.statusCode >= 400) {
+      if (res.statusCode >= 500 && res.locals && res.locals.errorHandled) {
+        // Already recorded with full stack trace by globalErrorHandler
+        return;
+      }
+      if (res.locals && res.locals.errorMessage) {
+        data.error = { message: res.locals.errorMessage };
+      }
       logWarn('API_ERROR', data);
     } else {
       logInfo('API_REQUEST', data);

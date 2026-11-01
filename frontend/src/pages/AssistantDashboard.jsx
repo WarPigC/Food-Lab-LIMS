@@ -300,7 +300,9 @@ export default function AssistantDashboard() {
       console.error(err);
       updated[index].isSaved = false;
       setResultsData(updated);
-      modal.error(err.response?.data?.message || 'Error saving parameter');
+      if (!err?.handled && !err?._handledByModal) {
+        modal.error(err.response?.data?.message || 'Error saving parameter');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -362,7 +364,9 @@ export default function AssistantDashboard() {
       fetchTasks();
     } catch (err) {
       console.error(err);
-      modal.error(err.response?.data?.message || 'Error saving draft');
+      if (!err?.handled && !err?._handledByModal) {
+        modal.error(err.response?.data?.message || 'Error saving draft');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -430,7 +434,9 @@ export default function AssistantDashboard() {
       fetchTasks();
     } catch (err) {
       console.error(err);
-      modal.error(err.response?.data?.message || 'An error occurred while submitting the task.');
+      if (!err?.handled && !err?._handledByModal) {
+        modal.error(err.response?.data?.message || 'An error occurred while submitting the task.');
+      }
     } finally {
       setIsSubmitting(false);
     }

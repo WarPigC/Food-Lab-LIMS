@@ -21,6 +21,7 @@ if (fs.existsSync(envLocalPath)) {
 // Logging
 const { initMongoTransport, logError } = require('./utils/logger');
 const requestLogger = require('./middlewares/requestLogger');
+const { globalErrorHandler, apiNotFoundHandler } = require('./utils/errorHandler');
 
 const app = express();
 // Enable trust proxy because the application sits behind Caddy reverse proxy
@@ -105,6 +106,12 @@ app.use('/api/units', apiLimiter, require('./routes/unitRoutes'));
 app.use('/api/special-profiles', apiLimiter, require('./routes/specialProfileRoutes'));
 app.use('/api/export', apiLimiter, require('./routes/exportRoutes'));
 app.use('/api/logs', apiLimiter, require('./routes/logRoutes'));
+
+// 404 handler for unknown /api/* endpoints
+app.use('/api', apiNotFoundHandler);
+
+// Global error handling middleware (catches next(err) or unhandled route throws)
+app.use(globalErrorHandler);
 
 // Connect to MongoDB using MONGODB_URI or MONGO_URI
 const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;

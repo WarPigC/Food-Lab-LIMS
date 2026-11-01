@@ -6,7 +6,17 @@ import React, {
   useEffect,
 } from "react";
 import ReactDOM from "react-dom";
-import { Check, Trash2, AlertTriangle, AlertCircle, X } from "lucide-react";
+import {
+  Check,
+  Trash2,
+  AlertTriangle,
+  AlertCircle,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  RefreshCw,
+} from "lucide-react";
 
 export const MODAL_VARIANTS = {
   default: {
@@ -95,13 +105,40 @@ function ConfirmModalView({ modal, onResolve }) {
 }
 
 function ErrorModalView({ modal, onResolve }) {
+  const [showDebug, setShowDebug] = useState(false);
+  const [copied, setCopied] = useState(false);
   const accentColor = "var(--color-danger, #EF4444)";
 
+  const hasRetry = typeof modal.onRetry === "function";
+
   const handleDismiss = () => {
-    if (typeof modal.onConfirm === "function") {
+    if (typeof modal.onDismiss === "function") {
+      modal.onDismiss();
+    } else if (typeof modal.onConfirm === "function") {
       modal.onConfirm();
     }
+    onResolve(false);
+  };
+
+  const handleRetry = () => {
+    if (typeof modal.onRetry === "function") {
+      modal.onRetry();
+    }
     onResolve(true);
+  };
+
+  const handleCopyDebug = async () => {
+    if (!modal.debugInfo) return;
+    try {
+      const text = typeof modal.debugInfo === "string"
+        ? modal.debugInfo
+        : JSON.stringify(modal.debugInfo, null, 2);
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.warn("Could not copy debug info to clipboard:", e);
+    }
   };
 
   return (
@@ -123,19 +160,69 @@ function ErrorModalView({ modal, onResolve }) {
         <div className="modal-detail-panel">{modal.detail}</div>
       )}
 
+      {modal.debugInfo && (
+        <div className="modal-debug-container">
+          <div className="modal-debug-header">
+            <button
+              type="button"
+              className="modal-debug-toggle"
+              onClick={() => setShowDebug(!showDebug)}
+              aria-expanded={showDebug}
+            >
+              {showDebug ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <span>Technical Details</span>
+            </button>
+            <button
+              type="button"
+              className="modal-debug-copy-btn"
+              onClick={handleCopyDebug}
+              title="Copy details to clipboard"
+            >
+              {copied ? <Check size={13} style={{ color: "var(--color-success)" }} /> : <Copy size={13} />}
+              <span>{copied ? "Copied" : "Copy Debug Info"}</span>
+            </button>
+          </div>
+          {showDebug && (
+            <pre className="modal-debug-panel">
+              {typeof modal.debugInfo === "string"
+                ? modal.debugInfo
+                : JSON.stringify(modal.debugInfo, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+
       <div className="modal-footer">
         <button
           type="button"
           className="btn btn-secondary modal-btn"
           style={{
-            borderColor: accentColor,
-            color: accentColor,
+            borderColor: hasRetry ? "var(--color-border)" : accentColor,
+            color: hasRetry ? "var(--color-text-main)" : accentColor,
           }}
           onClick={handleDismiss}
-          autoFocus
+          autoFocus={!hasRetry}
         >
-          {modal.dismissLabel || "Go Back & Fix"}
+          {modal.dismissLabel || (hasRetry ? "Close" : "Go Back & Fix")}
         </button>
+        {hasRetry && (
+          <button
+            type="button"
+            className="btn btn-primary modal-btn"
+            style={{
+              backgroundColor: "var(--color-primary)",
+              color: "#ffffff",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem"
+            }}
+            onClick={handleRetry}
+            autoFocus
+          >
+            <RefreshCw size={15} />
+            <span>{modal.retryLabel || "Retry"}</span>
+          </button>
+        )}
       </div>
     </div>
   );
