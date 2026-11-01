@@ -254,7 +254,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
 | SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ✅ Done |
 | SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ✅ Done |
-| SP2.P16 | F23 | Dynamic Modal Engine (modal.custom) | ⬜ Upcoming |
+| SP2.P16 | F23 | Dynamic Modal Engine (modal.custom) | ✅ Done |
 
 ---
 
@@ -867,13 +867,15 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
    - Escape key dismisses custom modals by default (resolving with `null` or `false`).
    - Backdrop click dismisses custom modals when enabled.
 
-| Subphase | Task |
-|---|---|
-| SP2.P16.1 | **Hook extension**: In `frontend/src/hooks/useModal.js`, expose `custom: (opts = {}) => openModal("custom", opts)` |
-| SP2.P16.2 | **Custom view component**: In `frontend/src/context/ModalContext.jsx`, create `<CustomModalView modal={modal} onResolve={onResolve} />` supporting title, custom icon, top-right close `X`, and render function content `({ resolve, close })` |
-| SP2.P16.3 | **Portal dispatch & event handling**: Wire `currentModal.type === "custom"` into `ModalPortal`, connecting backdrop click (`dismissOnBackdrop !== false`) and ESC keyboard dismissal (`dismissOnEsc !== false`) to resolve with `null` |
-| SP2.P16.4 | **Styling support**: In `frontend/src/index.css`, ensure header layout accommodates custom icons, titles, and top-right close buttons cleanly with responsive wrapping |
-| SP2.P16.5 | **Testing & Verification**: Verify `modal.custom` with sample dialogs, validating promise resolution with returned data, cancellation via ESC and backdrop, and clean transition in the modal queue |
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P16.1 | **Hook extension**: In `frontend/src/hooks/useModal.js`, expose `custom: (opts = {}) => openModal("custom", opts)` | ✅ Complete |
+| SP2.P16.2 | **Custom view component**: In `frontend/src/context/ModalContext.jsx`, create `<CustomModalView modal={modal} onResolve={onResolve} />` supporting title, custom icon, top-right close `X`, and render function content `({ resolve, close })` | ✅ Complete |
+| SP2.P16.3 | **Portal dispatch & event handling**: Wire `currentModal.type === "custom"` into `ModalPortal`, connecting backdrop click (`dismissOnBackdrop !== false`) and ESC keyboard dismissal (`dismissOnEsc !== false`) to resolve with `null` | ✅ Complete |
+| SP2.P16.4 | **Styling support**: In `frontend/src/index.css`, ensure header layout accommodates custom icons, titles, and top-right close buttons cleanly with responsive wrapping | ✅ Complete |
+| SP2.P16.5 | **Testing & Verification**: Verify `modal.custom` with sample dialogs, validating promise resolution with returned data, cancellation via ESC and backdrop, and clean transition in the modal queue | ✅ Complete |
+
+> ✅ Completed (commit `SP-2 P16`). Files created: `frontend/e2e/modal-custom.spec.js`. Files modified: `frontend/src/context/ModalContext.jsx`, `frontend/src/hooks/useModal.js`, `frontend/src/index.css`, `frontend/src/components/GlobalJobHistory.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/src/components/ProfileUpdateModal.jsx`, `frontend/src/components/Header.jsx`, `frontend/src/components/CascadingParameterSelector.jsx`, `frontend/src/pages/Settings/GroupSettings.jsx`, `frontend/src/components/SystemErrorBridge.jsx`. All 5 modal-custom and 14 core frontend Playwright tests pass; all 11 backend test suites (91/91 tests) pass; frontend production build clean.
 
 ---
 

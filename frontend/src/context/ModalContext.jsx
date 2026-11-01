@@ -327,12 +327,150 @@ function InputModalView({ modal, onResolve }) {
   );
 }
 
+function CustomModalChildWrapper({ target, resolve, close, modalProps }) {
+  if (typeof target === "function") {
+    const TargetComponent = target;
+    return <TargetComponent resolve={resolve} close={close} {...modalProps} />;
+  }
+  if (React.isValidElement(target)) {
+    return React.cloneElement(target, { resolve, close });
+  }
+  return target;
+}
+
+function CustomModalView({ modal, onResolve }) {
+  const showClose = modal.showClose !== false;
+  const content =
+    modal.content ||
+    modal.render ||
+    modal.component ||
+    modal.children ||
+    modal.body;
+  const hasHeader =
+    modal.header !== false && Boolean(modal.title || modal.icon || showClose);
+
+  const cardStyle = {
+    ...(modal.accentColor
+      ? { borderTop: `4px solid ${modal.accentColor}` }
+      : {}),
+    ...(modal.maxWidth ? { maxWidth: modal.maxWidth } : {}),
+    ...(modal.style || {}),
+  };
+
+  const close = useCallback(
+    (val = null) => {
+      if (typeof modal.onDismiss === "function") {
+        modal.onDismiss();
+      }
+      onResolve(val);
+    },
+    [modal, onResolve]
+  );
+
+  const resolve = useCallback(
+    (val) => {
+      if (typeof modal.onConfirm === "function") {
+        modal.onConfirm(val);
+      }
+      onResolve(val);
+    },
+    [modal, onResolve]
+  );
+
+  if (modal.frameless) {
+    return (
+      <div
+        className={modal.className || undefined}
+        style={modal.style || undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CustomModalChildWrapper
+          target={content}
+          resolve={resolve}
+          close={close}
+          modalProps={modal.props}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`modal-card${modal.wide ? " modal-card--wide" : ""}${
+        modal.className ? ` ${modal.className}` : ""
+      }`}
+      style={cardStyle}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {hasHeader && (
+        <div className="modal-header modal-header--custom">
+          <div className="modal-header-content">
+            {modal.icon && <span className="modal-header-icon">{modal.icon}</span>}
+            {modal.title &&
+              (typeof modal.title === "string" ? (
+                <h3 className="modal-title">{modal.title}</h3>
+              ) : (
+                modal.title
+              ))}
+          </div>
+          {showClose && (
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={() => close(null)}
+              aria-label="Close modal"
+            >
+              <X size={20} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {content && (
+        <div className="modal-custom-content">
+          <CustomModalChildWrapper
+            target={content}
+            resolve={resolve}
+            close={close}
+            modalProps={modal.props}
+          />
+        </div>
+      )}
+
+      {modal.detail && (
+        <div className="modal-detail-panel">{modal.detail}</div>
+      )}
+
+      {modal.footer && (
+        <div className="modal-footer">
+          <CustomModalChildWrapper
+            target={modal.footer}
+            resolve={resolve}
+            close={close}
+            modalProps={modal.props}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModalPortal({ currentModal, onResolve }) {
   useEffect(() => {
     if (!currentModal) return;
 
     const handleGlobalKeyDown = (e) => {
       if (e.key === "Escape") {
+        if (currentModal.type === "custom") {
+          if (currentModal.dismissOnEsc !== false) {
+            e.preventDefault();
+            if (typeof currentModal.onDismiss === "function") {
+              currentModal.onDismiss();
+            }
+            onResolve(null);
+          }
+          return;
+        }
         e.preventDefault();
         if (currentModal.type === "input") {
           onResolve(null);
@@ -369,6 +507,16 @@ function ModalPortal({ currentModal, onResolve }) {
       return;
     }
 
+    if (currentModal.type === "custom") {
+      if (currentModal.dismissOnBackdrop !== false) {
+        if (typeof currentModal.onDismiss === "function") {
+          currentModal.onDismiss();
+        }
+        onResolve(null);
+      }
+      return;
+    }
+
     if (currentModal.type === "input") {
       onResolve(null);
     } else if (currentModal.type === "error") {
@@ -393,6 +541,9 @@ function ModalPortal({ currentModal, onResolve }) {
       )}
       {currentModal.type === "input" && (
         <InputModalView modal={currentModal} onResolve={onResolve} />
+      )}
+      {currentModal.type === "custom" && (
+        <CustomModalView modal={currentModal} onResolve={onResolve} />
       )}
     </div>,
     document.body
@@ -455,6 +606,23 @@ export function ModalProvider({ children }) {
       });
     });
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.__appModal = {
+        openModal,
+        resolveModal,
+        confirm: (opts = {}) => openModal("confirm", opts),
+        error: (opts = {}) => {
+          const config = typeof opts === "string" ? { body: opts } : opts;
+          return openModal("error", config);
+        },
+        input: (opts = {}) => openModal("input", opts),
+        custom: (opts = {}) => openModal("custom", opts),
+        close: resolveModal,
+      };
+    }
+  }, [openModal, resolveModal]);
 
   return (
     <ModalContext.Provider value={{ openModal, resolveModal }}>

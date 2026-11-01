@@ -95,9 +95,9 @@ test.describe('Admin Officer Experience', () => {
     // Verify Special Profiles section is visible
     await expect(page.getByText('Special Profiles & Panels')).toBeVisible();
 
-    const waterCheckbox = page.locator('#special-profile-water');
-    const pesticidesCheckbox = page.locator('#special-profile-pesticides');
-    const fattyAcidsCheckbox = page.locator('#special-profile-fatty-acids');
+    const waterCheckbox = page.locator('#special-profile-water-single, #special-profile-water');
+    const pesticidesCheckbox = page.locator('#special-profile-pesticides-single, #special-profile-pesticides');
+    const fattyAcidsCheckbox = page.locator('#special-profile-fatty-acids-single, #special-profile-fatty-acids');
 
     await expect(waterCheckbox).toBeVisible();
     await expect(pesticidesCheckbox).toBeVisible();

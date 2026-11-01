@@ -27,8 +27,29 @@ const CascadingParameterSelector = ({
   // Officer's curated pick list
   const [selectedParams, setSelectedParams] = useState(initialSelectedParams);
   const [showSpecifications, setShowSpecifications] = useState(initialShowSpecifications);
-  const [specModalParam, setSpecModalParam] = useState(null);
-  const [specModalValue, setSpecModalValue] = useState('');
+
+  const handleEditSpecification = async (p) => {
+    const val = await modal.input({
+      title: `Specification for "${p.name}"`,
+      placeholder: "Enter specification (e.g. Max 50, 6.5 - 8.5)",
+      defaultValue: p.specification || '',
+      multiline: false,
+      required: false,
+      confirmLabel: "Save",
+    });
+
+    if (val !== null) {
+      const paramId = getParamId(p);
+      setSelectedParams(prev => prev.map(item => getParamId(item) === paramId ? { ...item, specification: val } : item));
+      setGlobalParameters(prev => prev.map(item => getParamId(item) === paramId ? { ...item, specification: val } : item));
+      try {
+        const token = localStorage.getItem('token');
+        await axios.put(`${API_URL}/api/parameters/${paramId}`, { specification: val }, { headers: { Authorization: `Bearer ${token}` } });
+      } catch (e) {
+        console.error('Failed to save spec', e);
+      }
+    }
+  };
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -662,7 +683,7 @@ const CascadingParameterSelector = ({
                           ) : (
                             <button
                               type="button"
-                              onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
+                              onClick={() => handleEditSpecification(p)}
                               disabled={immutable}
                               style={{
                                 background: p.specification ? 'var(--color-surface-hover)' : 'var(--color-primary)',
@@ -747,7 +768,7 @@ const CascadingParameterSelector = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => { setSpecModalParam(p); setSpecModalValue(p.specification || ''); }}
+                        onClick={() => handleEditSpecification(p)}
                         disabled={immutable}
                         style={{
                           width: '100%',
@@ -842,40 +863,6 @@ const CascadingParameterSelector = ({
           backgroundColor: 'var(--color-surface-hover)', borderRadius: 'var(--radius-md)' 
         }}>
           Select a sub-group to start adding parameters.
-        </div>
-      )}
-
-      {specModalParam && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, backdropFilter: 'blur(4px)'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '1.5rem', animation: 'slideUp 0.3s ease' }}>
-            <h3 style={{ margin: '0 0 1rem 0' }}>Specification for "{specModalParam.name}"</h3>
-            <input 
-              autoFocus
-              value={specModalValue} 
-              onChange={e => setSpecModalValue(e.target.value)} 
-              placeholder="Enter specification (e.g. Max 50, 6.5 - 8.5)" 
-              style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }}
-            />
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn" onClick={() => setSpecModalParam(null)}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={async () => {
-                const paramId = getParamId(specModalParam);
-                // Update locally
-                setSelectedParams(prev => prev.map(p => getParamId(p) === paramId ? { ...p, specification: specModalValue } : p));
-                setGlobalParameters(prev => prev.map(p => getParamId(p) === paramId ? { ...p, specification: specModalValue } : p));
-                // Update DB
-                try {
-                  const token = localStorage.getItem('token');
-                  await axios.put(`${API_URL}/api/parameters/${paramId}`, { specification: specModalValue }, { headers: { Authorization: `Bearer ${token}` } });
-                } catch(e) { console.error('Failed to save spec', e); }
-                setSpecModalParam(null);
-              }}>Save</button>
-            </div>
-          </div>
         </div>
       )}
 

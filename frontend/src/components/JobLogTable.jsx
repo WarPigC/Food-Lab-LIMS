@@ -13,12 +13,13 @@ import {
   Loader2,
 } from "lucide-react";
 import JobTimeline from "./JobTimeline";
-import GlobalJobHistory from "./GlobalJobHistory";
+import GlobalJobHistory, { openJobHistoryModal } from "./GlobalJobHistory";
 import AssignmentHistory from "./AssignmentHistory";
 import ReportModal from "./ReportModal";
 import InfiniteScroll from "./InfiniteScroll";
 import { formatJobCode } from "../utils/serialUtils";
 import { formatDate } from "../utils/dateUtils";
+import { useModal } from "../hooks/useModal";
 
 export default function JobLogTable({
   jobs,
@@ -133,7 +134,7 @@ export default function JobLogTable({
     setExpandedJobId(expandedJobId === id ? null : id);
   };
 
-  const [historyJob, setHistoryJob] = useState(null);
+  const modal = useModal();
   const [selectedReportJob, setSelectedReportJob] = useState(null);
 
   const StatusBadge = ({ status, isLoading }) => {
@@ -475,7 +476,7 @@ export default function JobLogTable({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setHistoryJob(job);
+                              openJobHistoryModal(modal, job);
                             }}
                             style={{
                               background: editingJobId === job._id
@@ -780,7 +781,7 @@ export default function JobLogTable({
                   )}
                   {job.history?.length > 0 && (
                     <button
-                      onClick={() => setHistoryJob(job)}
+                      onClick={() => openJobHistoryModal(modal, job)}
                       style={{
                         padding: "0.5rem",
                         background: editingJobId === job._id
@@ -947,12 +948,6 @@ export default function JobLogTable({
         onLoadMore={handleLoadMore} 
       />
 
-      {historyJob && (
-        <GlobalJobHistory
-          job={historyJob}
-          onClose={() => setHistoryJob(null)}
-        />
-      )}
       {selectedReportJob && (
         <ReportModal
           job={selectedReportJob}

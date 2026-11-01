@@ -3,15 +3,15 @@ import { AuthContext } from '../context/AuthContext';
 import { LogOut, User as UserIcon, Menu, ChevronDown, Lock, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
-import ProfileUpdateModal from './ProfileUpdateModal';
+import { openProfileUpdateModal } from './ProfileUpdateModal';
+import { useModal } from '../hooks/useModal';
 
 export default function Header({ onToggleSidebar }) {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const modal = useModal();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [updateType, setUpdateType] = useState('password'); // 'email' or 'password'
 
   const menuRef = useRef(null);
 
@@ -65,7 +65,7 @@ export default function Header({ onToggleSidebar }) {
             width: '200px', zIndex: 1000, overflow: 'hidden'
           }}>
             <button 
-              onClick={() => { setUpdateType('email'); setShowUpdateModal(true); setShowProfileMenu(false); }}
+              onClick={() => { openProfileUpdateModal(modal, 'email'); setShowProfileMenu(false); }}
               style={{ width: '100%', textAlign: 'center', padding: '0.75rem 1rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-main)', borderBottom: '1px solid var(--color-border)' }}
               onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)'}
               onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -73,7 +73,7 @@ export default function Header({ onToggleSidebar }) {
               <Mail size={16} /> Change Email
             </button>
             <button 
-              onClick={() => { setUpdateType('password'); setShowUpdateModal(true); setShowProfileMenu(false); }}
+              onClick={() => { openProfileUpdateModal(modal, 'password'); setShowProfileMenu(false); }}
               style={{ width: '100%', textAlign: 'center', padding: '0.75rem 1rem', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--color-text-main)' }}
               onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)'}
               onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -87,12 +87,6 @@ export default function Header({ onToggleSidebar }) {
       <button onClick={handleLogout} className="btn" style={{ padding: '0.5rem', marginLeft: '0.5rem', color: 'var(--color-text-muted)', backgroundColor: 'transparent' }} title="Logout">
         <LogOut size={20} />
       </button>
-
-      <ProfileUpdateModal
-        isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-        updateType={updateType}
-      />
     </header>
   );
 }

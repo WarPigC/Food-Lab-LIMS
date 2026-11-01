@@ -72,8 +72,21 @@ export default function GroupSettings() {
     type: "Chemical",
     unit: "",
   });
-  const [specModalParam, setSpecModalParam] = useState(null);
-  const [specModalValue, setSpecModalValue] = useState("");
+
+  const handleEditSpecification = async (p) => {
+    const val = await modal.input({
+      title: `Specification for "${p.name}"`,
+      placeholder: "Enter specification",
+      defaultValue: p.specification || "",
+      multiline: false,
+      required: false,
+      confirmLabel: "Save",
+    });
+
+    if (val !== null) {
+      await handleUpdateGlobalParameter(p._id, "specification", val);
+    }
+  };
 
   const fetchData = async () => {
     // Only set page loading to true if we have NO cached groups data
@@ -1265,10 +1278,7 @@ export default function GroupSettings() {
                       <td style={{ padding: "0.75rem 1rem" }}>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSpecModalParam(p);
-                            setSpecModalValue(p.specification || "");
-                          }}
+                          onClick={() => handleEditSpecification(p)}
                           style={{
                             background: p.specification
                               ? "var(--color-surface-hover)"
@@ -1441,80 +1451,6 @@ export default function GroupSettings() {
           )}
         </div>
       </div>
-
-      {specModalParam && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              padding: "1.5rem",
-              animation: "slideUp 0.3s ease",
-            }}
-          >
-            <h3 style={{ margin: "0 0 1rem 0" }}>
-              Specification for "{specModalParam.name}"
-            </h3>
-            <input
-              autoFocus
-              value={specModalValue}
-              onChange={(e) => setSpecModalValue(e.target.value)}
-              placeholder="Enter specification"
-              style={{
-                width: "100%",
-                padding: "0.6rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-sm)",
-                marginBottom: "1rem",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setSpecModalParam(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={async () => {
-                  await handleUpdateGlobalParameter(
-                    specModalParam._id,
-                    "specification",
-                    specModalValue,
-                  );
-                  setSpecModalParam(null);
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

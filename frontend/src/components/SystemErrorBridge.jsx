@@ -15,6 +15,10 @@ export default function SystemErrorBridge() {
   const modal = useModal();
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__appModal = modal;
+    }
+
     // Register modal.error as the system error modal dispatcher
     const unregisterModal = registerSystemErrorHandler((config) => {
       return modal.error(config);

@@ -2,7 +2,7 @@ import React from 'react';
 import { Clock, PlusCircle, CheckCircle, RotateCcw, Edit, RefreshCw, X } from 'lucide-react';
 import { formatDateTime } from '../utils/dateUtils';
 
-export default function GlobalJobHistory({ history, job, onClose }) {
+export function JobHistoryTimelineContent({ history, job }) {
   // Support passing either full job object or just history array
   const baseHistory = job?.history || history || [];
   
@@ -10,7 +10,7 @@ export default function GlobalJobHistory({ history, job, onClose }) {
   if (job?.testInstances) {
     const instancesByDept = {};
     job.testInstances.forEach(inst => {
-      // Skip reopened/cancelled — they are not head-reassign targets
+      // Skip reopened/cancelled; they are not head-reassign targets
       if (['REOPENED', 'CANCELLED'].includes(inst.status)) return;
       const dept = (inst.department || inst.createdBy?.department || inst.assignedTo?.department || '').toLowerCase();
       if (!dept) return;
@@ -27,7 +27,7 @@ export default function GlobalJobHistory({ history, job, onClose }) {
         const instCreatedAt = new Date(inst.createdAt);
 
         if (idx === 0) {
-          // First instance = initial dispatch — skip (already in job.history as DISPATCHED)
+          // First instance = initial dispatch, skip (already in job.history as DISPATCHED)
           // But still capture REASSIGN_MERGED on this instance (params sent back here)
           (inst.reviewHistory || [])
             .filter(rh => rh.action === 'REASSIGN_MERGED')
@@ -60,7 +60,7 @@ export default function GlobalJobHistory({ history, job, onClose }) {
 
         reassignEvents.push({
           action: 'REASSIGNED_TO_ANALYST',
-          // Use inst.createdAt as the event time — most reliable
+          // Use inst.createdAt as the event time; most reliable
           timestamp: inst.createdAt,
           by: trigger?.by || null,
           note,
@@ -112,6 +112,104 @@ export default function GlobalJobHistory({ history, job, onClose }) {
   };
 
   return (
+    <div style={{ padding: '0.5rem', maxHeight: '60vh', overflowY: 'auto' }}>
+      {historyData.length === 0 ? (
+        <p style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>No history available for this job.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
+          {/* Vertical line connecting timeline dots */}
+          <div style={{ position: 'absolute', top: '10px', bottom: '10px', left: '15px', width: '2px', backgroundColor: 'var(--color-border)', zIndex: 0 }} />
+          
+          {historyData.map((event, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 1 }}>
+              <div style={{ 
+                minWidth: '32px', height: '32px', borderRadius: '50%', 
+                backgroundColor: 'white', border: `2px solid ${getActionColor(event.action)}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: getActionColor(event.action)
+              }}>
+                {getActionIcon(event.action)}
+              </div>
+              
+              <div style={{ flex: 1, backgroundColor: 'var(--color-surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: getActionColor(event.action) }}>
+                    {event.action.replace(/_/g, ' ')}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                    {formatDateTime(event.timestamp)}
+                  </div>
+                </div>
+                
+                <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>By:</span> 
+                  <span style={{ fontWeight: 500 }}>{event.by?.name || 'Unknown User'}</span>
+                </div>
+                
+                {event.note && (
+                  <div style={{ fontSize: '0.85rem', padding: '0.5rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', borderLeft: `3px solid ${getActionColor(event.action)}` }}>
+                    <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Note: </span>
+                    {event.note}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Opens the Job History Timeline using the dynamic modal engine (modal.custom).
+ */
+export function openJobHistoryModal(modal, job) {
+  if (!modal || !modal.custom) {
+    console.error("modal.custom is required to open job history modal");
+    return;
+  }
+
+  return modal.custom({
+    title: (
+      <div>
+        <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
+          Job History Timeline
+        </div>
+        {job && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              color: 'var(--color-primary)',
+              backgroundColor: 'rgba(44, 62, 80, 0.07)',
+              padding: '0.2rem 0.55rem',
+              borderRadius: '999px',
+              letterSpacing: '0.04em',
+            }}>
+              {job.jobCode}
+            </span>
+            <span style={{ color: 'var(--color-border)', fontSize: '0.9rem' }}>·</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+              {job.clientName}
+            </span>
+          </div>
+        )}
+      </div>
+    ),
+    icon: <Clock size={22} color="var(--color-primary)" />,
+    accentColor: 'var(--color-primary)',
+    wide: true,
+    content: () => <JobHistoryTimelineContent job={job} />,
+  });
+}
+
+/**
+ * Fallback standalone component for backwards-compatibility.
+ */
+export default function GlobalJobHistory({ history, job, onClose }) {
+  return (
     <div style={{
       position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
       backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -150,52 +248,7 @@ export default function GlobalJobHistory({ history, job, onClose }) {
           </button>
         </div>
 
-        <div style={{ padding: '0.5rem', maxHeight: '60vh', overflowY: 'auto' }}>
-          {historyData.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>No history available for this job.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative' }}>
-              {/* Vertical line connecting timeline dots */}
-              <div style={{ position: 'absolute', top: '10px', bottom: '10px', left: '15px', width: '2px', backgroundColor: 'var(--color-border)', zIndex: 0 }} />
-              
-              {historyData.map((event, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 1 }}>
-                  <div style={{ 
-                    minWidth: '32px', height: '32px', borderRadius: '50%', 
-                    backgroundColor: 'white', border: `2px solid ${getActionColor(event.action)}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: getActionColor(event.action)
-                  }}>
-                    {getActionIcon(event.action)}
-                  </div>
-                  
-                  <div style={{ flex: 1, backgroundColor: 'var(--color-surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: getActionColor(event.action) }}>
-                        {event.action.replace(/_/g, ' ')}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                        {formatDateTime(event.timestamp)}
-                      </div>
-                    </div>
-                    
-                    <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <span style={{ color: 'var(--color-text-muted)' }}>By:</span> 
-                      <span style={{ fontWeight: 500 }}>{event.by?.name || 'Unknown User'}</span>
-                    </div>
-                    
-                    {event.note && (
-                      <div style={{ fontSize: '0.85rem', padding: '0.5rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', borderLeft: `3px solid ${getActionColor(event.action)}` }}>
-                        <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Note: </span>
-                        {event.note}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <JobHistoryTimelineContent history={history} job={job} />
       </div>
     </div>
   );

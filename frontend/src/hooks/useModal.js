@@ -18,6 +18,7 @@ export function useModal() {
         return openModal("error", config);
       },
       input: (opts = {}) => openModal("input", opts),
+      custom: (opts = {}) => openModal("custom", opts),
       close: resolveModal,
     };
   }, [openModal, resolveModal]);
