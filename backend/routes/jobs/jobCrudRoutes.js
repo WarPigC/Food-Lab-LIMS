@@ -707,11 +707,13 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       const wasChemicalRequired = job.distribution.chemical?.required;
 
       if (hasMicro && !wasMicroRequired && !isResubmitted) {
-        // New department activated via param modification — bypass approval
+        // New department activated via param modification, bypass approval
         microStatus = 'PENDING';
+        job.headApproval.micro = true;
       }
       if (hasChemical && !wasChemicalRequired && !isResubmitted) {
         chemicalStatus = 'PENDING';
+        job.headApproval.chemical = true;
       }
 
       job.distribution = {
@@ -719,7 +721,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         chemical: { required: hasChemical, status: hasChemical ? chemicalStatus : 'PENDING', assignedHead: assignedChemicalHead || job.distribution.chemical?.assignedHead || null }
       };
 
-      // Handle sample transfer state for single↔multi dept transitions
+      // Handle sample transfer state for single-to-multi dept transitions
       if (hasMicro && hasChemical) {
         job.sampleFlow = {
           type: 'PARALLEL',
@@ -733,8 +735,12 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
               distribution: { micro: { required: hasMicro }, chemical: { required: hasChemical } },
               sample: job.sample
             };
-            if (isSampleHandoverRequired(updatedJobShape)) {
+            const chemAlreadyActive = ['ASSIGNED_TO_ASSISTANT', 'COMPLETED', 'PENDING_HEAD_REVIEW'].includes(job.distribution.chemical?.status);
+            if (isSampleHandoverRequired(updatedJobShape) && !chemAlreadyActive) {
               job.sampleTransferState = 'PENDING_TRANSFER';
+            } else if (chemAlreadyActive) {
+              // Chemical already had the sample, no Micro to Chemical handover required
+              job.sampleTransferState = 'ACCEPTED';
             }
           }
         }
