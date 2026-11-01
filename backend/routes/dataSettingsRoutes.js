@@ -53,8 +53,6 @@ router.put('/groups/:oldName', protect, async (req, res) => {
 
     // Cascade rename to all ParameterGroup docs
     const pgResult = await ParameterGroup.updateMany({ group: oldName }, { $set: { group: trimmed } });
-    // Cascade rename to Parameter model
-    await Parameter.updateMany({ group: oldName }, { $set: { group: trimmed } });
 
     invalidateByPrefix('groups'); invalidateByPrefix('parameters'); res.json({ message: `Renamed "${oldName}" to "${trimmed}"`, updated: pgResult.modifiedCount });
   } catch (err) {
@@ -67,27 +65,19 @@ router.delete('/groups/:name', protect, async (req, res) => {
   try {
     const name = decodeURIComponent(req.params.name);
 
-    // Check if any incomplete jobs reference parameters from this group
-    const groupDocs = await ParameterGroup.find({ group: name });
-    const allParamIds = [];
-    groupDocs.forEach(d => {
-      d.parameters.forEach(p => allParamIds.push(p.parameterId));
-      (d.pesticideSubPanels || []).forEach(sp => sp.parameters.forEach(p => allParamIds.push(p.parameterId)));
+    // Check if any incomplete jobs belong to this group
+    const incompleteJobs = await Job.countDocuments({
+      'groupMetadata.group': name,
+      status: { $ne: 'CANCELLED' },
+      $or: [
+        { 'distribution.micro.required': true, 'distribution.micro.status': { $ne: 'COMPLETED' } },
+        { 'distribution.chemical.required': true, 'distribution.chemical.status': { $ne: 'COMPLETED' } }
+      ]
     });
-
-    if (allParamIds.length > 0) {
-      const incompleteJobs = await Job.countDocuments({
-        'parameters.parameterId': { $in: allParamIds },
-        $or: [
-          { 'distribution.micro.status': { $nin: ['COMPLETED', undefined] } },
-          { 'distribution.chemical.status': { $nin: ['COMPLETED', undefined] } }
-        ]
+    if (incompleteJobs > 0) {
+      return res.status(400).json({
+        message: `Cannot delete: "${name}" is used in ${incompleteJobs} incomplete job(s). Complete those jobs first.`
       });
-      if (incompleteJobs > 0) {
-        return res.status(400).json({
-          message: `Cannot delete: "${name}" has parameters used in ${incompleteJobs} incomplete job(s). Complete those jobs first.`
-        });
-      }
     }
 
     await ParameterGroup.deleteMany({ group: name });
@@ -142,13 +132,10 @@ router.put('/subgroups/:id', protect, async (req, res) => {
     const conflict = await ParameterGroup.findOne({ group: doc.group, subGroup: newName.trim(), _id: { $ne: doc._id } });
     if (conflict) return res.status(400).json({ message: `Subgroup "${newName.trim()}" already exists under "${doc.group}"` });
 
-    // Cascade to Parameter model
-    await Parameter.updateMany({ group: doc.group, subGroup: doc.subGroup }, { $set: { subGroup: newName.trim() } });
-
     doc.subGroup = newName.trim();
     await doc.save();
 
-    invalidateByPrefix('groups'); invalidateByPrefix('parameters'); invalidateByPrefix('groups'); invalidateByPrefix('parameters'); res.json(doc);
+    invalidateByPrefix('groups'); invalidateByPrefix('parameters'); res.json(doc);
   } catch (err) {
     res.status(500).json({ message: 'Error renaming subgroup', error: err.message });
   }
@@ -160,21 +147,20 @@ router.delete('/subgroups/:id', protect, async (req, res) => {
     const doc = await ParameterGroup.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Subgroup not found' });
 
-    // Check for incomplete jobs
-    const paramIds = doc.parameters.map(p => p.parameterId);
-    if (paramIds.length > 0) {
-      const incompleteJobs = await Job.countDocuments({
-        'parameters.parameterId': { $in: paramIds },
-        $or: [
-          { 'distribution.micro.status': { $nin: ['COMPLETED', undefined] } },
-          { 'distribution.chemical.status': { $nin: ['COMPLETED', undefined] } }
-        ]
+    // Check if any incomplete jobs belong to this subgroup
+    const incompleteJobs = await Job.countDocuments({
+      'groupMetadata.group': doc.group,
+      'groupMetadata.subGroup': doc.subGroup,
+      status: { $ne: 'CANCELLED' },
+      $or: [
+        { 'distribution.micro.required': true, 'distribution.micro.status': { $ne: 'COMPLETED' } },
+        { 'distribution.chemical.required': true, 'distribution.chemical.status': { $ne: 'COMPLETED' } }
+      ]
+    });
+    if (incompleteJobs > 0) {
+      return res.status(400).json({
+        message: `Cannot delete: "${doc.subGroup}" is used in ${incompleteJobs} incomplete job(s).`
       });
-      if (incompleteJobs > 0) {
-        return res.status(400).json({
-          message: `Cannot delete: "${doc.subGroup}" has parameters used in ${incompleteJobs} incomplete job(s).`
-        });
-      }
     }
 
     await ParameterGroup.findByIdAndDelete(req.params.id);
@@ -244,9 +230,7 @@ router.post('/subgroups/:id/parameters', protect, async (req, res) => {
         name: name.trim(),
         type,
         unit: unit.trim(),
-        s_no,
-        group: subGroupDoc.group,
-        subGroup: subGroupDoc.subGroup
+        s_no
       });
     }
 

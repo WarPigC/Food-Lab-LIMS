@@ -253,7 +253,7 @@ Dependencies within SP1 dictate this sequence:
 | SP2.P12 | B12 | 1+ Samples Multi-Department Handover Bypass | ✅ Done |
 | SP2.P13 | B13 | Staged Parameter Amendments & Multi-Analyst Duplication Fix | ✅ Done |
 | SP2.P14 | B14 | Duplicate Parameter Guard & Whitespace Trim Fix | ✅ Done |
-| SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ⬜ Upcoming |
+| SP2.P15 | C8 | Parameter Schema Cleanup: Remove Deadweight Group & Subgroup Fields | ✅ Done |
 
 ---
 
@@ -778,13 +778,15 @@ Implement deep whitespace normalization across the parameter lifecycle:
 **Fix**:
 Remove `group` and `subGroup` fields from `Parameter.js`; eliminate dead-weight cascading updates to `Parameter` on group/subgroup renames in `dataSettingsRoutes.js`; remove `group` and `subGroup` from parameter creation routes; and execute a database migration script via `$unset: { group: "", subGroup: "" }` to strip both fields from all parameter records in both `local_db` and `prod_db`.
 
-| Subphase | Task |
-|---|---|
-| SP2.P15.1 | **Backend - model cleanup**: Remove `group` and `subGroup` field definitions from `backend/models/Parameter.js` |
-| SP2.P15.2 | **Backend - dataSettingsRoutes cleanup**: In `dataSettingsRoutes.js`, remove all dead-weight cascading updates to `Parameter` on group rename (line 56) and subgroup rename (line 145); remove `group` and `subGroup` from `Parameter.create()` in `POST /subgroups/:id/parameters` (lines 247-248) |
-| SP2.P15.3 | **Backend - parameterRoutes / parameterGroupRoutes verification**: Verify that parameter endpoints and population logic do not query or rely on `Parameter.group` or `Parameter.subGroup` |
-| SP2.P15.4 | **Database Migration Script**: Create a migration script in `temp/drop_parameter_group_fields.js` using MongoDB `$unset: { group: "", subGroup: "" }` on the `parameters` collection. Test against `local_db` and prepare for `prod_db` |
-| SP2.P15.5 | **Testing**: Verify parameter creation, search, group management, and job creation to ensure no regressions after dropping `group` and `subGroup` |
+| Subphase | Task | Status |
+|---|---|---|
+| SP2.P15.1 | **Backend - model cleanup**: Remove `group` and `subGroup` field definitions from `backend/models/Parameter.js` | ✅ Complete |
+| SP2.P15.2 | **Backend - dataSettingsRoutes cleanup**: In `dataSettingsRoutes.js`, remove all dead-weight cascading updates to `Parameter` on group rename and subgroup rename; replace parameter-based incomplete job checks with direct `groupMetadata` checks; remove `group` and `subGroup` from `Parameter.create()` in `POST /subgroups/:id/parameters` | ✅ Complete |
+| SP2.P15.3 | **Backend - parameterRoutes / parameterGroupRoutes verification**: Verify that parameter endpoints and population logic do not query or rely on `Parameter.group` or `Parameter.subGroup` | ✅ Complete |
+| SP2.P15.4 | **Database Migration Script**: Create a migration script in `temp/drop_parameter_group_fields.js` using MongoDB `$unset: { group: "", subGroup: "" }` on the `parameters` collection. Test against `local_db` and prepare for `prod_db` | ✅ Complete |
+| SP2.P15.5 | **Testing**: Verify parameter creation, search, group management, and job creation to ensure no regressions after dropping `group` and `subGroup`; test suite `parameterSchemaCleanup.test.js` passing 8/8 tests, all 8 backend suites passing 62/62 tests, frontend build clean | ✅ Complete |
+
+> ✅ Completed. Files created: `temp/drop_parameter_group_fields.js`, `backend/__tests__/parameterSchemaCleanup.test.js`. Files modified: `backend/models/Parameter.js`, `backend/routes/dataSettingsRoutes.js`. All 8 backend test suites (62/62 tests) pass, frontend build clean.
 
 ---
 
