@@ -1149,7 +1149,7 @@ Configured incoming request body limits for `express.json` and `express.urlencod
 Protected WebSocket gateway by enforcing JWT authentication on connection handshakes, suppressing redundant connection logging in production, and synchronizing connection lifecycle with frontend `AuthContext` and session renewal:
 1. Created `socketAuthMiddleware.js` verifying JWT tokens from `socket.handshake.auth.token` or Authorization header.
 2. Mounted middleware via `io.use(socketAuthMiddleware)` in `server.js`.
-3. Gated WebSocket connection/disconnection `console.log` behind `DEBUG_SOCKETS === 'true'`.
+3. Enabled WebSocket connect/disconnect logging in development (`NODE_ENV !== 'production'`) while silencing in production unless `DEBUG_SOCKETS === 'true'`.
 4. Exposed `token` in `AuthContext` and bound `SocketContext` lifecycle to `[user?._id, token]`.
 5. Seamlessly teardown and reconnect with fresh token upon session renewal (`renewSession`), and prevent auto-reconnect loops on expired/invalid tokens.
 
@@ -1157,7 +1157,7 @@ Protected WebSocket gateway by enforcing JWT authentication on connection handsh
 |---|---|---|
 | SP3.P10.1 | Create `backend/middlewares/socketAuthMiddleware.js` with JWT verification | ✅ Complete |
 | SP3.P10.2 | Register `io.use(socketAuthMiddleware)` in `backend/server.js` | ✅ Complete |
-| SP3.P10.3 | Gate connect/disconnect server stdout logs behind `DEBUG_SOCKETS === 'true'` | ✅ Complete |
+| SP3.P10.3 | Enable connect/disconnect server stdout logs in development, gated behind `DEBUG_SOCKETS === 'true'` in production | ✅ Complete |
 | SP3.P10.4 | Expose `token` state in `frontend/src/context/AuthContext.jsx` across login, hydration, renewal, and logout | ✅ Complete |
 | SP3.P10.5 | Update `frontend/src/context/SocketContext.jsx` to pass `token` in `auth`, disconnect on logout, and cleanly reconnect on renewal | ✅ Complete |
 | SP3.P10.6 | Add unit tests for socket auth (rejecting unauthenticated, expired, invalid, and accepting valid tokens) | ✅ Complete |
