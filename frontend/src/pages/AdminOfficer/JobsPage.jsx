@@ -3043,6 +3043,15 @@ export default function Jobs() {
         <JobLogTable
           jobs={jobs}
           title="All Client Sample Jobs"
+          enableGrouping={true}
+          onMergeJobs={(newJobs) => {
+            setJobs((prev) => {
+              const existingIds = new Set(prev.map((j) => j._id));
+              const toAdd = newJobs.filter((j) => !existingIds.has(j._id));
+              if (toAdd.length === 0) return prev;
+              return [...prev, ...toAdd].sort((a, b) => (b.jobCode > a.jobCode ? 1 : -1));
+            });
+          }}
           loadingJobId={loadingJobId}
           onDeleteJob={handleDeleteJob}
           onEditJob={handleEditJob}

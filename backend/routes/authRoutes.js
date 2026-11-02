@@ -32,6 +32,7 @@ router.post('/login', async (req, res) => {
         branch: user.branch,
         requiresPasswordChange: user.requiresPasswordChange,
         lastBackupAt: user.lastBackupAt || null,
+        jobGroups: user.jobGroups || [],
         token: generateToken(user._id),
       });
     } else {
@@ -73,6 +74,7 @@ router.post('/renew-session', async (req, res) => {
         branch: user.branch,
         requiresPasswordChange: user.requiresPasswordChange,
         lastBackupAt: user.lastBackupAt || null,
+        jobGroups: user.jobGroups || [],
         token: generateToken(user._id),
       });
     } else {

@@ -147,44 +147,48 @@ export default function RecentActivityTable({
           }}
         >
           <colgroup>
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '36%' }} />
-            <col style={{ width: '230px' }} />
+            <col style={{ width: '125px' }} />
+            <col style={{ width: '35%' }} />
+            <col style={{ width: '220px' }} />
             <col style={{ width: '18%' }} />
             <col style={{ width: '17%' }} />
-            <col style={{ width: '125px' }} />
+            <col style={{ width: '145px' }} />
           </colgroup>
           <thead style={{ backgroundColor: 'var(--color-surface-hover)' }}>
             <tr>
               <th
                 style={{
-                  width: '110px',
+                  width: '125px',
                   padding: '0.85rem 0.75rem',
                   fontSize: '0.8rem',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.05em'
+                  letterSpacing: '0.05em',
+                  textAlign: 'center'
                 }}
               >
                 Action
               </th>
               <th
                 style={{
-                  width: '36%',
+                  width: '35%',
                   padding: '0.85rem 0.75rem',
+                  paddingLeft: '1.5rem',
                   fontSize: '0.8rem',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.05em'
+                  letterSpacing: '0.05em',
+                  textAlign: 'center'
                 }}
               >
                 Event Description
               </th>
               <th
                 style={{
-                  width: '230px',
+                  width: '220px',
                   padding: '0.85rem 0.75rem',
                   fontSize: '0.8rem',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.05em'
+                  letterSpacing: '0.05em',
+                  textAlign: 'center'
                 }}
               >
                 Job Code
@@ -215,11 +219,13 @@ export default function RecentActivityTable({
               </th>
               <th
                 style={{
-                  width: '125px',
+                  width: '145px',
                   padding: '0.85rem 0.75rem',
+                  paddingRight: '1.75rem',
                   fontSize: '0.8rem',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.05em'
+                  letterSpacing: '0.05em',
+                  textAlign: 'center'
                 }}
               >
                 Time
@@ -254,7 +260,13 @@ export default function RecentActivityTable({
 
                 return (
                   <tr key={item._id}>
-                    <td style={{ padding: '0.85rem 0.75rem', whiteSpace: 'nowrap' }}>
+                    <td
+                      style={{
+                        padding: '0.85rem 0.75rem',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
                       <span
                         style={{
                           display: 'inline-flex',
@@ -277,16 +289,24 @@ export default function RecentActivityTable({
                       title={item.message}
                       style={{
                         padding: '0.85rem 0.75rem',
+                        paddingLeft: '1.5rem',
                         fontWeight: 500,
                         fontSize: '0.875rem',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        textAlign: 'left'
                       }}
                     >
                       {item.message}
                     </td>
-                    <td style={{ padding: '0.85rem 0.75rem', whiteSpace: 'nowrap' }}>
+                    <td
+                      style={{
+                        padding: '0.85rem 0.75rem',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
                       {formattedCode ? (
                         <span
                           style={{
@@ -368,8 +388,10 @@ export default function RecentActivityTable({
                     <td
                       style={{
                         padding: '0.85rem 0.75rem',
+                        paddingRight: '1.75rem',
                         fontSize: '0.78rem',
                         color: 'var(--color-text-muted)',
+                        textAlign: 'center',
                         whiteSpace: 'nowrap'
                       }}
                     >

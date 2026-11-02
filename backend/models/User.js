@@ -12,6 +12,18 @@ const userSchema = new mongoose.Schema({
   requiresPasswordChange: { type: Boolean, default: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   lastBackupAt: { type: Date, default: null },
+  jobGroups: [{
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    startJobCode: { type: String, required: true },
+    endJobCode: { type: String, required: true },
+    startSerial: { type: Number },
+    endSerial: { type: Number },
+    count: { type: Number, default: 0 },
+    color: { type: String, default: '#3B82F6' },
+    isCollapsed: { type: Boolean, default: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
 }, { timestamps: true });
 
 // Hash password before saving

@@ -78,6 +78,49 @@ router.post('/', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (re
   }
 });
 
+// Get job groups for the logged in Admin Officer
+router.get('/job-groups', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id, 'jobGroups');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ jobGroups: user.jobGroups || [] });
+  } catch (error) {
+    console.error('Error fetching job groups:', error);
+    res.status(500).json({ message: 'Server error fetching job groups' });
+  }
+});
+
+// Update job groups for the logged in Admin Officer
+router.put('/job-groups', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
+  try {
+    const { jobGroups } = req.body;
+    if (!Array.isArray(jobGroups)) {
+      return res.status(400).json({ message: 'jobGroups must be an array' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.jobGroups = jobGroups;
+    await user.save();
+
+    audit('JOB_GROUPS_UPDATED', {
+      req,
+      message: `Admin Officer ${user.name} updated job groups (${jobGroups.length} groups)`,
+      target: { model: 'User', documentId: user._id.toString(), identifier: user.email }
+    });
+
+    res.json({ jobGroups: user.jobGroups });
+  } catch (error) {
+    console.error('Error updating job groups:', error);
+    res.status(500).json({ message: 'Server error updating job groups' });
+  }
+});
+
 // Update a user
 router.put('/:id', protect, authorize('ADMIN_OFFICER', 'HEAD'), async (req, res) => {
   try {

@@ -452,8 +452,18 @@ router.get('/', protect, async (req, res) => {
       }
     }
 
-    // ── Pagination parameters ──
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);  // max 100 per page
+    // Range query (for on-demand job group expansion)
+    const { rangeStart, rangeEnd } = req.query;
+    if (rangeStart && rangeEnd) {
+      const minCode = rangeStart < rangeEnd ? rangeStart : rangeEnd;
+      const maxCode = rangeStart < rangeEnd ? rangeEnd : rangeStart;
+      query.jobCode = { $gte: minCode, $lte: maxCode };
+    }
+
+    // Pagination parameters
+    const limit = (rangeStart && rangeEnd)
+      ? 200
+      : Math.min(parseInt(req.query.limit) || 50, 100);
     const cursor = req.query.cursor;  // MongoDB _id of the last item from previous page
 
     if (cursor) {

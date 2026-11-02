@@ -37,6 +37,21 @@ export const AuthProvider = ({ children }) => {
           const storedUser = JSON.parse(localStorage.getItem('user'));
           setUser(storedUser);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+          // If Admin Officer, sync latest job groups from DB
+          if (storedUser?.role === 'ADMIN_OFFICER') {
+            axios.get(`${API_URL}/api/users/job-groups`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).then(res => {
+              if (Array.isArray(res.data?.jobGroups)) {
+                setUser(prev => {
+                  const synced = { ...prev, jobGroups: res.data.jobGroups };
+                  localStorage.setItem('user', JSON.stringify(synced));
+                  return synced;
+                });
+              }
+            }).catch(() => {});
+          }
         }
       } catch (e) {
         localStorage.removeItem('token');
@@ -123,6 +138,7 @@ export const AuthProvider = ({ children }) => {
       branch: res.data.branch,
       requiresPasswordChange: res.data.requiresPasswordChange,
       lastBackupAt: res.data.lastBackupAt || null,
+      jobGroups: res.data.jobGroups || [],
     };
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
@@ -143,11 +159,36 @@ export const AuthProvider = ({ children }) => {
       branch: res.data.branch,
       requiresPasswordChange: res.data.requiresPasswordChange,
       lastBackupAt: res.data.lastBackupAt || null,
+      jobGroups: res.data.jobGroups || [],
     };
     localStorage.setItem('user', JSON.stringify(userData));
     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
     setUser(userData);
     return userData;
+  };
+
+  const updateJobGroups = async (newGroups) => {
+    // Optimistic local state update
+    setUser(prev => {
+      const updated = { ...prev, jobGroups: newGroups };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+
+    try {
+      const res = await axios.put(`${API_URL}/api/users/job-groups`, { jobGroups: newGroups });
+      if (res.data?.jobGroups) {
+        setUser(prev => {
+          const synced = { ...prev, jobGroups: res.data.jobGroups };
+          localStorage.setItem('user', JSON.stringify(synced));
+          return synced;
+        });
+      }
+      return res.data;
+    } catch (err) {
+      console.error('Failed to sync job groups to server:', err);
+      throw err;
+    }
   };
 
   const logout = () => {
@@ -170,6 +211,7 @@ export const AuthProvider = ({ children }) => {
         openReAuthModal,
         closeReAuthModal,
         renewSession,
+        updateJobGroups,
       }}
     >
       {children}
