@@ -321,10 +321,18 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
       req.app.get('io').emit('JOB_DISTRIBUTED');
     }
 
+    let analystSummary = 'analyst';
+    if (assistantIds.length > 0) {
+      const assignedUsers = await User.find({ _id: { $in: assistantIds } }, 'name');
+      if (assignedUsers.length > 0) {
+        analystSummary = assignedUsers.map(u => u.name).join(', ');
+      }
+    }
+
     audit('TEST_DISPATCHED', {
       req,
-      message: `${dept.toUpperCase()} HEAD dispatched ${createdInstances.length} test(s) for job ${job.jobCode}`,
-      target: { model: 'Job', documentId: jobId, identifier: job.jobCode }
+      message: `Job ${job.jobCode} dispatched to ${analystSummary} by ${dept.toUpperCase()} Head`,
+      target: { model: 'Job', documentId: jobId, identifier: job.jobCode, department: distDept }
     });
 
     if (bulkDispatch?.bulkId) {
@@ -335,8 +343,8 @@ router.post('/instances', protect, authorize('HEAD'), async (req, res) => {
       }
       audit('BULK_DISPATCHED', {
         req,
-        message: `BULK dispatch — ${dept.toUpperCase()} HEAD dispatched ${bulkDispatch.totalJobsInBatch} jobs to analyst ${assignedAnalystName} (bulkId: ${bulkDispatch.bulkId}). Jobs: ${bulkDispatch.jobCodes.join(', ')}`,
-        target: { model: 'Job', documentId: jobId, identifier: job.jobCode }
+        message: `BULK dispatch: ${dept.toUpperCase()} Head dispatched ${bulkDispatch.totalJobsInBatch} jobs to analyst ${assignedAnalystName} (bulkId: ${bulkDispatch.bulkId}). Jobs: ${bulkDispatch.jobCodes.join(', ')}`,
+        target: { model: 'Job', documentId: jobId, identifier: job.jobCode, department: distDept }
       });
     }
 

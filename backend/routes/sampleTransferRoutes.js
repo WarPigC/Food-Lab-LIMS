@@ -193,8 +193,8 @@ router.post('/', protect, authorize('HEAD'), async (req, res) => {
 
     audit('SAMPLE_TRANSFER_INITIATED', {
       req,
-      message: `Sample #${job.sampleSerial} transferred from ${fromLabel} to ${toLabel}`,
-      target: { model: 'SampleTransfer', documentId: transfer._id.toString(), identifier: job.sampleSerial }
+      message: `Sample #${job.sampleSerial} (Job ${job.jobCode}) transferred from ${fromLabel} to ${toLabel}`,
+      target: { model: 'SampleTransfer', documentId: transfer._id.toString(), identifier: job.jobCode, department: transfer.fromDepartment }
     });
 
     res.status(201).json(transfer);
@@ -268,8 +268,8 @@ router.put('/:id/receive', protect, authorize('HEAD'), async (req, res) => {
 
     audit('SAMPLE_TRANSFER_RECEIVED', {
       req,
-      message: `${toLabel} HEAD confirmed receipt of sample #${transfer.sampleSerial}`,
-      target: { model: 'SampleTransfer', documentId: transfer._id.toString(), identifier: transfer.sampleSerial }
+      message: `${toLabel} Head confirmed receipt of sample #${transfer.sampleSerial}${job?.jobCode ? ` (Job ${job.jobCode})` : ''}`,
+      target: { model: 'SampleTransfer', documentId: transfer._id.toString(), identifier: job?.jobCode || String(transfer.sampleSerial), department: transfer.toDepartment }
     });
 
     res.json(transfer);

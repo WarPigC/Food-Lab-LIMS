@@ -77,8 +77,8 @@ router.put('/:id/approve-review', protect, authorize('HEAD'), async (req, res) =
 
     audit('JOB_REVIEW_APPROVED', {
       req,
-      message: `${myDept.toUpperCase()} HEAD approved job ${job.jobCode}`,
-      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+      message: `Job ${job.jobCode} approved by ${req.user.name || `${myDept.toUpperCase()} Head`}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode, department: myDept }
     });
 
     if (req.app.get('io')) {
@@ -134,8 +134,8 @@ router.post('/:id/return', protect, authorize('HEAD'), async (req, res) => {
 
     audit('JOB_RETURNED', {
       req,
-      message: `Job ${job.jobCode} returned by ${department.toUpperCase()} HEAD — reason: ${note}`,
-      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+      message: `Job ${job.jobCode} returned by ${department.toUpperCase()} Head; Reason: ${note}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode, department }
     });
 
     // Notification to Admin Officer
@@ -737,8 +737,8 @@ router.post('/:id/monitor-withdraw', protect, authorize('HEAD'), async (req, res
 
     audit('MONITOR_WITHDRAW', {
       req,
-      message: `${dept.toUpperCase()} HEAD withdrew dispatch for job ${job.jobCode}`,
-      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+      message: `${dept.toUpperCase()} Head withdrew dispatch for job ${job.jobCode}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode, department: dept }
     });
 
     if (req.app.get('io')) {
@@ -888,8 +888,8 @@ router.put('/:id/monitor-split', protect, authorize('HEAD'), async (req, res) =>
 
     audit('MONITOR_SPLIT', {
       req,
-      message: `${dept.toUpperCase()} HEAD moved ${paramIds.length} parameter(s) from analyst to analyst for job ${job.jobCode}`,
-      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode }
+      message: `${dept.toUpperCase()} Head moved ${paramIds.length} parameter(s) between analysts for job ${job.jobCode}`,
+      target: { model: 'Job', documentId: job._id.toString(), identifier: job.jobCode, department: dept }
     });
 
     await createNotification({

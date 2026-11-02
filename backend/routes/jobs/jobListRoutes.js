@@ -3,6 +3,7 @@ const router = express.Router();
 const Job = require('../../models/Job');
 const TestInstance = require('../../models/TestInstance');
 const SampleTransfer = require('../../models/SampleTransfer');
+const SystemLog = require('../../models/SystemLog');
 const { protect } = require('../../middlewares/authMiddleware');
 const { authorize } = require('../../middlewares/roleMiddleware');
 const { cacheMiddleware } = require('../../utils/serverCache');
@@ -69,6 +70,209 @@ router.get('/recent-ulrs', protect, async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Operational events to include in recent activity feed
+const RECENT_ACTIVITY_EVENTS = [
+  'JOB_CREATED',
+  'TEST_DISPATCHED',
+  'BULK_DISPATCHED',
+  'TEST_RESULTS_SUBMITTED',
+  'TEST_REVIEWED',
+  'JOB_REVIEW_APPROVED',
+  'JOB_RETURNED',
+  'JOB_HELD',
+  'JOB_CANCELLED',
+  'MONITOR_WITHDRAW',
+  'MONITOR_SPLIT',
+  'SAMPLE_TRANSFER_INITIATED',
+  'SAMPLE_TRANSFER_RECEIVED',
+  'REPORT_UPLOADED',
+  'REPORT_REVERTED',
+  'PARAMETERS_MODIFIED'
+];
+
+function cleanJobCodeString(raw, message) {
+  if (raw) {
+    const nonNablMatch = String(raw).match(/^(\d{8,12}-N)(?:-.*)?$/);
+    if (nonNablMatch) return nonNablMatch[1];
+    const nablMatch = String(raw).match(/^(\d{8,12})(?:-.*)?$/);
+    if (nablMatch) return nablMatch[1];
+  }
+  if (message) {
+    const msgNonNabl = String(message).match(/\b(\d{8,12}-N)\b/);
+    if (msgNonNabl) return msgNonNabl[1];
+    const msgNabl = String(message).match(/\b(\d{8,12})\b/);
+    if (msgNabl) return msgNabl[1];
+  }
+  return raw || '';
+}
+
+function cleanNarrativeMessage(msg) {
+  if (!msg) return '';
+  return String(msg)
+    .replace(/—/g, '; ')
+    .replace(/\bCHEMICAL HEAD\b/g, 'Chemical Head')
+    .replace(/\bMICRO HEAD\b/g, 'Micro Head')
+    .replace(/\bHEAD\b/g, 'Head')
+    .replace(/\b(\d{8,12}(?:-N)?)(?:-[0-9]+[a-z]?(-v[0-9]+)?|-R[a-zA-Z0-9]+)\b/g, '$1')
+    .trim();
+}
+
+function resolveActionType(event, message) {
+  switch (event) {
+    case 'TEST_DISPATCHED':
+    case 'BULK_DISPATCHED':
+      return 'DISPATCHED';
+    case 'TEST_RESULTS_SUBMITTED':
+      return 'SUBMITTED';
+    case 'TEST_REVIEWED':
+      return (message && /reassign/i.test(message)) ? 'REASSIGNED' : 'APPROVED';
+    case 'JOB_REVIEW_APPROVED':
+      return 'APPROVED';
+    case 'JOB_RETURNED':
+      return 'RETURNED';
+    case 'JOB_CREATED':
+      return 'CREATED';
+    case 'JOB_HELD':
+      return 'HELD';
+    case 'JOB_CANCELLED':
+      return 'CANCELLED';
+    case 'SAMPLE_TRANSFER_INITIATED':
+    case 'SAMPLE_TRANSFER_RECEIVED':
+      return 'TRANSFER';
+    case 'MONITOR_WITHDRAW':
+      return 'WITHDRAWN';
+    case 'MONITOR_SPLIT':
+    case 'PARAMETERS_MODIFIED':
+      return 'AMENDED';
+    case 'REPORT_UPLOADED':
+    case 'REPORT_REVERTED':
+      return 'REPORT';
+    default:
+      return 'ACTIVITY';
+  }
+}
+
+// GET /api/jobs/recent-activity
+// Operational activity feed for Admin, Admin Officer, and Head dashboards.
+router.get('/recent-activity', protect, authorize('ADMIN', 'ADMIN_OFFICER', 'HEAD'), async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 5, 1), 20);
+    const filter = {
+      level: 'audit',
+      event: { $in: RECENT_ACTIVITY_EVENTS }
+    };
+
+    const dept = req.user.department ? req.user.department.toLowerCase() : '';
+    if (req.user.role === 'HEAD') {
+      if (dept === 'micro' || dept === 'chemical') {
+        filter.$or = [
+          { 'target.department': dept },
+          { 'user.department': dept },
+          { message: { $regex: dept, $options: 'i' } }
+        ];
+      } else {
+        filter._id = null;
+      }
+    }
+
+    const logs = await SystemLog.find(filter)
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean();
+
+    // Collect jobCodes to batch-fetch client names
+    const jobCodesToLookup = new Set();
+    logs.forEach(l => {
+      const code = cleanJobCodeString(l.target?.identifier, l.message);
+      if (code) jobCodesToLookup.add(code);
+    });
+
+    let jobClientMap = {};
+    if (jobCodesToLookup.size > 0) {
+      const foundJobs = await Job.find(
+        { jobCode: { $in: Array.from(jobCodesToLookup) } },
+        'jobCode clientName customer'
+      ).lean();
+      foundJobs.forEach(j => {
+        jobClientMap[j.jobCode] = j.customer?.customer_name || j.clientName || '';
+      });
+    }
+
+    const activityList = logs.map(l => {
+      const cleanCode = cleanJobCodeString(l.target?.identifier, l.message);
+      const client = jobClientMap[cleanCode] || '';
+      const action = resolveActionType(l.event, l.message);
+      const cleanMsg = cleanNarrativeMessage(l.message);
+
+      return {
+        _id: l._id.toString(),
+        event: l.event,
+        action,
+        message: cleanMsg,
+        jobCode: cleanCode,
+        clientName: client,
+        user: {
+          name: l.user?.name || 'System User',
+          role: l.user?.role || '',
+          department: l.user?.department || null
+        },
+        timestamp: l.timestamp
+      };
+    });
+
+    // Fallback synthesis if logs are fewer than requested limit and jobs exist
+    if (activityList.length < limit) {
+      const needed = limit - activityList.length;
+      let jobFallbackQuery = {};
+      if (req.user.role === 'HEAD' && dept) {
+        jobFallbackQuery[`distribution.${dept}.required`] = true;
+      }
+      const existingJobCodes = new Set(activityList.map(a => a.jobCode).filter(Boolean));
+      if (existingJobCodes.size > 0) {
+        jobFallbackQuery.jobCode = { $nin: Array.from(existingJobCodes) };
+      }
+
+      const fallbackJobs = await Job.find(jobFallbackQuery)
+        .sort({ updatedAt: -1 })
+        .limit(needed)
+        .populate('createdBy', 'name role department')
+        .lean();
+
+      fallbackJobs.forEach(fj => {
+        const isCompleted = fj.status === 'COMPLETED' ||
+          (fj.distribution?.micro?.status === 'COMPLETED' && fj.distribution?.chemical?.status === 'COMPLETED');
+        const action = isCompleted ? 'APPROVED' : fj.status === 'ON_HOLD' ? 'HELD' : 'CREATED';
+        const client = fj.customer?.customer_name || fj.clientName || 'Client';
+        const msg = isCompleted
+          ? `Job ${fj.jobCode} completed and verified`
+          : fj.status === 'ON_HOLD'
+          ? `Job ${fj.jobCode} is currently on hold`
+          : `Job ${fj.jobCode} created for ${client}`;
+
+        activityList.push({
+          _id: `synth-${fj._id.toString()}`,
+          event: isCompleted ? 'JOB_COMPLETED' : fj.status === 'ON_HOLD' ? 'JOB_HELD' : 'JOB_CREATED',
+          action,
+          message: msg,
+          jobCode: fj.jobCode,
+          clientName: client,
+          user: {
+            name: fj.createdBy?.name || 'Admin Officer',
+            role: fj.createdBy?.role || 'ADMIN_OFFICER',
+            department: fj.createdBy?.department || null
+          },
+          timestamp: fj.updatedAt || fj.createdAt || new Date()
+        });
+      });
+    }
+
+    res.json(activityList);
+  } catch (error) {
+    console.error('Error fetching recent activity:', error);
+    res.status(500).json({ message: 'Error fetching recent activity', error: error.message });
   }
 });
 

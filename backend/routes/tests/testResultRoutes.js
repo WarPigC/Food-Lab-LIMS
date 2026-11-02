@@ -108,10 +108,18 @@ router.put('/instances/:id/results', protect, authorize('ASSISTANT'), async (req
       });
     }
 
+    const relatedJob = await Job.findById(instance.jobId).select('jobCode');
+    const cleanCode = relatedJob?.jobCode || instance.testCode.replace(/-[0-9]+[a-z]?(-v[0-9]+)?$/, '');
+
     audit('TEST_RESULTS_SUBMITTED', {
       req,
-      message: `Results submitted for test ${instance.testCode}`,
-      target: { model: 'TestInstance', documentId: instance._id.toString(), identifier: instance.testCode }
+      message: `Results submitted for Job ${cleanCode} by ${req.user.name || 'Analyst'}`,
+      target: {
+        model: 'Job',
+        documentId: (instance.jobId || instance._id).toString(),
+        identifier: cleanCode,
+        department: instance.department || null
+      }
     });
 
     res.json(instance);
@@ -460,10 +468,18 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
       req.app.get('io').emit('TEST_REVIEWED');
     }
 
+    const relatedJob = await Job.findById(instance.jobId).select('jobCode');
+    const cleanCode = relatedJob?.jobCode || instance.testCode.replace(/-[0-9]+[a-z]?(-v[0-9]+)?$/, '');
+
     audit('TEST_REVIEWED', {
       req,
-      message: `Test ${instance.testCode} ${action === 'approve' ? 'approved' : 'reassigned'} by HEAD`,
-      target: { model: 'TestInstance', documentId: instance._id.toString(), identifier: instance.testCode }
+      message: `Job ${cleanCode} results ${action === 'approve' ? 'approved' : 'reassigned'} by ${req.user.name || 'Head'}`,
+      target: {
+        model: 'Job',
+        documentId: (instance.jobId || instance._id).toString(),
+        identifier: cleanCode,
+        department: instance.department || null
+      }
     });
 
     res.json(instance);

@@ -73,7 +73,8 @@ function extractUser(req) {
   return {
     id: req.user._id,
     name: req.user.name,
-    role: req.user.role
+    role: req.user.role,
+    department: req.user.department || null
   };
 }
 

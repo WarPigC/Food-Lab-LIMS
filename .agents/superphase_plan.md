@@ -900,7 +900,7 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P8 | C4 | MongoDB Connection Pool Tuning | ⬜ Upcoming |
 | SP3.P9 | C5 | Scope 50mb JSON Body Limit | ⬜ Upcoming |
 | SP3.P10 | C6 | Socket.IO Auth Scope | ⬜ Upcoming |
-| SP3.P11 | F7 | Dashboard History Revamp | ⬜ Upcoming |
+| SP3.P11 | F7 | Dashboard History Revamp | ✅ Done |
 | SP3.P12 | F3 | Transfer List Rework | ⬜ Upcoming |
 | SP3.P13 | F6 | Job Grouping in Officer's Page | ⬜ Upcoming |
 | SP3.P14 | F21 | OTP-Based Password Reset | ⬜ Upcoming |
@@ -1063,6 +1063,47 @@ Job has `chemical.status: ASSIGNED_TO_ASSISTANT`. Param IDs:
 | SP3.P5.7 | Test: dispatch job to 2 analysts → one submits → HEAD selective-reassigns 1 param to the OTHER analyst who already has an active instance → verify only 1 instance per analyst exists, no new testCode created |
 | SP3.P5.8 | Test: selective-reassign to a brand-new analyst (not previously dispatched to) → verify new instance IS created (this path must still work) |
 | SP3.P5.9 | Test Approved display: after partial reassign, the retained params on the original instance must show as Approved only if they were genuinely approved (not if they were just submitted) |
+
+---
+
+### SP3.P11: F7: Dashboard History Revamp ✅
+
+**Files**:
+- `backend/models/SystemLog.js`
+- `backend/utils/auditLogger.js`
+- `backend/routes/jobs/jobListRoutes.js`
+- `backend/routes/tests/testAssignmentRoutes.js`
+- `backend/routes/tests/testResultRoutes.js`
+- `backend/routes/jobs/jobWorkflowRoutes.js`
+- `backend/routes/sampleTransferRoutes.js`
+- `frontend/src/components/RecentActivityTable.jsx` (created)
+- `frontend/src/pages/AdminDashboard.jsx`
+- `frontend/src/pages/AdminOfficer/AdminOfficerStats.jsx`
+- `frontend/src/pages/Head/HeadStats.jsx`
+- `frontend/src/utils/cache.js`
+- `frontend/e2e/helpers/mockData.js`
+- `frontend/e2e/helpers/auth.js`
+- `backend/__tests__/dashboardActivity.test.js` (created)
+
+**Summary**:
+Revamped the "Recent Activity" panel across all three dashboard roles (Admin, Admin Officer, Department Head) by replacing the legacy test-instance dump with a real operational activity feed driven by `SystemLog`:
+1. **Targeted operational log stream**: Filtered `SystemLog` (`level: 'audit'`) for operational lab lifecycle mutations, explicitly omitting internal authentication events (logins, session renewals) and non-audit debug entries.
+2. **Human-readable narratives**: Translated raw developer event identifiers into friendly badges (Dispatched, Submitted, Approved, Reassigned, Returned, Created, On Hold, Transfer, Withdrawn, Amended, Report) and human-friendly action sentences with proper title casing.
+3. **Clean job codes**: Stripped internal test instance sub-suffixes (`-2b`, `-1a`) from narrative strings and display badges while preserving valid `-N` Non-NABL identifiers.
+4. **Role & department scoping**: Provided `GET /api/jobs/recent-activity` accessible to Admin, Admin Officer, and Head. System Admins and Admin Officers see organization-wide lab activity; Department Heads see activity scoped to their respective department (Microbiology or Chemical).
+5. **Fallback synthesis**: Provided automated fallback synthesis from existing jobs if logs are empty, guaranteeing test/dev environments display meaningful activity.
+6. **Unified shared component**: Extracted duplicated table markup across the 3 dashboards into `RecentActivityTable.jsx` with real-time Socket.IO refresh listeners (`JOB_CREATED`, `TEST_SUBMITTED`, `TEST_REVIEWED`, `JOB_DISTRIBUTED`, `JOB_UPDATED`, `JOB_RETURNED`, `JOB_HELD`, `TRANSFER_INITIATED`, `TRANSFER_RECEIVED`).
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P11.1 | Extend `SystemLog` schema with `department` on user and target; update `auditLogger.js` to extract user department; update audit calls in assignment, result, workflow, and transfer routes | ✅ Complete |
+| SP3.P11.2 | Implement `GET /api/jobs/recent-activity` endpoint in `jobListRoutes.js` with role/dept scoping, clean job code extraction, and fallback synthesis | ✅ Complete |
+| SP3.P11.3 | Create shared `RecentActivityTable.jsx` component with colored action badges, Lucide icons, clean monospace job code pills, client names, actor roles, and formatted timestamps | ✅ Complete |
+| SP3.P11.4 | Migrate `AdminDashboard.jsx`, `AdminOfficerStats.jsx`, and `HeadStats.jsx` to fetch recent activity and listen to operational WebSocket events | ✅ Complete |
+| SP3.P11.5 | Update Playwright mocks in `auth.js` / `mockData.js`, add automated unit tests in `dashboardActivity.test.js` (9/9 passing) | ✅ Complete |
+| SP3.P11.6 | Verify clean production frontend build (0 errors) and all 12 backend test suites (100/100 tests passing) | ✅ Complete |
+
+> ✅ Completed. Created `RecentActivityTable.jsx`, `dashboardActivity.test.js`. Updated `SystemLog.js`, `auditLogger.js`, `jobListRoutes.js`, `AdminDashboard.jsx`, `AdminOfficerStats.jsx`, `HeadStats.jsx`, and route audit logging. All 35 Playwright E2E and 100 backend unit tests passing.
 
 ---
 

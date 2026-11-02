@@ -16,14 +16,16 @@ const systemLogSchema = new mongoose.Schema({
   user: {
     id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     name: { type: String },
-    role: { type: String }
+    role: { type: String },
+    department: { type: String }
   },
 
   // What was affected (for audit logs)
   target: {
     model: { type: String },       // 'Job', 'TestInstance', 'User', etc.
     documentId: { type: String },   // The _id of the affected document
-    identifier: { type: String }    // Human-readable: jobCode, testCode, user email
+    identifier: { type: String },   // Human-readable: jobCode, testCode, user email
+    department: { type: String }    // 'micro', 'chemical', or null
   },
 
   // Before/after diff for mutations
@@ -59,8 +61,10 @@ const systemLogSchema = new mongoose.Schema({
 systemLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 // Query optimization indexes
 systemLogSchema.index({ level: 1, timestamp: -1 });
+systemLogSchema.index({ level: 1, event: 1, timestamp: -1 });
 systemLogSchema.index({ event: 1, timestamp: -1 });
 systemLogSchema.index({ 'user.id': 1, timestamp: -1 });
 systemLogSchema.index({ 'target.identifier': 1 });
+systemLogSchema.index({ 'target.department': 1, timestamp: -1 });
 
 module.exports = mongoose.model('SystemLog', systemLogSchema);

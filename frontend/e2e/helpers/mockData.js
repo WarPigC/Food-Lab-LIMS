@@ -182,6 +182,51 @@ export const mockStats = {
   activeAnalysts: 3,
 };
 
+export const mockRecentActivity = [
+  {
+    _id: 'act-1',
+    event: 'TEST_DISPATCHED',
+    action: 'DISPATCHED',
+    message: 'Job 2604230001 dispatched to Analyst Alex by Micro Head',
+    jobCode: '2604230001',
+    clientName: 'Sunrise Organic Foods Ltd',
+    user: {
+      name: 'Dr. Head Micro',
+      role: 'HEAD',
+      department: 'Micro',
+    },
+    timestamp: '2026-04-21T10:00:00.000Z',
+  },
+  {
+    _id: 'act-2',
+    event: 'TEST_RESULTS_SUBMITTED',
+    action: 'SUBMITTED',
+    message: 'Results submitted for Job 2604230002 by Analyst Bob',
+    jobCode: '2604230002',
+    clientName: 'Green Meadows Dairy',
+    user: {
+      name: 'Analyst Bob',
+      role: 'ASSISTANT',
+      department: 'Chemical',
+    },
+    timestamp: '2026-04-21T11:30:00.000Z',
+  },
+  {
+    _id: 'act-3',
+    event: 'JOB_REVIEW_APPROVED',
+    action: 'APPROVED',
+    message: 'Job 2604230002 approved by Chem Head',
+    jobCode: '2604230002',
+    clientName: 'Green Meadows Dairy',
+    user: {
+      name: 'Dr. Head Chemical',
+      role: 'HEAD',
+      department: 'Chemical',
+    },
+    timestamp: '2026-04-21T12:00:00.000Z',
+  },
+];
+
 export const mockGroups = [
   {
     _id: 'grp-1',

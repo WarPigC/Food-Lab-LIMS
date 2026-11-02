@@ -3,6 +3,7 @@ import {
   mockJobs,
   mockInstances,
   mockStats,
+  mockRecentActivity,
   mockNotifications,
   mockTestMethods,
   mockUnits,
@@ -119,6 +120,15 @@ export const setupApiMocks = async (page, overrides = {}) => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ message: 'Split successfully' })
+      });
+    }
+
+    // Recent Activity
+    if (url.includes('/api/jobs/recent-activity')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockRecentActivity),
       });
     }
 

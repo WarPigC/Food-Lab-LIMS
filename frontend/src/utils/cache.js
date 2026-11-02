@@ -67,4 +67,5 @@ export const CACHE_KEYS = {
   INSTANCES_HEAD_ALL: 'aiper_instances_head_all', // full PENDING_HEAD_REVIEW instances, fetched once on first search activation in Review Queue
   JOBS_MONITORING: 'aiper_jobs_monitoring',       // in-flight monitoring jobs
   JOBS_MONITORING_ALL: 'aiper_jobs_monitoring_all', // all in-flight monitoring jobs for search
+  RECENT_ACTIVITY: 'aiper_recent_activity',       // dashboard recent activity feed
 };

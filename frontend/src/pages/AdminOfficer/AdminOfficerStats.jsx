@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from "../../utils/cache";
@@ -6,6 +6,8 @@ import { cacheGet, cacheSet } from "../../utils/cacheStorage";
 import API_URL from "../../utils/api";
 import Spinner from "../../components/Spinner";
 import { AuthContext } from "../../context/AuthContext";
+import { useSocket } from "../../context/SocketContext";
+import RecentActivityTable from "../../components/RecentActivityTable";
 
 import { Play, Check, CheckCircle, Users, Activity, Clock, FileText, ChevronRight } from "lucide-react";
 import { formatJobCode } from "../../utils/serialUtils";
@@ -13,6 +15,7 @@ import { formatTestCode } from "../../utils/codeUtils";
 
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
+  const socket = useSocket();
   const [stats, setStats] = useState({
     ongoingJobs: 0,
     completedJobs: 0,
@@ -25,65 +28,72 @@ export default function Dashboard() {
       !isCached(CACHE_KEYS.INSTANCES),
   );
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        let statsData, instancesData, usersData;
+  const fetchStats = useCallback(async () => {
+    try {
+      // Use cache for initial render, then fetch fresh data in background
+      const cachedStats = await cacheGet(CACHE_KEYS.STATS);
+      const cachedInstances = await cacheGet(CACHE_KEYS.INSTANCES);
+      const cachedActivity = await cacheGet(CACHE_KEYS.RECENT_ACTIVITY);
 
-        // Use cache for initial render, then fetch fresh data in background
-        const cachedStats = await cacheGet(CACHE_KEYS.STATS);
-        const cachedInstances = await cacheGet(CACHE_KEYS.INSTANCES);
-        const cachedUsers = await cacheGet(CACHE_KEYS.USERS);
+      const applyStats = (statsObj, instances, activity) => {
+        if (!statsObj) statsObj = { ongoingJobs: 0, completedJobs: 0 };
+        if (!Array.isArray(instances)) instances = [];
+        if (!Array.isArray(activity)) activity = [];
+        
+        const activeAnalysts = new Set(
+          instances
+            .filter((i) => i.status === "PENDING" && i.assignedTo)
+            .map((i) => i.assignedTo._id || i.assignedTo),
+        ).size;
+        setStats({ 
+          ongoingJobs: statsObj.ongoingJobs || 0, 
+          completedJobs: statsObj.completedJobs || 0, 
+          activeAnalysts 
+        });
+        setRecentActivity(activity);
+      };
 
-        const computeStats = (statsObj, instances, users) => {
-          if (!statsObj) statsObj = { ongoingJobs: 0, completedJobs: 0 };
-          if (!Array.isArray(instances)) instances = [];
-          if (!Array.isArray(users)) users = [];
-          
-          const activeAnalysts = new Set(
-            instances
-              .filter((i) => i.status === "PENDING" && i.assignedTo)
-              .map((i) => i.assignedTo._id || i.assignedTo),
-          ).size;
-          setStats({ 
-            ongoingJobs: statsObj.ongoingJobs || 0, 
-            completedJobs: statsObj.completedJobs || 0, 
-            activeAnalysts 
-          });
-          setRecentActivity(
-            [...instances]
-              .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-              .slice(0, 5),
-          );
-        };
-
-        // Instant render from cache
-        if (cachedStats && cachedInstances && cachedUsers) {
-          computeStats(
-            cachedStats,
-            cachedInstances,
-            cachedUsers,
-          );
-        }
-
-        // Fetch fresh in background
-        const [statsRes, instancesRes, usersRes] = await Promise.all([
-          axios.get(`${API_URL}/api/jobs/stats`),
-          axios.get(`${API_URL}/api/tests/instances`),
-          axios.get(`${API_URL}/api/users`),
-        ]);
-        cacheSet(CACHE_KEYS.STATS, statsRes.data);
-        cacheSet(CACHE_KEYS.INSTANCES, instancesRes.data);
-        cacheSet(CACHE_KEYS.USERS, usersRes.data);
-        computeStats(statsRes.data, instancesRes.data, usersRes.data);
-      } catch (err) {
-        console.error("Error fetching dashboard stats:", err);
-      } finally {
-        setStatsLoading(false);
+      // Instant render from cache
+      if (cachedStats && cachedInstances && cachedActivity) {
+        applyStats(cachedStats, cachedInstances, cachedActivity);
       }
-    };
+
+      // Fetch fresh in background
+      const [statsRes, instancesRes, activityRes] = await Promise.all([
+        axios.get(`${API_URL}/api/jobs/stats`),
+        axios.get(`${API_URL}/api/tests/instances`),
+        axios.get(`${API_URL}/api/jobs/recent-activity?limit=5`),
+      ]);
+      cacheSet(CACHE_KEYS.STATS, statsRes.data);
+      cacheSet(CACHE_KEYS.INSTANCES, instancesRes.data);
+      cacheSet(CACHE_KEYS.RECENT_ACTIVITY, activityRes.data);
+      applyStats(statsRes.data, instancesRes.data, activityRes.data);
+    } catch (err) {
+      console.error("Error fetching dashboard stats:", err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchStats();
-  }, [user]);
+  }, [fetchStats, user]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = () => {
+      invalidateCache(CACHE_KEYS.STATS, CACHE_KEYS.INSTANCES, CACHE_KEYS.RECENT_ACTIVITY);
+      fetchStats();
+    };
+    const events = [
+      "JOB_CREATED", "JOB_DISTRIBUTED", "TEST_SUBMITTED", "TEST_REVIEWED",
+      "JOB_UPDATED", "JOB_RETURNED", "JOB_HELD", "TRANSFER_INITIATED", "TRANSFER_RECEIVED"
+    ];
+    events.forEach(e => socket.on(e, handleUpdate));
+    return () => {
+      events.forEach(e => socket.off(e, handleUpdate));
+    };
+  }, [socket, fetchStats]);
 
   const StatCard = ({ icon: Icon, title, value, color, subtitle }) => (
     <div
@@ -173,125 +183,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
-        <div
-          style={{
-            padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid var(--color-border)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <h3
-            style={{
-              margin: 0,
-              fontSize: "1.1rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <Activity size={18} /> Recent Activity
-          </h3>
-        </div>
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "var(--color-surface-hover)" }}>
-              <tr>
-                <th
-                  style={{
-                    fontSize: "0.8rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  ID / Code
-                </th>
-                <th
-                  style={{
-                    fontSize: "0.8rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Client
-                </th>
-                <th
-                  style={{
-                    fontSize: "0.8rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Analyst
-                </th>
-                <th
-                  style={{
-                    fontSize: "0.8rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {statsLoading ? (
-                <tr>
-                  <td colSpan="4">
-                    <Spinner message="Fetching activity..." />
-                  </td>
-                </tr>
-              ) : recentActivity.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="4"
-                    style={{
-                      textAlign: "center",
-                      padding: "2.5rem",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    No recent activity detected.
-                  </td>
-                </tr>
-              ) : (
-                recentActivity.map((inst) => (
-                  <tr key={inst._id}>
-                    <td
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      {formatTestCode(inst.testCode)}
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{inst.clientName}</td>
-                    <td>
-                      {inst.assignedTo?.name || (
-                        <span style={{ color: "var(--color-text-muted)" }}>
-                          Unassigned
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${inst.status === "COMPLETED" ? "badge-success" : "badge-warning"}`}
-                      >
-                        {inst.status === "COMPLETED"
-                          ? "Finished"
-                          : "In Progress"}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <RecentActivityTable activities={recentActivity} isLoading={statsLoading} />
     </div>
   );
 }
