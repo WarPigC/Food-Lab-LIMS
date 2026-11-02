@@ -178,5 +178,24 @@ describe('SP-3 P13: Job Grouping Backend Endpoints', () => {
       expect(codes).toContain('JG-TEST-002');
       expect(codes).not.toContain('JG-TEST-003');
     });
+
+    it('should fetch jobs filtered by startSerial and endSerial', async () => {
+      const j1 = await Job.findOne({ jobCode: 'JG-TEST-001' });
+      const j2 = await Job.findOne({ jobCode: 'JG-TEST-002' });
+      const s1 = j1.sampleSerial % 10000;
+      const s2 = j2.sampleSerial % 10000;
+      const minS = Math.min(s1, s2);
+      const maxS = Math.max(s1, s2);
+
+      const res = await request(app)
+        .get(`/api/jobs?startSerial=${minS}&endSerial=${maxS}`)
+        .set('Authorization', `Bearer ${officerToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.jobs).toBeDefined();
+      const codes = res.body.jobs.map(j => j.jobCode);
+      expect(codes).toContain('JG-TEST-001');
+      expect(codes).toContain('JG-TEST-002');
+    });
   });
 });

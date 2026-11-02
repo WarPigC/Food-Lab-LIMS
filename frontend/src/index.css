@@ -1655,7 +1655,49 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .group-header-row:hover {
-  background-color: #EEF2F6;
+  background-color: var(--color-surface-hover);
+}
+
+@keyframes groupRowSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes groupRowSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.grouped-job-row {
+  animation: groupRowSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(0.06s + min(var(--item-idx, 0) * 0.015s, 0.15s));
+}
+
+.grouped-job-row.is-closing {
+  animation: groupRowSlideOut 0.2s cubic-bezier(0.2, 0, 0, 1) forwards;
+  pointer-events: none;
+}
+
+.grouped-job-card {
+  animation: groupRowSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(0.06s + min(var(--item-idx, 0) * 0.015s, 0.15s));
+}
+
+.grouped-job-card.is-closing {
+  animation: groupRowSlideOut 0.2s cubic-bezier(0.2, 0, 0, 1) forwards;
+  pointer-events: none;
 }
 
 @keyframes floatingBarIn {

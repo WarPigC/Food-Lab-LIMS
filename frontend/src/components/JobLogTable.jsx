@@ -34,6 +34,55 @@ import { formatJobCode } from "../utils/serialUtils";
 import { formatDate } from "../utils/dateUtils";
 import { useModal } from "../hooks/useModal";
 
+function GroupNamingModalContent({ message, defaultValue = "", confirmLabel = "Save", resolve, close }) {
+  const [name, setName] = useState(defaultValue);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    resolve(trimmed);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem", marginTop: "0.25rem" }}>
+      {message && (
+        <div style={{ fontSize: "0.92rem", color: "var(--color-text-muted)" }}>
+          {message}
+        </div>
+      )}
+      <div>
+        <input
+          type="text"
+          className="modal-input-field"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. October Batch"
+          required
+          autoFocus
+          style={{ width: "100%" }}
+        />
+      </div>
+      <div className="modal-footer" style={{ margin: 0, padding: 0 }}>
+        <button
+          type="button"
+          className="btn btn-secondary modal-btn"
+          onClick={() => resolve(null)}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="btn btn-primary modal-btn"
+          disabled={!name.trim()}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function JobLogTable({
   jobs,
   title = "Job Logs",
@@ -93,6 +142,7 @@ export default function JobLogTable({
   React.useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (groupCloseTimerRef.current) clearTimeout(groupCloseTimerRef.current);
     };
   }, []);
 
@@ -101,6 +151,8 @@ export default function JobLogTable({
   const [selectionAnchorId, setSelectionAnchorId] = useState(null);
   const [selectedJobIds, setSelectedJobIds] = useState(new Set());
   const [expandedGroupId, setExpandedGroupId] = useState(null);
+  const [closingGroupId, setClosingGroupId] = useState(null);
+  const groupCloseTimerRef = React.useRef(null);
   const [loadingGroupId, setLoadingGroupId] = useState(null);
   const [subRangeRemovingGroupId, setSubRangeRemovingGroupId] = useState(null);
 
@@ -116,15 +168,57 @@ export default function JobLogTable({
 
   const jobGroups = (enableGrouping && user?.jobGroups) ? user.jobGroups : [];
 
-  const isJobInGroup = (jobCode, group) => {
-    if (!jobCode || !group) return false;
-    const min = group.startJobCode < group.endJobCode ? group.startJobCode : group.endJobCode;
-    const max = group.startJobCode < group.endJobCode ? group.endJobCode : group.startJobCode;
-    return jobCode >= min && jobCode <= max;
+  const getJobSerial = (jobOrCode) => {
+    if (!jobOrCode) return null;
+    if (typeof jobOrCode === "number") {
+      return jobOrCode % 10000;
+    }
+    if (typeof jobOrCode === "object") {
+      if (typeof jobOrCode.sampleSerial === "number") {
+        return jobOrCode.sampleSerial % 10000;
+      }
+      jobOrCode = jobOrCode.jobCode || jobOrCode.sample?.sample_id;
+    }
+    const clean = String(jobOrCode || "").replace(/-.*/, "").trim();
+    if (clean.length >= 4) {
+      const num = parseInt(clean.slice(-4), 10);
+      if (!isNaN(num)) return num;
+    } else if (clean.length > 0) {
+      const num = parseInt(clean, 10);
+      if (!isNaN(num)) return num;
+    }
+    return null;
   };
 
-  const findGroupForJob = (jobCode) => {
-    return jobGroups.find(g => isJobInGroup(jobCode, g));
+  const isJobInGroup = (jobOrCode, group) => {
+    if (!jobOrCode || !group) return false;
+    const serial = getJobSerial(jobOrCode);
+    const minSerial = group.startSerial ?? getJobSerial(group.startJobCode);
+    const maxSerial = group.endSerial ?? getJobSerial(group.endJobCode);
+    if (serial !== null && minSerial !== null && maxSerial !== null) {
+      const min = Math.min(minSerial, maxSerial);
+      const max = Math.max(minSerial, maxSerial);
+      if (serial < min || serial > max) return false;
+
+      const code = typeof jobOrCode === "object" ? jobOrCode.jobCode : String(jobOrCode);
+      if (code && group.startJobCode && group.endJobCode) {
+        const gYearStart = String(group.startJobCode).slice(0, 2);
+        const gYearEnd = String(group.endJobCode).slice(0, 2);
+        if (gYearStart === gYearEnd && gYearStart.length === 2 && !isNaN(parseInt(gYearStart, 10))) {
+          const jYear = String(code).slice(0, 2);
+          if (jYear !== gYearStart) return false;
+        }
+      }
+      return true;
+    }
+    const code = typeof jobOrCode === "object" ? jobOrCode.jobCode : String(jobOrCode);
+    const minCode = group.startJobCode < group.endJobCode ? group.startJobCode : group.endJobCode;
+    const maxCode = group.startJobCode < group.endJobCode ? group.endJobCode : group.startJobCode;
+    return code >= minCode && code <= maxCode;
+  };
+
+  const findGroupForJob = (jobOrCode) => {
+    return jobGroups.find(g => isJobInGroup(jobOrCode, g));
   };
 
   const clearSelection = () => {
@@ -185,7 +279,7 @@ export default function JobLogTable({
     const selectedList = visibleJobs.filter(j => selectedJobIds.has(j._id));
     if (selectedList.length === 0) return;
 
-    const hasCollision = selectedList.some(j => findGroupForJob(j.jobCode));
+    const hasCollision = selectedList.some(j => findGroupForJob(j));
     if (hasCollision) {
       await modal.error({
         title: "Range Conflict",
@@ -194,17 +288,30 @@ export default function JobLogTable({
       return;
     }
 
-    const startCode = selectedList[0].jobCode;
-    const endCode = selectedList[selectedList.length - 1].jobCode;
-    const minCode = startCode < endCode ? startCode : endCode;
-    const maxCode = startCode < endCode ? endCode : startCode;
+    const sortedBySerial = [...selectedList].sort((a, b) => {
+      const sA = getJobSerial(a) ?? 0;
+      const sB = getJobSerial(b) ?? 0;
+      if (sA !== sB) return sA - sB;
+      return (a.jobCode || "").localeCompare(b.jobCode || "");
+    });
 
-    const name = await modal.input({
+    const minSerial = getJobSerial(sortedBySerial[0]);
+    const maxSerial = getJobSerial(sortedBySerial[sortedBySerial.length - 1]);
+    const minCode = sortedBySerial[0].jobCode;
+    const maxCode = sortedBySerial[sortedBySerial.length - 1].jobCode;
+
+    const name = await modal.custom({
       title: "Create Job Group",
-      message: `Enter a name for this group (${selectedList.length} jobs):`,
-      placeholder: "e.g. October Batch",
-      confirmText: "Create Group",
-      multiline: false,
+      icon: <FolderPlus size={22} style={{ color: "var(--color-primary)" }} />,
+      accentColor: "var(--color-primary, #2563EB)",
+      content: ({ resolve, close }) => (
+        <GroupNamingModalContent
+          message={`Enter a name for this group (${selectedList.length} jobs):`}
+          confirmLabel="Create Group"
+          resolve={resolve}
+          close={close}
+        />
+      ),
     });
 
     if (!name || !name.trim()) return;
@@ -215,6 +322,8 @@ export default function JobLogTable({
       name: name.trim(),
       startJobCode: minCode,
       endJobCode: maxCode,
+      startSerial: minSerial,
+      endSerial: maxSerial,
       count: selectedList.length,
       color,
       isCollapsed: true,
@@ -229,12 +338,19 @@ export default function JobLogTable({
 
   const handleRenameGroup = async (group, e) => {
     if (e) e.stopPropagation();
-    const newName = await modal.input({
+    const newName = await modal.custom({
       title: "Rename Job Group",
-      message: "Enter the new name for this group:",
-      defaultValue: group.name,
-      confirmText: "Rename",
-      multiline: false,
+      icon: <Folder size={22} style={{ color: group.color || "var(--color-primary)" }} />,
+      accentColor: group.color || "var(--color-primary, #2563EB)",
+      content: ({ resolve, close }) => (
+        <GroupNamingModalContent
+          message="Enter the new name for this group:"
+          defaultValue={group.name}
+          confirmLabel="Rename"
+          resolve={resolve}
+          close={close}
+        />
+      ),
     });
     if (!newName || !newName.trim() || newName.trim() === group.name) return;
 
@@ -263,25 +379,36 @@ export default function JobLogTable({
 
   const toggleGroupExpand = async (group) => {
     if (expandedGroupId === group.id) {
+      setClosingGroupId(group.id);
       setExpandedGroupId(null);
+      if (groupCloseTimerRef.current) clearTimeout(groupCloseTimerRef.current);
+      groupCloseTimerRef.current = setTimeout(() => {
+        setClosingGroupId(null);
+      }, 210);
       return;
     }
 
+    if (groupCloseTimerRef.current) clearTimeout(groupCloseTimerRef.current);
+    setClosingGroupId(null);
     setExpandedGroupId(group.id);
 
     // On-demand fetch if missing jobs in range
-    const minCode = group.startJobCode < group.endJobCode ? group.startJobCode : group.endJobCode;
-    const maxCode = group.startJobCode < group.endJobCode ? group.endJobCode : group.startJobCode;
-    const loadedCount = jobs.filter(j => j.jobCode >= minCode && j.jobCode <= maxCode).length;
+    const loadedCount = jobs.filter(j => isJobInGroup(j, group)).length;
 
     if (loadedCount < group.count) {
       setLoadingGroupId(group.id);
       try {
+        const startSer = group.startSerial ?? getJobSerial(group.startJobCode);
+        const endSer = group.endSerial ?? getJobSerial(group.endJobCode);
         const queryParams = new URLSearchParams({
           includeCancelled: "true",
           rangeStart: group.startJobCode,
           rangeEnd: group.endJobCode,
         });
+        if (startSer !== null && endSer !== null) {
+          queryParams.set("startSerial", String(startSer));
+          queryParams.set("endSerial", String(endSer));
+        }
         const res = await axios.get(`${API_URL}/api/jobs?${queryParams.toString()}`);
         if (res.data?.jobs && onMergeJobs) {
           onMergeJobs(res.data.jobs);
@@ -309,7 +436,7 @@ export default function JobLogTable({
       return;
     }
 
-    const groupJobs = visibleJobs.filter(j => isJobInGroup(j.jobCode, group));
+    const groupJobs = visibleJobs.filter(j => isJobInGroup(j, group));
     const selectedCount = selectedJobIds.size;
 
     // Case 1: All jobs selected, disband
@@ -580,15 +707,23 @@ export default function JobLogTable({
   const renderedGroupIds = new Set();
 
   visibleJobs.forEach((job, index) => {
-    const group = enableGrouping ? findGroupForJob(job.jobCode) : null;
+    const group = enableGrouping ? findGroupForJob(job) : null;
     if (!group) {
       displayItems.push({ type: "job", job, index, isGrouped: false });
     } else {
       if (!renderedGroupIds.has(group.id)) {
         renderedGroupIds.add(group.id);
         displayItems.push({ type: "group-header", group });
-        if (expandedGroupId === group.id) {
-          const groupMemberJobs = filteredJobsAll.filter((j) => isJobInGroup(j.jobCode, group));
+        const isGroupOpen = expandedGroupId === group.id || closingGroupId === group.id;
+        if (isGroupOpen) {
+          const groupMemberJobs = filteredJobsAll
+            .filter((j) => isJobInGroup(j, group))
+            .sort((a, b) => {
+              const sA = getJobSerial(a) || 0;
+              const sB = getJobSerial(b) || 0;
+              if (sA !== sB) return sB - sA;
+              return (b.jobCode || "").localeCompare(a.jobCode || "");
+            });
           groupMemberJobs.forEach((mJob, mIdx) => {
             displayItems.push({
               type: "job",
@@ -596,6 +731,8 @@ export default function JobLogTable({
               index: mIdx,
               isGrouped: true,
               group,
+              isClosing: closingGroupId === group.id,
+              groupIndex: mIdx,
             });
           });
         }
@@ -608,8 +745,16 @@ export default function JobLogTable({
       if (!renderedGroupIds.has(g.id)) {
         renderedGroupIds.add(g.id);
         displayItems.push({ type: "group-header", group: g });
-        if (expandedGroupId === g.id) {
-          const groupMemberJobs = filteredJobsAll.filter((j) => isJobInGroup(j.jobCode, g));
+        const isGroupOpen = expandedGroupId === g.id || closingGroupId === g.id;
+        if (isGroupOpen) {
+          const groupMemberJobs = filteredJobsAll
+            .filter((j) => isJobInGroup(j, g))
+            .sort((a, b) => {
+              const sA = getJobSerial(a) || 0;
+              const sB = getJobSerial(b) || 0;
+              if (sA !== sB) return sB - sA;
+              return (b.jobCode || "").localeCompare(a.jobCode || "");
+            });
           groupMemberJobs.forEach((mJob, mIdx) => {
             displayItems.push({
               type: "job",
@@ -617,6 +762,8 @@ export default function JobLogTable({
               index: mIdx,
               isGrouped: true,
               group: g,
+              isClosing: closingGroupId === g.id,
+              groupIndex: mIdx,
             });
           });
         }
@@ -762,7 +909,7 @@ export default function JobLogTable({
                         className="group-header-row"
                         onClick={() => toggleGroupExpand(group)}
                         style={{
-                          backgroundColor: "var(--color-surface, #ffffff)",
+                          backgroundColor: "#ffffff",
                           borderBottom: "1px solid var(--color-border)",
                           cursor: "pointer",
                         }}
@@ -788,11 +935,14 @@ export default function JobLogTable({
                               verticalAlign: "middle",
                             }}
                           >
-                            {isExpanded ? (
-                              <ChevronDown size={20} style={{ color: group.color }} />
-                            ) : (
-                              <ChevronRight size={20} style={{ color: "var(--color-text-muted)" }} />
-                            )}
+                            <ChevronDown
+                              size={20}
+                              style={{
+                                color: isExpanded ? group.color : "var(--color-text-muted)",
+                                transition: "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease",
+                                transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)",
+                              }}
+                            />
                           </div>
                         </td>
                         <td colSpan={showActions ? 5 : 4} style={{ padding: "0.85rem 1rem" }}>
@@ -902,7 +1052,9 @@ export default function JobLogTable({
                 <React.Fragment key={job._id}>
                   <tr
                     id={`job-row-${job._id}`}
+                    className={isGrouped ? `grouped-job-row ${item.isClosing ? "is-closing" : ""}` : ""}
                     style={{
+                      "--item-idx": item.groupIndex ?? 0,
                       cursor: "pointer",
                       borderBottom:
                         expandedJobId === job._id
@@ -1250,7 +1402,7 @@ export default function JobLogTable({
                                       </button>
                                     )}
 
-                                    {enableGrouping && !findGroupForJob(job.jobCode) && (
+                                    {enableGrouping && !findGroupForJob(job) && (
                                       <button
                                         className="action-dropdown-item"
                                         onClick={(e) => {
@@ -1263,12 +1415,12 @@ export default function JobLogTable({
                                       </button>
                                     )}
 
-                                    {enableGrouping && findGroupForJob(job.jobCode) && (
+                                    {enableGrouping && findGroupForJob(job) && (
                                       <button
                                         className="action-dropdown-item action-dropdown-item--danger"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleStartSubRangeRemoval(findGroupForJob(job.jobCode), job);
+                                          handleStartSubRangeRemoval(findGroupForJob(job), job);
                                         }}
                                       >
                                         <FolderMinus size={15} style={{ color: "var(--color-danger)" }} />
@@ -1351,7 +1503,7 @@ export default function JobLogTable({
                   key={`mobile-group-${group.id}`}
                   onClick={() => toggleGroupExpand(group)}
                   style={{
-                    backgroundColor: "var(--color-surface, #ffffff)",
+                    backgroundColor: "#ffffff",
                     borderTop: "1px solid var(--color-border)",
                     borderRight: "1px solid var(--color-border)",
                     borderBottom: "1px solid var(--color-border)",
@@ -1373,11 +1525,14 @@ export default function JobLogTable({
                       )}
                       <span style={{ fontWeight: 700, fontSize: "1rem" }}>{group.name}</span>
                     </div>
-                    {isExpanded ? (
-                      <ChevronDown size={20} style={{ color: group.color }} />
-                    ) : (
-                      <ChevronRight size={20} style={{ color: "var(--color-text-muted)" }} />
-                    )}
+                    <ChevronDown
+                      size={20}
+                      style={{
+                        color: isExpanded ? group.color : "var(--color-text-muted)",
+                        transition: "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease",
+                        transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)",
+                      }}
+                    />
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -1454,12 +1609,14 @@ export default function JobLogTable({
             return (
             <div
               key={`mobile-job-${job._id}`}
+              className={isGrouped ? `grouped-job-card ${item.isClosing ? "is-closing" : ""}` : ""}
               onClick={(e) => {
                 if (isSelectingRange) {
                   handleJobSelectionClick(job, e);
                 }
               }}
               style={{
+                "--item-idx": item.groupIndex ?? 0,
                 borderRadius: "var(--radius-lg)",
                 padding: "1.25rem",
                 boxShadow: "var(--shadow-sm)",

@@ -453,15 +453,42 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Range query (for on-demand job group expansion)
-    const { rangeStart, rangeEnd } = req.query;
-    if (rangeStart && rangeEnd) {
+    const { rangeStart, rangeEnd, startSerial, endSerial } = req.query;
+    if (startSerial && endSerial) {
+      const s1 = parseInt(startSerial, 10);
+      const s2 = parseInt(endSerial, 10);
+      if (!isNaN(s1) && !isNaN(s2)) {
+        const minSerial = Math.min(s1, s2);
+        const maxSerial = Math.max(s1, s2);
+        const serialCondition = {
+          $or: [
+            { sampleSerial: { $gte: minSerial, $lte: maxSerial } },
+            {
+              $expr: {
+                $and: [
+                  { $gte: [{ $mod: ['$sampleSerial', 10000] }, minSerial] },
+                  { $lte: [{ $mod: ['$sampleSerial', 10000] }, maxSerial] }
+                ]
+              }
+            }
+          ]
+        };
+        if (query.$or) {
+          query.$and = [...(query.$and || []), { $or: query.$or }, serialCondition];
+          delete query.$or;
+        } else {
+          query.$or = serialCondition.$or;
+        }
+      }
+    } else if (rangeStart && rangeEnd) {
       const minCode = rangeStart < rangeEnd ? rangeStart : rangeEnd;
       const maxCode = rangeStart < rangeEnd ? rangeEnd : rangeStart;
       query.jobCode = { $gte: minCode, $lte: maxCode };
     }
 
     // Pagination parameters
-    const limit = (rangeStart && rangeEnd)
+    const isRangeQuery = (rangeStart && rangeEnd) || (startSerial && endSerial);
+    const limit = isRangeQuery
       ? 200
       : Math.min(parseInt(req.query.limit) || 50, 100);
     const cursor = req.query.cursor;  // MongoDB _id of the last item from previous page

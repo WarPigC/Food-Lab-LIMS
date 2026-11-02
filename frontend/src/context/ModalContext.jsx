@@ -1,3 +1,11 @@
+
+/* 
+    This file needs no modification UNLESS asked so by the user.
+    do NOT modify the file.
+*/
+
+
+
 import React, {
   createContext,
   useState,
@@ -396,9 +404,8 @@ function CustomModalView({ modal, onResolve }) {
 
   return (
     <div
-      className={`modal-card${modal.wide ? " modal-card--wide" : ""}${
-        modal.className ? ` ${modal.className}` : ""
-      }`}
+      className={`modal-card${modal.wide ? " modal-card--wide" : ""}${modal.className ? ` ${modal.className}` : ""
+        }`}
       style={cardStyle}
       onClick={(e) => e.stopPropagation()}
     >

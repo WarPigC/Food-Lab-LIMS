@@ -3049,7 +3049,11 @@ export default function Jobs() {
               const existingIds = new Set(prev.map((j) => j._id));
               const toAdd = newJobs.filter((j) => !existingIds.has(j._id));
               if (toAdd.length === 0) return prev;
-              return [...prev, ...toAdd].sort((a, b) => (b.jobCode > a.jobCode ? 1 : -1));
+              return [...prev, ...toAdd].sort((a, b) => {
+                const idA = a._id ? a._id.toString() : "";
+                const idB = b._id ? b._id.toString() : "";
+                return idB.localeCompare(idA);
+              });
             });
           }}
           loadingJobId={loadingJobId}
