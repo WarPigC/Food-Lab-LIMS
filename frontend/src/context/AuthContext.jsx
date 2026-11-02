@@ -7,6 +7,7 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
   // In-place re-authentication modal state.
@@ -24,22 +25,25 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
       try {
-        const decoded = jwtDecode(token);
+        const decoded = jwtDecode(storedToken);
         // Check for token expiration on page load / hydration
         if (decoded.exp * 1000 < Date.now()) {
           localStorage.removeItem('token');
+          setToken(null);
           setUser(null);
         } else {
           // Hydrate from localStorage for simplicity
           const storedUser = JSON.parse(localStorage.getItem('user'));
+          setToken(storedToken);
           setUser(storedUser);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
         }
       } catch (e) {
         localStorage.removeItem('token');
+        setToken(null);
         setUser(null);
       }
     }
@@ -125,6 +129,7 @@ export const AuthProvider = ({ children }) => {
       lastBackupAt: res.data.lastBackupAt || null,
     };
     localStorage.setItem('user', JSON.stringify(userData));
+    setToken(newToken);
     setUser(userData);
 
     closeReAuthModal();
@@ -146,6 +151,7 @@ export const AuthProvider = ({ children }) => {
     };
     localStorage.setItem('user', JSON.stringify(userData));
     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+    setToken(res.data.token);
     setUser(userData);
     return userData;
   };
@@ -154,6 +160,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
+    setToken(null);
     closeReAuthModal();
     setUser(null);
   };
@@ -163,6 +170,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         setUser,
+        token,
         login,
         logout,
         loading,

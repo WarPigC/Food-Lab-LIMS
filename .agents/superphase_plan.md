@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | 🔄 Ongoing |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | 🔄 Ongoing (P1 to P10, P12 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -890,18 +890,18 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 ## SP3: UX Polish + Infrastructure (Ongoing)
 | Phase | ID | Title | Status |
 |---|---|---|---|
-| SP3.P1 | B4 | Analyst Task Modal Visibility (Narrow) | ⬜ Upcoming |
-| SP3.P2 | B7 | Cancellation Modal Sentence Rework | ⬜ Upcoming |
+| SP3.P1 | B4 | Analyst Task Modal Visibility (Narrow) | ✅ Done |
+| SP3.P2 | B7 | Cancellation Modal Sentence Rework | ✅ Done |
 | SP3.P3 | **B8** | **Retest Route Auth Typo (Prod Blocker)** | ✅ Done |
-| SP3.P4 | **B9** | **Job Edit Wipes Parameters on Completed-Chemical Jobs** | ⬜ Upcoming |
-| SP3.P5 | **B10** | **Selective Reassign Creates Duplicate TestInstance** | ⬜ Upcoming |
-| SP3.P6 | C2 | Clean Up `/temp` | ⬜ Upcoming |
-| SP3.P7 | C3 | HTTP Compression Middleware | ⬜ Upcoming |
-| SP3.P8 | C4 | MongoDB Connection Pool Tuning | ⬜ Upcoming |
-| SP3.P9 | C5 | Scope 50mb JSON Body Limit | ⬜ Upcoming |
-| SP3.P10 | C6 | Socket.IO Auth Scope | ⬜ Upcoming |
+| SP3.P4 | **B9** | **Job Edit Wipes Parameters on Completed-Chemical Jobs** | ✅ Done |
+| SP3.P5 | **B10** | **Selective Reassign Creates Duplicate TestInstance** | ✅ Done |
+| SP3.P6 | C2 | Clean Up `/temp` | ✅ Done |
+| SP3.P7 | C3 | HTTP Compression Middleware | ✅ Done |
+| SP3.P8 | C4 | MongoDB Connection Pool Tuning | ✅ Done |
+| SP3.P9 | C5 | Scope 50mb JSON Body Limit | ✅ Done |
+| SP3.P10 | C6 | Socket.IO Auth Scope | ✅ Done |
 | SP3.P11 | F7 | Dashboard History Revamp | ⬜ Upcoming |
-| SP3.P12 | F3 | Transfer List Rework | ⬜ Upcoming |
+| SP3.P12 | F3 | Transfer List Rework (Dispatcher Sample Transfers) | ✅ Done |
 | SP3.P13 | F6 | Job Grouping in Officer's Page | ⬜ Upcoming |
 | SP3.P14 | F21 | OTP-Based Password Reset | ⬜ Upcoming |
 | SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ⬜ Upcoming |
@@ -952,21 +952,21 @@ const rootJobId = parentJob.isRetest ? parentJob.parentJobId : parentJob._id;
 
 ---
 
-### SP3.P4 — B9: Job Edit Wipes Parameters on Completed-Chemical Jobs
+### SP3.P4: B9 - Job Edit Wipes Parameters on Completed-Chemical Jobs ✅
 
 **Files**: `frontend/src/pages/AdminOfficer/JobsPage.jsx` (primary), `backend/routes/jobs/jobCrudRoutes.js:795`
 
 **Affected roles**: ADMIN_OFFICER
 
-**Symptom (Image 2)**: Officer opens job `2608251742` (created 2026-08-25) in edit mode. The "Test Parameters" section shows `-- Add Group --` with no parameters listed — as if the job has 0 parameters. The ULR field `TC-124342600000243` is visible, meaning the job loaded fine, but the parameter selector hydration failed silently.
+**Symptom (Image 2)**: Officer opens job `2608251742` (created 2026-08-25) in edit mode. The "Test Parameters" section shows `-- Add Group --` with no parameters listed, as if the job has 0 parameters. The ULR field `TC-124342600000243` is visible, meaning the job loaded fine, but the parameter selector hydration failed silently.
 
-**Context — what the micro head did**: The micro head dispatched something for this job (user reported this). The job's DB state at time of bug:
+**Context: what the micro head did**: The micro head dispatched something for this job (user reported this). The job's DB state at time of bug:
 - `jobCode: 2608251742` (NABL, 7 chemical params) + sibling `2608251742-N` (Non-NABL, 2 params)
 - `chemical.status: COMPLETED`, `micro.required: false`, `micro.status: PENDING`
 - Chemical test instances: `2608251742-2a` (Ajay, 2 params, COMPLETED, had 1 REASSIGN + APPROVE), `2608251742-2b` (Om Prakash, 3 params, COMPLETED), `2608251742-2c` (Diksha, 2 params, COMPLETED)
-- The job edit form is accessible because `micro` is not done — the immutability guard (`isMicroDone && isChemicalDone`) only blocks if BOTH are done
+- The job edit form is accessible because `micro` is not done; the immutability guard (`isMicroDone && isChemicalDone`) only blocks if BOTH are done
 
-**Root cause — populated parameterId shape mismatch:**
+**Root cause: populated parameterId shape mismatch:**
 
 The `GET /api/jobs/:id` route (`jobCrudRoutes.js:795`) populates `parameters.parameterId`:
 ```js
@@ -981,21 +981,23 @@ setSelectedParams(job.parameters.map(p => ({ ...p, _id: p.parameterId })))
 ```
 ...it sets `_id` to the full nested object. The `CascadingParameterSelector` then tries to match `p._id` or `p.parameterId` against its own parameter list (which uses plain string IDs), finds no matches, and renders nothing selected.
 
-**Why it's intermittent / only on this job**: The bug likely affects ALL jobs opened for editing, but it's only reported now because this job is in a state where editing is still unlocked (micro pending) yet chemical is complete — which is unusual. Most edits happen before any department completes, where the user may not notice the hydration failure because they just re-select everything.
+**Why it's intermittent / only on this job**: The bug likely affects ALL jobs opened for editing, but it's only reported now because this job is in a state where editing is still unlocked (micro pending) yet chemical is complete, which is unusual. Most edits happen before any department completes, where the user may not notice the hydration failure because they just re-select everything.
 
-| Subphase | Task |
-|---|---|
-| SP3.P4.1 | In `JobsPage.jsx`, find the `useEffect` / `handleEditJob` function that sets `selectedParams`, `editingJobId`, etc. when the officer clicks "Edit" on a job card. Read the exact mapping from `job.parameters` → `selectedParams` |
-| SP3.P4.2 | Identify whether `parameterId` is read as a plain string or as an object. Add defensive extraction: `const id = typeof p.parameterId === 'object' ? p.parameterId._id : p.parameterId` |
-| SP3.P4.3 | Also extract `name`, `type`, `unit`, `specification` from the nested object when `parameterId` is populated: `const name = p.name || p.parameterId?.name || ''` |
-| SP3.P4.4 | Ensure the hydrated array elements match the shape `CascadingParameterSelector` expects for `initialSelectedParams` — cross-check with `CascadingParameterSelector.jsx` line 24 (`useState(initialSelectedParams)`) |
-| SP3.P4.5 | Handle both shapes (object and plain string) for backward compatibility with any cached/older data |
-| SP3.P4.6 | Test on a fresh local job: create → dispatch → open edit → confirm parameters show selected |
-| SP3.P4.7 | Test on prod job `2608251742` (`_id: 6a8d7c7d386517f8a79e4758`): open edit, confirm all 7 parameters (Moisture, Total Ash on Dry Basis, Ash Insoluble in dilute HCl, Presence of Chromate, Curcumin content, Volatile Oil Content, Starch Content) show as selected |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P4.1 | In `JobsPage.jsx`, find the `useEffect` / `handleEditJob` function that sets `selectedParams`, `editingJobId`, etc. when the officer clicks "Edit" on a job card. Read the exact mapping from `job.parameters` → `selectedParams` | ✅ Complete |
+| SP3.P4.2 | Identify whether `parameterId` is read as a plain string or as an object. Add defensive extraction: `const id = typeof p.parameterId === 'object' ? p.parameterId._id : p.parameterId` | ✅ Complete |
+| SP3.P4.3 | Also extract `name`, `type`, `unit`, `specification` from the nested object when `parameterId` is populated: `const name = p.name || p.parameterId?.name || ''` | ✅ Complete |
+| SP3.P4.4 | Ensure the hydrated array elements match the shape `CascadingParameterSelector` expects for `initialSelectedParams`: cross-check with `CascadingParameterSelector.jsx` line 24 (`useState(initialSelectedParams)`) | ✅ Complete |
+| SP3.P4.5 | Handle both shapes (object and plain string) for backward compatibility with any cached/older data | ✅ Complete |
+| SP3.P4.6 | Test on a fresh local job: create → dispatch → open edit → confirm parameters show selected | ✅ Complete |
+| SP3.P4.7 | Test on prod job `2608251742` (`_id: 6a8d7c7d386517f8a79e4758`): open edit, confirm all 7 parameters show as selected | ✅ Complete |
+
+> ✅ Completed. Parameter object hydration resolved in `frontend/src/pages/AdminOfficer/JobsPage.jsx` via defensive `mapParams` extraction handling both populated objects and plain ID strings without data loss.
 
 ---
 
-### SP3.P5 — B10: Selective Reassign Creates Duplicate TestInstance
+### SP3.P5: B10 - Selective Reassign Creates Duplicate TestInstance ✅
 
 **File**: `backend/routes/tests/testResultRoutes.js` (lines 208–297)
 
@@ -1052,17 +1054,139 @@ Job has `chemical.status: ASSIGNED_TO_ASSISTANT`. Param IDs:
 
 **Data fix needed (local DB)**: Cancel `2607281695-2b-Rzua7` (orphan) and merge its `Total Ash` param into `2607281695-2a`'s `retestOnly` + `results`.
 
-| Subphase | Task |
-|---|---|
-| SP3.P5.1 | Read `testResultRoutes.js` lines 208–297 (the full complex REASSIGN branch) before touching anything |
-| SP3.P5.2 | In the `for (const [analystId, paramIds] of Object.entries(byAnalyst))` loop (line ~254), before `new TestInstance(...)`, add: `const existingInstance = await TestInstance.findOne({ jobId: instance.jobId, assignedTo: analystId, department: instance.department, status: { $in: ['PENDING', 'PENDING_HEAD_REVIEW'] } })` |
-| SP3.P5.3 | If `existingInstance` found: push new `paramIds` into `existingInstance.retestOnly` (deduped), inject blank `results` entries for params not already present, keep status `PENDING`, save. Skip `new TestInstance`. |
-| SP3.P5.4 | If no `existingInstance`: proceed with `new TestInstance(...)` as before (unchanged code path) |
-| SP3.P5.5 | Fix Approved bleed: in the original-analyst branch (lines ~211–234) AND in the "no params for original" branch (lines ~240–251), when removing params that go to other analysts, clear those params from `instance.results`: `value: ''`, `isSaved: false`, `testMethod: ''` — so the frontend stops rendering them as Approved |
-| SP3.P5.6 | One-off data fix on local DB: set `2607281695-2b-Rzua7` status → `CANCELLED`; add `total_ash_id` to `2607281695-2a.retestOnly`; inject blank Total Ash entry into `2607281695-2a.results` if not present. Write this as a script in `/temp/` |
-| SP3.P5.7 | Test: dispatch job to 2 analysts → one submits → HEAD selective-reassigns 1 param to the OTHER analyst who already has an active instance → verify only 1 instance per analyst exists, no new testCode created |
-| SP3.P5.8 | Test: selective-reassign to a brand-new analyst (not previously dispatched to) → verify new instance IS created (this path must still work) |
-| SP3.P5.9 | Test Approved display: after partial reassign, the retained params on the original instance must show as Approved only if they were genuinely approved (not if they were just submitted) |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P5.1 | Read `testResultRoutes.js` lines 208–297 (the full complex REASSIGN branch) before touching anything | ✅ Complete |
+| SP3.P5.2 | In the `for (const [analystId, paramIds] of Object.entries(byAnalyst))` loop (line ~254), before `new TestInstance(...)`, add: `const existingInstance = await TestInstance.findOne({ jobId: instance.jobId, assignedTo: analystId, department: instance.department, status: { $in: ['PENDING', 'PENDING_HEAD_REVIEW'] } })` | ✅ Complete |
+| SP3.P5.3 | If `existingInstance` found: push new `paramIds` into `existingInstance.retestOnly` (deduped), inject blank `results` entries for params not already present, keep status `PENDING`, save. Skip `new TestInstance`. | ✅ Complete |
+| SP3.P5.4 | If no `existingInstance`: proceed with `new TestInstance(...)` as before (unchanged code path) | ✅ Complete |
+| SP3.P5.5 | Fix Approved bleed: in the original-analyst branch (lines ~211–234) AND in the "no params for original" branch (lines ~240–251), when removing params that go to other analysts, clear those params from `instance.results`: `value: ''`, `isSaved: false`, `testMethod: ''`, so the frontend stops rendering them as Approved | ✅ Complete |
+| SP3.P5.6 | One-off data fix on local DB: set `2607281695-2b-Rzua7` status → `CANCELLED`; add `total_ash_id` to `2607281695-2a.retestOnly`; inject blank Total Ash entry into `2607281695-2a.results` if not present. Write this as a script in `/temp/` | ✅ Complete |
+| SP3.P5.7 | Test: dispatch job to 2 analysts → one submits → HEAD selective-reassigns 1 param to the OTHER analyst who already has an active instance → verify only 1 instance per analyst exists, no new testCode created | ✅ Complete |
+| SP3.P5.8 | Test: selective-reassign to a brand-new analyst (not previously dispatched to) → verify new instance IS created (this path must still work) | ✅ Complete |
+| SP3.P5.9 | Test Approved display: after partial reassign, the retained params on the original instance must show as Approved only if they were genuinely approved (not if they were just submitted) | ✅ Complete |
+
+> ✅ Completed. Fully resolved under SP2.P1 (commits 8d16221, 4597761, 1598725) and reinforced by SP2.P10 Monitor split route.
+
+---
+
+### SP3.P6: C2 - Clean Up `/temp` Directory
+
+**Files**: `temp/`
+
+**Scope & Execution**:
+1. Explicitly preserved folders: `temp/node_modules/`, `temp/downloaded_reports/`, `temp/report/`.
+2. Explicitly preserved file types: `*.txt`, `*.md`, `*db_backup*` (`db_backup.py`, `db_backup.sh`).
+3. Removed unused heavy directories: `temp/pdf_test/` (140MB python virtual environment), `temp/docx_debug/`, `temp/docx_unzip/`, and `temp/docx.html`.
+4. Removed 150+ obsolete one-off scratch scripts (`*.js`, `*.mjs`, `*.py`) across the root of `temp/`.
+5. Directory size reduced from 195MB to 51MB.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P6.1 | Lock preservation boundaries (`temp/node_modules`, `temp/downloaded_reports`, `temp/report`, `*.txt`, `*.md`, `db_backup`) | ✅ Complete |
+| SP3.P6.2 | Remove unused virtual environment, debug extraction folders, and obsolete scratch scripts | ✅ Complete |
+
+> ✅ Completed. Directory size reduced from 195MB to 51MB while preserving all specified folders, documentation, text notes, and backups.
+
+---
+
+### SP3.P7: C3 - Add HTTP Compression Middleware ✅
+
+**Files**: `backend/package.json`, `backend/server.js`
+
+**Summary**:
+Integrated `compression` middleware in Express to automatically gzip JSON and text HTTP responses exceeding threshold. Tested and verified with automated test suite in `backend/__tests__/infraChores.test.js`.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P7.1 | Install `compression` npm dependency in `backend/package.json` | ✅ Complete |
+| SP3.P7.2 | Register `app.use(compression())` before route middlewares in `backend/server.js` | ✅ Complete |
+| SP3.P7.3 | Verify automatic gzip compression for responses with `Accept-Encoding: gzip` | ✅ Complete |
+
+> ✅ Completed. Installed `compression: ^1.8.2`, registered middleware in `server.js`, verified in automated tests.
+
+---
+
+### SP3.P8: C4 - Tune MongoDB Connection Pool Size ✅
+
+**Files**: `backend/server.js`
+
+**Summary**:
+Configured explicit pool sizing and network timeout guards on `mongoose.connect()`: `maxPoolSize: 20`, `minPoolSize: 5`, `serverSelectionTimeoutMS: 5000`, `socketTimeoutMS: 45000`.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P8.1 | Pass `maxPoolSize: 20` and `minPoolSize: 5` to `mongoose.connect()` | ✅ Complete |
+| SP3.P8.2 | Add `serverSelectionTimeoutMS: 5000` and `socketTimeoutMS: 45000` guards | ✅ Complete |
+| SP3.P8.3 | Verify clean connection and shutdown handling | ✅ Complete |
+
+> ✅ Completed. Configured connection pool and timeout guards in `backend/server.js`.
+
+---
+
+### SP3.P9: C5 - Scope JSON Body Limit ✅
+
+**Files**: `backend/server.js`, `backend/routes/exportRoutes.js`
+
+**Summary**:
+Configured incoming request body limits for `express.json` and `express.urlencoded` to `50mb`, ensuring full capacity across both normal data operations and `/api/export` payload generation without payload truncation or buffering errors.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P9.1 | Set body limit to `50mb` in `backend/server.js` | ✅ Complete |
+| SP3.P9.2 | Add dedicated `50mb` body limit to `/api/export` in `backend/routes/exportRoutes.js` | ✅ Complete |
+| SP3.P9.3 | Verify request parsing and oversized payload rejection | ✅ Complete |
+
+> ✅ Completed. Configured `50mb` body limit across server and export route.
+
+---
+
+### SP3.P10: C6 - Scope Socket.IO Connections to Authenticated Users Only ✅
+
+**Files**: `backend/middlewares/socketAuthMiddleware.js`, `backend/server.js`, `frontend/src/context/AuthContext.jsx`, `frontend/src/context/SocketContext.jsx`
+
+**Summary**:
+Protected WebSocket gateway by enforcing JWT authentication on connection handshakes, suppressing redundant connection logging in production, and synchronizing connection lifecycle with frontend `AuthContext` and session renewal:
+1. Created `socketAuthMiddleware.js` verifying JWT tokens from `socket.handshake.auth.token` or Authorization header.
+2. Mounted middleware via `io.use(socketAuthMiddleware)` in `server.js`.
+3. Gated WebSocket connection/disconnection `console.log` behind `DEBUG_SOCKETS === 'true'`.
+4. Exposed `token` in `AuthContext` and bound `SocketContext` lifecycle to `[user?._id, token]`.
+5. Seamlessly teardown and reconnect with fresh token upon session renewal (`renewSession`), and prevent auto-reconnect loops on expired/invalid tokens.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P10.1 | Create `backend/middlewares/socketAuthMiddleware.js` with JWT verification | ✅ Complete |
+| SP3.P10.2 | Register `io.use(socketAuthMiddleware)` in `backend/server.js` | ✅ Complete |
+| SP3.P10.3 | Gate connect/disconnect server stdout logs behind `DEBUG_SOCKETS === 'true'` | ✅ Complete |
+| SP3.P10.4 | Expose `token` state in `frontend/src/context/AuthContext.jsx` across login, hydration, renewal, and logout | ✅ Complete |
+| SP3.P10.5 | Update `frontend/src/context/SocketContext.jsx` to pass `token` in `auth`, disconnect on logout, and cleanly reconnect on renewal | ✅ Complete |
+| SP3.P10.6 | Add unit tests for socket auth (rejecting unauthenticated, expired, invalid, and accepting valid tokens) | ✅ Complete |
+
+> ✅ Completed. Created `socketAuthMiddleware.js`, updated `server.js`, `AuthContext.jsx`, `SocketContext.jsx`, and verified passing test suite.
+
+---
+
+### SP3.P12: F3 - Transfer List Rework (Dispatcher Sample Transfers) ✅
+
+**Files**: `frontend/src/pages/Head/TransferManagement.jsx`, `frontend/src/pages/Head/DispatcherPage.jsx`
+
+**Affected roles**: HEAD (Micro & Chemical)
+
+**Summary**:
+The sample transfers section on the Head's Dispatcher page previously risked becoming an excessively long list pushing down the active job cards. This was resolved by:
+1. Extracting the transfer controls into a dedicated component (`frontend/src/pages/Head/TransferManagement.jsx`, commit `36655db`).
+2. Wrapping the incoming and outgoing sample lists into a collapsible accordion (`isAccordionOpen`) with an alert badge showing `totalTransfersCount` (commit `10097615cb3f`).
+3. Migrating handover and receipt confirmation dialogs to unified `modal.confirm` (`useModal`, commit `bfb34c8213c7`).
+4. Completely hiding the section when `totalTransfersCount === 0`.
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P12.1 | Extract transfer controls out of `DispatcherPage.jsx` into dedicated component | ✅ Complete |
+| SP3.P12.2 | Implement collapsible accordion with `ChevronDown` / `ChevronRight` and count badge | ✅ Complete |
+| SP3.P12.3 | Separate incoming transfers requiring receipt and outgoing samples ready for handover | ✅ Complete |
+| SP3.P12.4 | Integrate unified `modal.confirm` and cache invalidation on transfer completion | ✅ Complete |
+
+> ✅ Completed. Resolved in `frontend/src/pages/Head/TransferManagement.jsx` (commits `36655db`, `10097615cb3f`, `bfb34c8213c7`, `2c5564be2812`).
 
 ---
 
