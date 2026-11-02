@@ -1,5 +1,9 @@
 const express = require('express');
 const router = express.Router();
+
+// Scoped 50MB payload limit for export and report generation routes
+router.use(express.json({ limit: '50mb' }));
+router.use(express.urlencoded({ limit: '50mb', extended: true }));
 const multer = require('multer');
 const mongoose = require('mongoose');
 const { EJSON } = require('bson');

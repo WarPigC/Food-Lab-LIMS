@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | 🔄 Ongoing (P1 to P12 Complete) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | 🔄 Ongoing (P1 to P13 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 

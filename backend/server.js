@@ -7,7 +7,9 @@ const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 const helmet = require('helmet');
+const compression = require('compression');
 
+const socketAuthMiddleware = require('./middlewares/socketAuthMiddleware');
 const { authLimiter, apiLimiter } = require('./middlewares/rateLimiter');
 // Load env variables — .env.local overrides .env for local development
 const envLocalPath = path.join(__dirname, '.env.local');
@@ -47,11 +49,18 @@ app.set('io', io);
 const { setNotifierIo } = require('./utils/notifier');
 setNotifierIo(io);
 
+// Authenticate socket connections using JWT
+io.use(socketAuthMiddleware);
+
 // Socket connection listener
 io.on('connection', (socket) => {
-  console.log('Client connected to WebSockets:', socket.id);
+  if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_SOCKETS === 'true') {
+    console.log('Client connected to WebSockets:', socket.id, socket.user ? `(User: ${socket.user.id})` : '');
+  }
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_SOCKETS === 'true') {
+      console.log('Client disconnected:', socket.id);
+    }
   });
 });
 
@@ -61,6 +70,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 app.use(cors({ origin: corsOrigin }));
+app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -115,7 +125,13 @@ app.use(globalErrorHandler);
 
 // Connect to MongoDB using MONGODB_URI or MONGO_URI
 const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
-mongoose.connect(mongoUri)
+const mongooseOptions = {
+  maxPoolSize: 20,
+  minPoolSize: 5,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+};
+mongoose.connect(mongoUri, mongooseOptions)
   .then(() => {
     console.log('Connected to MongoDB Atlas');
     // Initialize MongoDB logging transport now that DB is connected
