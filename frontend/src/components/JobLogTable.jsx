@@ -192,6 +192,14 @@ export default function JobLogTable({
 
   const isJobInGroup = (jobOrCode, group) => {
     if (!jobOrCode || !group) return false;
+    const code = typeof jobOrCode === "object" ? jobOrCode.jobCode : String(jobOrCode);
+
+    // Explicit membership check
+    if (group.jobCodes && Array.isArray(group.jobCodes)) {
+      return group.jobCodes.includes(code);
+    }
+
+    // Fallback for legacy groups without explicit jobCodes
     const serial = getJobSerial(jobOrCode);
     const minSerial = group.startSerial ?? getJobSerial(group.startJobCode);
     const maxSerial = group.endSerial ?? getJobSerial(group.endJobCode);
@@ -200,7 +208,6 @@ export default function JobLogTable({
       const max = Math.max(minSerial, maxSerial);
       if (serial < min || serial > max) return false;
 
-      const code = typeof jobOrCode === "object" ? jobOrCode.jobCode : String(jobOrCode);
       if (code && group.startJobCode && group.endJobCode) {
         const gYearStart = String(group.startJobCode).slice(0, 2);
         const gYearEnd = String(group.endJobCode).slice(0, 2);
@@ -211,7 +218,6 @@ export default function JobLogTable({
       }
       return true;
     }
-    const code = typeof jobOrCode === "object" ? jobOrCode.jobCode : String(jobOrCode);
     const minCode = group.startJobCode < group.endJobCode ? group.startJobCode : group.endJobCode;
     const maxCode = group.startJobCode < group.endJobCode ? group.endJobCode : group.startJobCode;
     return code >= minCode && code <= maxCode;
@@ -317,6 +323,7 @@ export default function JobLogTable({
     if (!name || !name.trim()) return;
 
     const color = GROUP_COLORS[jobGroups.length % GROUP_COLORS.length];
+    const groupJobCodes = selectedList.map(j => j.jobCode);
     const newGroup = {
       id: `grp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       name: name.trim(),
@@ -324,6 +331,7 @@ export default function JobLogTable({
       endJobCode: maxCode,
       startSerial: minSerial,
       endSerial: maxSerial,
+      jobCodes: groupJobCodes,
       count: selectedList.length,
       color,
       isCollapsed: true,
@@ -398,16 +406,20 @@ export default function JobLogTable({
     if (loadedCount < group.count) {
       setLoadingGroupId(group.id);
       try {
-        const startSer = group.startSerial ?? getJobSerial(group.startJobCode);
-        const endSer = group.endSerial ?? getJobSerial(group.endJobCode);
         const queryParams = new URLSearchParams({
           includeCancelled: "true",
-          rangeStart: group.startJobCode,
-          rangeEnd: group.endJobCode,
         });
-        if (startSer !== null && endSer !== null) {
-          queryParams.set("startSerial", String(startSer));
-          queryParams.set("endSerial", String(endSer));
+        if (group.jobCodes && group.jobCodes.length > 0) {
+          queryParams.set("jobCodes", group.jobCodes.join(","));
+        } else {
+          queryParams.set("rangeStart", group.startJobCode);
+          queryParams.set("rangeEnd", group.endJobCode);
+          const startSer = group.startSerial ?? getJobSerial(group.startJobCode);
+          const endSer = group.endSerial ?? getJobSerial(group.endJobCode);
+          if (startSer !== null && endSer !== null) {
+            queryParams.set("startSerial", String(startSer));
+            queryParams.set("endSerial", String(endSer));
+          }
         }
         const res = await axios.get(`${API_URL}/api/jobs?${queryParams.toString()}`);
         if (res.data?.jobs && onMergeJobs) {
@@ -498,6 +510,7 @@ export default function JobLogTable({
         endJobCode: part1[0].jobCode < part1[part1.length - 1].jobCode ? part1[part1.length - 1].jobCode : part1[0].jobCode,
         startSerial: getJobSerial(part1[0]),
         endSerial: getJobSerial(part1[part1.length - 1]),
+        jobCodes: part1.map(j => j.jobCode),
         count: part1.length,
       };
 
@@ -509,6 +522,7 @@ export default function JobLogTable({
         endJobCode: part2[0].jobCode < part2[part2.length - 1].jobCode ? part2[part2.length - 1].jobCode : part2[0].jobCode,
         startSerial: getJobSerial(part2[0]),
         endSerial: getJobSerial(part2[part2.length - 1]),
+        jobCodes: part2.map(j => j.jobCode),
         count: part2.length,
       };
 
@@ -523,6 +537,7 @@ export default function JobLogTable({
         endJobCode: maxRem,
         startSerial: getJobSerial(sortedRemaining[0]),
         endSerial: getJobSerial(sortedRemaining[sortedRemaining.length - 1]),
+        jobCodes: sortedRemaining.map(j => j.jobCode),
         count: sortedRemaining.length,
       };
       const updated = jobGroups.map(g => g.id === group.id ? trimmedGroup : g);
@@ -719,6 +734,11 @@ export default function JobLogTable({
           const groupMemberJobs = filteredJobsAll
             .filter((j) => isJobInGroup(j, group))
             .sort((a, b) => {
+              if (group.jobCodes && group.jobCodes.length > 0) {
+                const idxA = group.jobCodes.indexOf(a.jobCode);
+                const idxB = group.jobCodes.indexOf(b.jobCode);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              }
               const sA = getJobSerial(a) || 0;
               const sB = getJobSerial(b) || 0;
               if (sA !== sB) return sB - sA;
@@ -750,6 +770,11 @@ export default function JobLogTable({
           const groupMemberJobs = filteredJobsAll
             .filter((j) => isJobInGroup(j, g))
             .sort((a, b) => {
+              if (g.jobCodes && g.jobCodes.length > 0) {
+                const idxA = g.jobCodes.indexOf(a.jobCode);
+                const idxB = g.jobCodes.indexOf(b.jobCode);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              }
               const sA = getJobSerial(a) || 0;
               const sB = getJobSerial(b) || 0;
               if (sA !== sB) return sB - sA;
@@ -947,8 +972,8 @@ export default function JobLogTable({
                         </td>
                         <td colSpan={showActions ? 5 : 4} style={{ padding: "0.85rem 1rem" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: "1rem" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
                                 {isExpanded ? (
                                   <FolderOpen size={20} style={{ color: group.color }} />
                                 ) : (
@@ -1517,7 +1542,7 @@ export default function JobLogTable({
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
                       {isExpanded ? (
                         <FolderOpen size={20} style={{ color: group.color }} />
                       ) : (

@@ -135,4 +135,32 @@ test.describe('Admin Officer Experience', () => {
     await expect(page.getByPlaceholder('Search Client or Code...')).toBeVisible();
     await expect(page.locator('table')).toBeVisible();
   });
+
+  test('should render job groups for Admin Officer and toggle expansion', async ({ page }) => {
+    await loginAs(page, 'ADMIN_OFFICER', {
+      jobGroups: [
+        {
+          id: 'grp-test-1',
+          name: 'Sunrise Batch',
+          startJobCode: '2604230001',
+          endJobCode: '2604230001',
+          jobCodes: ['2604230001'],
+          count: 1,
+          color: '#3B82F6',
+          isCollapsed: true,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    });
+
+    await page.goto('/admin-officer/jobs');
+
+    // Group header should be visible
+    await expect(page.getByText('Sunrise Batch')).toBeVisible();
+    await expect(page.getByText(/1 Job\(s\)/i)).toBeVisible();
+
+    // Clicking group header expands member jobs
+    await page.getByText('Sunrise Batch').click();
+    await expect(page.getByRole('cell', { name: 'Sunrise Organic Foods Ltd' })).toBeVisible();
+  });
 });

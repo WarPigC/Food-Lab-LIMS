@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     startJobCode: { type: String, required: true },
     endJobCode: { type: String, required: true },
+    jobCodes: [{ type: String }],
     startSerial: { type: Number },
     endSerial: { type: Number },
     count: { type: Number, default: 0 },

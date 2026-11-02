@@ -452,9 +452,16 @@ router.get('/', protect, async (req, res) => {
       }
     }
 
-    // Range query (for on-demand job group expansion)
-    const { rangeStart, rangeEnd, startSerial, endSerial } = req.query;
-    if (startSerial && endSerial) {
+    // Group query (for on-demand job group expansion)
+    const { rangeStart, rangeEnd, startSerial, endSerial, jobCodes } = req.query;
+    if (jobCodes) {
+      const codeList = typeof jobCodes === 'string'
+        ? jobCodes.split(',').map(s => s.trim()).filter(Boolean)
+        : Array.isArray(jobCodes) ? jobCodes : [];
+      if (codeList.length > 0) {
+        query.jobCode = { $in: codeList };
+      }
+    } else if (startSerial && endSerial) {
       const s1 = parseInt(startSerial, 10);
       const s2 = parseInt(endSerial, 10);
       if (!isNaN(s1) && !isNaN(s2)) {
@@ -487,7 +494,7 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Pagination parameters
-    const isRangeQuery = (rangeStart && rangeEnd) || (startSerial && endSerial);
+    const isRangeQuery = Boolean(jobCodes || (rangeStart && rangeEnd) || (startSerial && endSerial));
     const limit = isRangeQuery
       ? 200
       : Math.min(parseInt(req.query.limit) || 50, 100);

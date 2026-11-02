@@ -1254,18 +1254,18 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 
 | Subphase | Task | Status |
 |---|---|---|
-| SP3.P13.1 | **Backend - User model**: Add `jobGroups` schema array (id, name, startJobCode, endJobCode, count, color, isCollapsed, createdAt) | ✅ Complete |
+| SP3.P13.1 | **Backend - User model**: Add `jobGroups` schema array (id, name, startJobCode, endJobCode, jobCodes, startSerial, endSerial, count, color, isCollapsed, createdAt) | ✅ Complete |
 | SP3.P13.2 | **Backend - userRoutes**: Add `PUT /api/users/job-groups` endpoint with authorization and `JOB_GROUPS_UPDATED` audit log | ✅ Complete |
-| SP3.P13.3 | **Backend - jobListRoutes**: Add `rangeStart` and `rangeEnd` query parameter filtering on `GET /api/jobs` for on-demand range loading | ✅ Complete |
+| SP3.P13.3 | **Backend - jobListRoutes**: Add `jobCodes`, `startSerial`, `endSerial`, and `rangeStart`/`rangeEnd` query parameter filtering on `GET /api/jobs` for on-demand loading | ✅ Complete |
 | SP3.P13.4 | **Backend - authRoutes**: Include `jobGroups` in login and session renewal response payloads | ✅ Complete |
 | SP3.P13.5 | **Frontend - AuthContext**: Hydrate `jobGroups` on login and session load; add `updateJobGroups(newGroups)` helper with optimistic update and sync | ✅ Complete |
 | SP3.P13.6 | **Frontend - Range Selection Engine**: Two-click sequential range selection initiated from the Actions menu (`Group Jobs`); floating bottom bar shows selection count and code boundaries with Create Group and Cancel actions | ✅ Complete |
-| SP3.P13.7 | **Frontend - Accordion Table Rows**: Render `<tr className="group-header-row">` with folder icon, group name, count/range badge, Rename and Disband actions; single-accordion enforcement; left colored accent stripe on expanded grouped rows | ✅ Complete |
-| SP3.P13.8 | **Frontend - Sub-range Removal**: Support trimming outer edges or disbanding when selecting sub-ranges within an open group | ✅ Complete |
-| SP3.P13.9 | **Frontend - Floating Bar & Checkbox Alignment**: Custom 20x20 px checkbox and selection state matching the 20x20 px chevron icon; dedicated `floatingBarIn` keyframe animation for centered floating action bar | ✅ Complete |
-| SP3.P13.10 | **Testing & Verification**: 104/104 backend tests passing; 35/35 Playwright E2E tests passing; clean production Vite build | ✅ Complete |
+| SP3.P13.7 | **Frontend - Accordion Table Rows**: Render `<tr className="group-header-row">` with folder icon, group name (with generous spacing), count/range badge, Rename and Disband actions; single-accordion enforcement; left colored accent stripe flush with table border; smooth waterfall opening and closing animations | ✅ Complete |
+| SP3.P13.8 | **Frontend - Sub-range Removal & Splitting**: Support trimming outer edges, splitting middle selections into two groups, or disbanding when selecting sub-ranges within an open group | ✅ Complete |
+| SP3.P13.9 | **Frontend - Explicit Membership & Group Creation Modal**: Built single-line group naming modal with Enter/Escape handlers via `modal.custom`; upgraded group storage to explicit `jobCodes: [...]` membership eliminating date-prefix mismatches and yearly rollover collisions | ✅ Complete |
+| SP3.P13.10 | **Testing & Verification**: 106/106 backend tests passing; 36/36 Playwright E2E tests passing including dedicated group expansion test; clean production Vite build | ✅ Complete |
 
-> ✅ Completed. Full sequential job grouping engine implemented and verified with database persistence on the User model.
+> ✅ Completed. Full sequential job grouping engine implemented with explicit `jobCodes` membership, smooth animations, single-line naming modals, and database persistence on the User model.
 
 ---
 

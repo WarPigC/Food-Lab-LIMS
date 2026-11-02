@@ -79,6 +79,7 @@ describe('SP-3 P13: Job Grouping Backend Endpoints', () => {
           name: 'October Batch A',
           startJobCode: '2608101159',
           endJobCode: '2608101170',
+          jobCodes: ['2608101159', '2608101170'],
           count: 12,
           color: '#3B82F6',
           isCollapsed: true
@@ -98,6 +99,7 @@ describe('SP-3 P13: Job Grouping Backend Endpoints', () => {
       const updated = await User.findById(officerUser._id);
       expect(updated.jobGroups).toHaveLength(1);
       expect(updated.jobGroups[0].startJobCode).toBe('2608101159');
+      expect(updated.jobGroups[0].jobCodes).toEqual(['2608101159', '2608101170']);
     });
 
     it('should reject non-array payload with 400 Bad Request', async () => {
@@ -196,6 +198,19 @@ describe('SP-3 P13: Job Grouping Backend Endpoints', () => {
       const codes = res.body.jobs.map(j => j.jobCode);
       expect(codes).toContain('JG-TEST-001');
       expect(codes).toContain('JG-TEST-002');
+    });
+
+    it('should fetch jobs filtered by explicit jobCodes list', async () => {
+      const res = await request(app)
+        .get('/api/jobs?jobCodes=JG-TEST-001,JG-TEST-003')
+        .set('Authorization', `Bearer ${officerToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.jobs).toBeDefined();
+      const codes = res.body.jobs.map(j => j.jobCode);
+      expect(codes).toContain('JG-TEST-001');
+      expect(codes).toContain('JG-TEST-003');
+      expect(codes).not.toContain('JG-TEST-002');
     });
   });
 });
