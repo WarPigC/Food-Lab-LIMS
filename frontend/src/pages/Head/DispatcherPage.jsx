@@ -971,66 +971,121 @@ export default function Dispatcher() {
                       >
                         {job.clientName}
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          marginTop: "0.85rem",
-                          fontSize: "0.8rem",
-                          color: "var(--color-text-muted)",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span>{formatDate(job.createdAt)}</span>
-                        <span>•</span>
-                        <span>
-                          <strong
-                            style={{
-                              fontWeight: 600,
-                              color: "var(--color-primary)",
-                            }}
-                          >
-                            {deptParams.length}
-                          </strong>{" "}
-                          parameter{deptParams.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                      <div style={{ marginTop: "0.6rem" }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            modal.confirm({
-                              title: `Job Details: ${formatJobCode(job.jobCode)}`,
-                              body: <JobEssentialDetails job={job} />,
-                              confirmLabel: "Close",
-                              cancelLabel: null,
-                              wide: true,
-                            });
-                          }}
-                          className="btn btn-secondary"
+
+                      {/* Mobile-only metadata (stacked below client name) */}
+                      <div className="dispatcher-header-mobile-meta">
+                        <div
                           style={{
-                            padding: "0.3rem 0.65rem",
-                            fontSize: "0.78rem",
-                            display: "inline-flex",
+                            display: "flex",
                             alignItems: "center",
-                            gap: "0.35rem",
+                            gap: "0.5rem",
+                            fontSize: "0.8rem",
+                            color: "var(--color-text-muted)",
+                            flexWrap: "wrap",
                           }}
-                          title="View all customer, sample, and compliance details"
                         >
-                          <ClipboardCheck size={13} /> View Details
-                        </button>
+                          <span>{formatDate(job.createdAt)}</span>
+                          <span>•</span>
+                          <span>
+                            <strong
+                              style={{
+                                fontWeight: 600,
+                                color: "var(--color-primary)",
+                              }}
+                            >
+                              {deptParams.length}
+                            </strong>{" "}
+                            parameter{deptParams.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: "0.5rem" }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              modal.confirm({
+                                title: `Job Details: ${formatJobCode(job.jobCode)}`,
+                                body: <JobEssentialDetails job={job} />,
+                                confirmLabel: "Close",
+                                cancelLabel: null,
+                                wide: true,
+                              });
+                            }}
+                            className="btn btn-secondary"
+                            style={{
+                              padding: "0.3rem 0.65rem",
+                              fontSize: "0.78rem",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.35rem",
+                            }}
+                            title="View all customer, sample, and compliance details"
+                          >
+                            <ClipboardCheck size={13} /> View Details
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      paddingLeft: "0.5rem",
-                      flexShrink: 0,
-                    }}
-                  >
+
+                  {/* Desktop parallel controls (View Details + Date/Count + Chevron) */}
+                  <div className="dispatcher-header-desktop-meta">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        modal.confirm({
+                          title: `Job Details: ${formatJobCode(job.jobCode)}`,
+                          body: <JobEssentialDetails job={job} />,
+                          confirmLabel: "Close",
+                          cancelLabel: null,
+                          wide: true,
+                        });
+                      }}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: "0.35rem 0.75rem",
+                        fontSize: "0.8rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                      }}
+                      title="View all customer, sample, and compliance details"
+                    >
+                      <ClipboardCheck size={14} /> View Details
+                    </button>
+                    <div style={{ textAlign: "right" }}>
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "var(--color-text-muted)",
+                        }}
+                      >
+                        {formatDate(job.createdAt)}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", marginTop: "0.15rem" }}>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: "var(--color-primary)",
+                          }}
+                        >
+                          {deptParams.length}
+                        </span>
+                        <span style={{ color: "var(--color-text-muted)" }}>
+                          {" "}
+                          parameter{deptParams.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className={`card-accordion-chevron ${isExpanded ? "expanded" : ""}`}
+                      style={{ color: isExpanded ? "var(--color-primary)" : "var(--color-text-muted)" }}
+                    >
+                      <ChevronRight size={20} />
+                    </div>
+                  </div>
+
+                  {/* Mobile chevron only (metadata is shown under client name) */}
+                  <div className="dispatcher-chevron-mobile-only">
                     <div
                       className={`card-accordion-chevron ${isExpanded ? "expanded" : ""}`}
                       style={{ color: isExpanded ? "var(--color-primary)" : "var(--color-text-muted)" }}
