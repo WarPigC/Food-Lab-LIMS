@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P14 Complete) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, F22, F24, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P14 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -906,7 +906,8 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P14 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ✅ Done |
 | SP3.P15 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ✅ Done |
 | SP3.P16 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
-| SP3.P17 | **B15** | **Unauthenticated Codebase Exposure & Missing Wildcard Route Guard** | ⬜ Upcoming |
+| SP3.P17 | **B15** | **Comprehensive System Hardening & Unauthenticated Codebase Isolation** | ⬜ Upcoming |
+| SP3.P18 | **F24** | **Excel (XLSX) Form Autofill & Two-Way Template Import/Export** | ⬜ Upcoming |
 
 ---
 
@@ -1417,42 +1418,140 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 
 ---
 
-### SP3.P17: B15 - Unauthenticated Codebase Exposure & Missing Wildcard Route Guard
+### SP3.P17: B15 - Comprehensive System Hardening & Unauthenticated Codebase Isolation
 
-**Files**: `frontend/src/App.jsx`, `frontend/vite.config.js`
+**Files**: `frontend/src/App.jsx`, `frontend/src/AuthenticatedApp.jsx`, `frontend/src/context/AuthContext.jsx`, `frontend/src/utils/api.js`, `frontend/nginx.conf`, `deploy/caddy/Caddyfile`, `backend/server.js`, `backend/routes/authRoutes.js`, `backend/middlewares/authMiddleware.js`, `backend/middlewares/socketAuthMiddleware.js`, `backend/package.json`
 
-**Severity**: Critical (Security & Route Protection)
+**Severity**: Critical (Security Hardening, Asset Protection, and Architecture)
 
-**Symptoms**:
-1. When an unauthenticated user enters an arbitrary or deep nested route while logged out (such as `http://localhost:5173/audit`), the application renders a blank screen instead of redirecting to `/login`. React Router prints `No routes matched location "/audit"` in the browser console.
-2. In the browser DevTools Network tab, the unauthenticated user receives the source code of the entire application across all roles (`HeadDashboard.jsx`, `AdminDashboard.jsx`, `AdminOfficerDashboard.jsx`, `AssistantDashboard.jsx`, and all child components).
+---
 
-**Root Cause**:
-1. **Missing Wildcard / Catch-All Route in `App.jsx`**:
-   The `<Routes>` tree defines fixed top-level paths (`/login`, `/admin/*`, `/admin-officer/*`, `/head/*`, `/assistant/*`, `/notifications`, `/report-bug`). There is no fallback `<Route path="*" ... />`. Any non-matching path fails to match, leaving React Router with no component to render and causing a blank page without an auth check or redirection.
-2. **Synchronous Eager Imports Without Code Splitting**:
-   All role-specific dashboards (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`, etc.) are imported statically at the top of `App.jsx`. In Vite development mode (native ESM), the browser immediately downloads every imported file regardless of authentication status. In production builds, this bundles all protected role code into the initial client bundle.
+#### 1. Context & Architectural Overview
 
-**Fix Architecture**:
-1. **Dynamic Code Splitting with `React.lazy` and `Suspense`**:
-   Convert protected page imports in `App.jsx` (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`, `NotificationsPage`, `BugReportPage`) to `React.lazy(() => import(...))`. Wrap the route tree in `<Suspense fallback={<div className="flex-center" style={{ height: '100vh' }}>Loading...</div>}>`.
-   - Result: Chunks for protected dashboards are only fetched by the browser after `ProtectedRoute` verifies the user's token and role. Unauthenticated visitors on `/login` will never load or receive role-specific codebase chunks.
-2. **Global Fallback / Wildcard Redirection Route**:
-   Add a catch-all route at the very end of `<Routes>`:
-   `<Route path="*" element={<Navigate to="/" replace />} />`
-   Because `/` already evaluates authentication state (redirecting to `/login` if `!user`, or to the appropriate role dashboard based on `user.role`), any non-matching route automatically and instantly redirects unauthenticated users to `/login` and authenticated users to their home dashboard.
-3. **Vite Production Chunk Hardening**:
-   In `frontend/vite.config.js`, verify production rollup chunking so bundles isolate vendor libraries and role modules cleanly without source leakage.
+This phase consolidates comprehensive frontend, backend, and reverse proxy security hardening into an integrated, zero-regression implementation plan. It addresses client-side codebase leakage, route handling, gateway headers, database injection protection, and token storage modernization.
+
+---
+
+#### 2. Root Cause Analysis & Vulnerability Mapping
+
+1. **Unauthenticated Codebase Exposure & Missing Wildcard Route Guard**:
+   - In `App.jsx`, all role dashboards (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`), sub-pages, and shell components (`Layout`, `Sidebar`, `Header`, `NotificationBell`, `ProfileUpdateModal`, `ReAuthModal`, `SystemErrorBridge`) were statically imported at root evaluation.
+   - In development mode (native ESM), visiting any route such as `/head/jobs` triggers browser HTTP requests downloading the entire application codebase before authentication.
+   - In production builds (`vite build`), all code was bundled into a single ~960 kB monolithic bundle (`index-[hash].js`), exposing internal logic to anyone loading `/login`.
+   - The `<Routes>` tree lacked a fallback `<Route path="*" ... />`, causing React Router to print `No routes matched location` and render a blank screen on arbitrary or unmatched paths.
+
+2. **Reverse Proxy & Gateway Security**:
+   - In `deploy/caddy/Caddyfile`, security headers (`Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `-Server`) were absent for static frontend assets.
+   - In `frontend/nginx.conf`, `server_tokens off;` was missing, exposing the Nginx version banner in response headers.
+   - In `backend/server.js`, CORS fell back to `*` with a console warning when `FRONTEND_URL` was unset. In production, this must fail closed by aborting startup.
+
+3. **NoSQL Injection & Database Resilience**:
+   - Mongoose lacked `sanitizeFilter: true`, allowing raw query selector injection if user inputs carry operator keys.
+   - Auth endpoints (`/api/auth/login`, `/api/auth/renew-session`) did not enforce string type validation on `email` and `password`, allowing objects like `{ "$ne": null }`.
+   - On database connection failure, `mongoose.connect().catch()` logged to console but never called `process.exit(1)`, leaving the container in an unresponsive zombie state rather than allowing Docker's restart policy to recover it.
+
+4. **Dead Dependency with High-Severity CVEs**:
+   - `backend/package.json` included `xlsx: ^0.18.5`. Codebase analysis revealed `require('xlsx')` was never imported anywhere in the backend. It carries high-severity Prototype Pollution (GHSA-4r6h-8v6p-xvw6) and ReDoS (GHSA-5pgg-2g8v-p4x9) vulnerabilities.
+
+5. **Token Architecture & Cookie Migration Safeguards**:
+   - Moving from `localStorage` tokens to `httpOnly; Secure; SameSite` cookies requires careful preservation of existing systems:
+     - **In-place Session Renewal (`ReAuthModal`)**: The 401 interceptor in `AuthContext.jsx` must check active session state rather than `localStorage.getItem('token')`.
+     - **Manual Token Access**: 12+ frontend components currently construct manual `Authorization` headers; these must be supported seamlessly during transition.
+     - **WebSocket Authentication**: `socketAuthMiddleware.js` and `SocketContext.jsx` must support cookie-based handshake authentication.
+     - **Test Suites**: Backend dual-mode auth must preserve `Authorization: Bearer <token>` fallback so all 117 Jest backend tests and 40 Playwright E2E tests continue to pass without disruption.
+
+---
+
+#### 3. Execution Plan
+
+The implementation is structured into two clean stages:
+
+##### Part A: Quick Wins, Infrastructure & Database Hardening
+- Add security headers to `deploy/caddy/Caddyfile` (`HSTS`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`, `-Server`).
+- Add `server_tokens off;` to `frontend/nginx.conf`.
+- Enforce fail-closed CORS in `backend/server.js` when `process.env.NODE_ENV === 'production'` and `!process.env.FRONTEND_URL`.
+- Enable `mongoose.set('sanitizeFilter', true)` in `backend/server.js`.
+- Add string type guards (`typeof email === 'string' && typeof password === 'string'`) in `backend/routes/authRoutes.js` for `/login` and `/renew-session`.
+- Add `process.exit(1)` in `backend/server.js` within `mongoose.connect().catch()`.
+- Uninstall unused `xlsx` from backend (`npm --prefix backend uninstall xlsx`) and run `npm audit fix`.
+
+##### Part B: Root-Level Auth Gate & Dual-Mode Cookie Architecture
+- **Root Auth Gate**: Split frontend into public `Login` view and dynamically imported `AuthenticatedApp.jsx`. When `!user`, `App.jsx` renders only `Login` and a wildcard `<Route path="*" element={<Navigate to="/login" replace />} />`. Unauthenticated visitors receive zero internal application code.
+- **Backend Dual-Mode Auth**: Update `backend/middlewares/authMiddleware.js` to inspect `req.cookies.token` first, falling back to `req.headers.authorization`. This provides `httpOnly` cookie protection in the browser while maintaining 100% backward compatibility for automated tests.
+- **Cookie Issuance & Clearance**: Set `httpOnly; Secure; SameSite=Lax` cookies on `/login` and `/renew-session` in `backend/routes/authRoutes.js`, and clear cookies on logout.
+- **CSRF & Credentials**: Configure `axios.defaults.withCredentials = true` in `frontend/src/utils/api.js` and implement CSRF token validation on mutation endpoints.
+- **WebSocket Cookie Support**: Update `backend/middlewares/socketAuthMiddleware.js` to parse cookies from `socket.handshake.headers.cookie` in addition to `auth.token`.
+- **Session Renewal Preservation**: Update the 401 Axios response interceptor in `AuthContext.jsx` to trigger `ReAuthModal` using active session state.
+- **Verification**: Ensure all 40 Playwright E2E tests and 117 Jest backend tests pass cleanly.
+
+---
+
+#### 4. Task Breakdown
+
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P17.1 | Add security headers to `deploy/caddy/Caddyfile` and `server_tokens off;` to `frontend/nginx.conf` | ⬜ Upcoming |
+| SP3.P17.2 | Enforce fail-closed CORS in `backend/server.js` when `NODE_ENV === 'production'` and `FRONTEND_URL` is missing | ⬜ Upcoming |
+| SP3.P17.3 | Enable `mongoose.set('sanitizeFilter', true)` in `backend/server.js` to protect against NoSQL operator injection | ⬜ Upcoming |
+| SP3.P17.4 | Add string type validation (`typeof email === 'string' && typeof password === 'string'`) in `backend/routes/authRoutes.js` for login and session renewal | ⬜ Upcoming |
+| SP3.P17.5 | Add `process.exit(1)` inside `mongoose.connect().catch()` in `backend/server.js` to enable clean container restart on database failure | ⬜ Upcoming |
+| SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ⬜ Upcoming |
+| SP3.P17.7 | Implement `frontend/src/AuthenticatedApp.jsx` encapsulating `Layout`, role routes, and internal modal/socket providers | ⬜ Upcoming |
+| SP3.P17.8 | In `frontend/src/App.jsx`, implement the Root Auth Gate with dynamic `React.lazy` import for `AuthenticatedApp` and wildcard redirect to `/login` | ⬜ Upcoming |
+| SP3.P17.9 | Update `backend/middlewares/authMiddleware.js` with dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ⬜ Upcoming |
+| SP3.P17.10 | Update `backend/routes/authRoutes.js` to issue `httpOnly; Secure; SameSite=Lax` cookie on login/renew, and clear on logout | ⬜ Upcoming |
+| SP3.P17.11 | Update `backend/middlewares/socketAuthMiddleware.js` to parse handshake cookie headers for WebSocket authentication | ⬜ Upcoming |
+| SP3.P17.12 | Update `AuthContext.jsx` 401 interceptor and `renewSession` to preserve `ReAuthModal` in-place renewal lifecycle with cookies | ⬜ Upcoming |
+| SP3.P17.13 | Enable `axios.defaults.withCredentials = true` in `frontend/src/utils/api.js` and implement CSRF token validation | ⬜ Upcoming |
+| SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ⬜ Upcoming |
+| SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ⬜ Upcoming |
+| SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ⬜ Upcoming |
+
+---
+
+### SP3.P18: F24 - Excel (XLSX) Form Autofill & Two-Way Template Import/Export
+
+**Files**: `frontend/src/utils/excelUtils.js`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/package.json`
+
+**Overview & Purpose**:
+Lab officers and analysts frequently handle repetitive, multi-field data entry. Manually filling dozens of fields across customer info, sample details, compliance statements, and 20 to 50 test parameters per job is time-consuming and error-prone. This feature introduces two-way Excel (`.xlsx`) integration across key data-entry workflows:
+1. **Copy & Export to Excel**: Export active form drafts, blank templates, or existing jobs directly into standard, structured `.xlsx` workbooks.
+2. **Import from Excel**: Parse `.xlsx` files client-side to instantly pre-fill web forms, auto-match parameters, and validate fields in real-time before saving.
+
+**Potential Use Cases Identified Across Codebase**:
+1. **Job Creation & Registration (`JobsPage.jsx`) [Core Focus]**:
+   - **Copy Form to Excel**: At any moment in the Job Creation form, officers can click "Copy Form to Excel" to download their current inputs (customer, sample, compliance, selected parameters) as an `.xlsx` file.
+   - **Clone Existing Job to Excel**: From the job list table (`frontend/src/components/JobLogTable.jsx`), any past job can be exported as an editable `.xlsx` draft. Officers can modify batch numbers or dates offline in Excel, then re-import to create a new job.
+   - **Download Blank Job Template**: Download an official `.xlsx` template pre-configured with column headers, descriptions, and dropdown guidance.
+   - **Import to Autofill Form**: Drag-and-drop or upload an `.xlsx` workbook to instantly populate all form inputs (`customer_name`, `sample_name`, `batch_no`, `nabl_mode`, etc.) and automatically attach and configure selected parameters.
+2. **Analyst Test Execution Sheet (`AssistantDashboard.jsx`) [High QoL]**:
+   - **Export Test Run Sheet**: Analysts assigned multi-parameter tests export an `.xlsx` sheet listing all assigned parameters, target specifications, and test methods.
+   - **Import Test Results**: Analysts fill results in Excel (or copy-paste from lab instrument outputs like HPLC, GC-MS, Titration) and upload the file to auto-populate the test result inputs (`value` and `testMethod`) with instant specification boundary checks.
+3. **Parameter & Specification Library (`GroupSettings.jsx`) [Future Extension]**:
+   - Bulk export and import of test parameter definitions, default limits, and standard test methods.
+
+**Excel File Structure (Job Creation)**:
+A structured 2-sheet workbook:
+- **Sheet 1: `Job Details`**: Key-value rows or tabular row for Customer (`customer_name`, `customer_address`, `contact_person`, `mobile_number`, `email`, `customer_reference_no`, `batch_no`, `dom`, `brand_name`, `any_other_info`, `batch_size`, `doe`), Sample (`sample_name`, `sample_quantity`, `sample_quantity_unit`, `sample_count`, `condition_on_receipt`, `packing_details`, `marking_seal`, `sample_source`, `received_date`, `received_mode`, `nabl_mode`), and Compliance (`statement_of_conformity`, `decision_rule`, `accreditation_scope`, `disclaimer_notes`, `special_handling_instructions`).
+- **Sheet 2: `Parameters`**: Table with columns:
+  `Parameter Name` | `Department` (Micro/Chemical) | `Specification` | `Test Method` | `NABL Scope` (nabl/non_nabl)
+
+**Architecture & Technical Approach**:
+- Use client-side `xlsx` (SheetJS) via a dedicated utility module `frontend/src/utils/excelUtils.js`.
+- Parsing occurs client-side in milliseconds:
+  - Instant form feedback: form fields populate visually right in front of the user.
+  - No temporary file uploads or backend load needed just to populate form inputs.
+  - Parameter auto-matcher reconciles parameter names against the loaded parameter cache (`CACHE_KEYS.GLOBAL_PARAMS`), linking matching `parameterId`s and flagging any unmatched parameter names with a helpful warning badge.
 
 | Subphase | Task |
 |---|---|
-| SP3.P17.1 | In `frontend/src/App.jsx`, convert static dashboard imports (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`, `NotificationsPage`, `BugReportPage`) to dynamic `React.lazy` imports |
-| SP3.P17.2 | Wrap `<Routes>` in `<Suspense fallback={<div className="flex-center" style={{ height: '100vh' }}>Loading...</div>}>` |
-| SP3.P17.3 | In `frontend/src/App.jsx`, add `<Route path="*" element={<Navigate to="/" replace />} />` at the bottom of the `<Routes>` block to catch all unmatched locations |
-| SP3.P17.4 | Test unmatched routes while logged out (e.g. `/audit`, `/unknown`, `/random`): verify instant replacement redirect to `/login` with zero blank pages and zero console warnings |
-| SP3.P17.5 | Test network inspection while logged out on `/login` and unmatched URLs: verify browser network tab only requests login/auth chunks and downloads zero protected dashboard files (`HeadDashboard.jsx`, etc.) |
-| SP3.P17.6 | Test authenticated access across all 4 roles: verify each role cleanly loads its respective dashboard chunk on demand with no regression in routing, re-authentication, or deep linking |
-| SP3.P17.7 | Verify clean production build (`npm --prefix frontend run build`) and confirm Vite produces separate role chunks |
+| SP3.P18.1 | Add `xlsx` dependency to `frontend/package.json` and create `frontend/src/utils/excelUtils.js` with workbook builders (`exportJobToExcel`, `generateBlankJobTemplate`, `exportTestResultsSheet`) and parsers (`parseJobFromExcel`, `parseTestResultsFromExcel`) |
+| SP3.P18.2 | In `frontend/src/pages/AdminOfficer/JobsPage.jsx`, add action buttons to the Job Creation modal toolbar: "Copy Form to Excel", "Download Template", and "Import from Excel" (file picker with drag-and-drop support) |
+| SP3.P18.3 | Implement parameter auto-resolution in `excelUtils.js`: fuzzy match imported parameter names against available parameters, map departments, attach specifications and test methods, and populate `selectedParameters` state |
+| SP3.P18.4 | In `frontend/src/components/JobLogTable.jsx`, add a "Clone to Excel" action in the job row options menu to export any historical job as an editable `.xlsx` draft |
+| SP3.P18.5 | In `frontend/src/pages/AssistantDashboard.jsx`, add "Export Test Sheet (.xlsx)" and "Import Results (.xlsx)" buttons to active test instance execution cards, auto-populating result values and test methods |
+| SP3.P18.6 | Implement robust validation and error handling: validate date formats, enum fields (`nabl_mode`, `received_mode`), provide user-friendly toast summaries (e.g., "Successfully imported 18 fields and 12 parameters"), and handle corrupted/invalid files gracefully |
+| SP3.P18.7 | End-to-end testing: verify round-trip export, edit, and re-import in Playwright; confirm job creation with imported parameters successfully creates a valid job in MongoDB |
 
 ---
 
