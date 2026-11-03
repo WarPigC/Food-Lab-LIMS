@@ -1265,6 +1265,7 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 | SP3.P13.9 | **Frontend - Explicit Membership & Group Creation Modal**: Built single-line group naming modal with Enter/Escape handlers via `modal.custom`; upgraded group storage to explicit `jobCodes: [...]` membership eliminating date-prefix mismatches and yearly rollover collisions | ✅ Complete |
 | SP3.P13.10 | **Testing, Portal Dropdown & Verification**: Resolved action drawer clipping bug on search results via `ReactDOM.createPortal`; 115/115 backend tests passing; 37/37 Playwright E2E tests passing including dedicated search action drawer test; clean production Vite build | ✅ Complete |
 | SP3.P13.11 | **Collapsed Group Infinite Scroll Auto-Advance**: Auto-advance pagination when a slice of jobs is swallowed by an already rendered collapsed group so scrolling never stalls | ✅ Complete |
+| SP3.P13.12 | **Job List & Infinite Scroll Latency Optimization**: Replaced (2N+1) database round-trip loops in `jobListRoutes.js` (for both `GET /api/jobs` and `GET /api/jobs/monitoring`) with bulk `$in` queries using `.lean()`. Slashed 50-job page latency from ~2,050ms down to ~550ms (~3.7x faster) and 1000-job fetch from ~6,116ms down to ~816ms (~7.5x faster), eliminating skeleton loader freezes across Jobs, Dispatcher, Audit, and Monitor pages | ✅ Complete |
 
 > ✅ Completed. Full sequential job grouping engine implemented with explicit `jobCodes` membership, smooth animations, single-line naming modals, and database persistence on the User model.
 
@@ -1320,7 +1321,7 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 | SP3.P15.7 | Mobile verification on both pages: sticky header must not eat too much vertical space, filter chips must wrap cleanly, no viewport overflow on dropdowns | ✅ Complete |
 | SP3.P15.8 | Revamp search action drawer behavior in `JobLogTable.jsx` during search result states | ✅ Complete |
 
-> ✅ Completed. Integrated `PageHeader` across Admin Officer Job Distributor and all 3 roles' Activity Logs. Removed internal redundant header from `JobLogTable`. Fixed fuzzy search exact code ranking, empty folder isolation on filters, and infinite scroll thrashing. 40/40 Playwright frontend tests and 117/117 backend tests passing.
+> ✅ Completed. Integrated `PageHeader` across Admin Officer Job Distributor and all 3 roles' Activity Logs. Removed internal redundant header from `JobLogTable`. Fixed fuzzy search exact code ranking, empty folder isolation on filters, multi-field search preservation (job code, client name, customer name, and sample name), count badge display ("Showing X items"), and infinite scroll thrashing. Backend pagination limit raised to 1000 for prefetch. 40/40 Playwright frontend tests and 117/117 backend tests passing.
 
 ---
 

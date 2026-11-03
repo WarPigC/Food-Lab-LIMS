@@ -362,22 +362,31 @@ router.get('/monitoring', protect, authorize('HEAD', 'ADMIN'), async (req, res) 
     const pageJobs = hasMore ? jobs.slice(0, limit) : jobs;
     const nextCursor = hasMore ? pageJobs[pageJobs.length - 1]._id : null;
 
-    const jobsWithInstances = await Promise.all(pageJobs.map(async (job) => {
-      let instQuery = { jobId: job._id, status: 'PENDING' };
-      if (req.user.role === 'HEAD' && dept) {
-        instQuery.department = dept;
-      }
-      const instances = await TestInstance.find(instQuery)
-        .populate('assignedTo', 'name email department')
-        .populate('createdBy', 'name department')
-        .sort({ createdAt: 1 });
+    const jobIds = pageJobs.map(j => j._id);
+    let instQuery = { jobId: { $in: jobIds }, status: 'PENDING' };
+    if (req.user.role === 'HEAD' && dept) {
+      instQuery.department = dept;
+    }
+    const allInstances = await TestInstance.find(instQuery)
+      .populate('assignedTo', 'name email department')
+      .populate('createdBy', 'name department')
+      .sort({ createdAt: 1 })
+      .lean();
 
+    const instancesByJobId = {};
+    for (const inst of allInstances) {
+      const key = inst.jobId ? inst.jobId.toString() : '';
+      if (!instancesByJobId[key]) instancesByJobId[key] = [];
+      instancesByJobId[key].push(inst);
+    }
+
+    const jobsWithInstances = pageJobs.map((job) => {
       const jobObj = job.toObject();
       return {
         ...jobObj,
-        testInstances: instances
+        testInstances: instancesByJobId[job._id.toString()] || []
       };
-    }));
+    });
 
     // Exclude jobs that have no active in-progress PENDING instances
     const activeJobs = jobsWithInstances.filter(j => j.testInstances && j.testInstances.length > 0);
@@ -519,23 +528,49 @@ router.get('/', protect, async (req, res) => {
     const pageJobs = hasMore ? jobs.slice(0, limit) : jobs;
     const nextCursor = hasMore ? pageJobs[pageJobs.length - 1]._id : null;
 
-    // Attach test instances and transfers for timeline view
-    const jobsWithTimeline = await Promise.all(pageJobs.map(async (job) => {
-      const instances = await TestInstance.find({ jobId: job._id })
+    // Attach test instances and transfers for timeline view via bulk queries
+    const jobIds = pageJobs.map(j => j._id);
+    const sampleSerials = pageJobs.map(j => j.sampleSerial).filter(Boolean);
+
+    const [allInstances, allTransfers] = await Promise.all([
+      TestInstance.find({ jobId: { $in: jobIds } })
         .populate('assignedTo', 'name')
         .populate('createdBy', 'name department')
         .populate('reviewHistory.by', 'name')
-        .sort({ createdAt: 1 });
-      const transfers = await SampleTransfer.find({ sampleSerial: job.sampleSerial })
+        .sort({ createdAt: 1 })
+        .lean(),
+      SampleTransfer.find({ sampleSerial: { $in: sampleSerials } })
         .populate('sentBy', 'name department')
         .populate('receivedBy', 'name department')
-        .sort({ createdAt: 1 });
+        .sort({ createdAt: 1 })
+        .lean()
+    ]);
+
+    const instancesByJobId = {};
+    for (const inst of allInstances) {
+      const key = inst.jobId ? inst.jobId.toString() : '';
+      if (!instancesByJobId[key]) instancesByJobId[key] = [];
+      instancesByJobId[key].push(inst);
+    }
+
+    const transfersBySerial = {};
+    for (const tr of allTransfers) {
+      const key = tr.sampleSerial;
+      if (!transfersBySerial[key]) transfersBySerial[key] = [];
+      transfersBySerial[key].push(tr);
+    }
+
+    const jobsWithTimeline = pageJobs.map((job) => {
       const jobObj = job.toObject();
       if (jobObj.parameters) {
         jobObj.parameters = jobObj.parameters.filter(p => p.parameterId || p.name);
       }
-      return { ...jobObj, testInstances: instances, sampleTransfers: transfers };
-    }));
+      return {
+        ...jobObj,
+        testInstances: instancesByJobId[job._id.toString()] || [],
+        sampleTransfers: transfersBySerial[job.sampleSerial] || []
+      };
+    });
 
     return res.json({
       jobs: jobsWithTimeline,
