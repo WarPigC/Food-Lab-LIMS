@@ -24,7 +24,9 @@ export function dispatchSystemErrorModal(config) {
 }
 
 /**
- * Derives a human-friendly title and description for server/network outages.
+ * Derives a human-friendly title and description for server outages.
+ * Note: Network dropouts and websocket reboots are intentionally handled via quiet
+ * reconnects or transient toasts rather than blocking modals.
  */
 function getSystemErrorDetails(error) {
   const status = error.response?.status;
@@ -33,35 +35,32 @@ function getSystemErrorDetails(error) {
   const rawData = error.response?.data;
   const serverMsg = typeof rawData === 'object' ? rawData?.message : (typeof rawData === 'string' ? rawData.slice(0, 300) : null);
 
-  let title = 'System Error';
+  let title = 'Server Error';
   let body = 'An unexpected error occurred while communicating with the server.';
 
-  if (!error.response || error.code === 'ERR_NETWORK') {
-    title = 'Connection Lost';
-    body = 'Unable to reach the server. Please check your internet connection and tap Retry.';
-  } else if (status === 502) {
+  if (status === 502) {
     title = 'Server Restarting / Unavailable';
-    body = 'The application server is restarting or temporarily unreachable (502 Bad Gateway). Your unsaved inputs are preserved; tap Retry in a moment.';
+    body = 'The application server is restarting or temporarily unreachable (502 Bad Gateway). Please wait a moment and reload the page.';
   } else if (status === 503) {
     title = 'Service Unavailable';
-    body = 'The server is momentarily undergoing maintenance or overloaded (503 Service Unavailable). Please tap Retry to try again.';
+    body = 'The server is momentarily undergoing maintenance or overloaded (503 Service Unavailable). Please wait a moment and reload the page.';
   } else if (status === 504) {
     title = 'Gateway Timeout';
-    body = 'The server took too long to complete your request (504 Gateway Timeout). Please tap Retry.';
+    body = 'The server took too long to complete your request (504 Gateway Timeout). Please wait a moment and try again.';
   } else if (status >= 500) {
     title = 'Internal Server Error';
     body = serverMsg
-      ? `The server encountered an error processing your request: "${serverMsg}". You can tap Retry or copy debug details for support.`
-      : 'An unexpected internal server error occurred (500). Your inputs are preserved; please tap Retry.';
+      ? `The server encountered an error processing your request: "${serverMsg}". You can copy debug details for support.`
+      : 'An unexpected internal server error occurred (500). Your inputs are preserved.';
   }
 
   const debugInfo = {
     endpoint: url,
     method,
-    status: status || 'NETWORK_ERROR',
-    statusText: error.response?.statusText || (error.code === 'ERR_NETWORK' ? 'Network Error' : 'Unknown'),
+    status: status || 500,
+    statusText: error.response?.statusText || 'Server Error',
     message: serverMsg || error.message,
-    code: error.code || rawData?.code || 'ERR_UNKNOWN',
+    code: error.code || rawData?.code || 'ERR_SERVER',
     timestamp: new Date().toISOString()
   };
 
@@ -69,8 +68,8 @@ function getSystemErrorDetails(error) {
 }
 
 /**
- * Attaches the global Axios interceptor for 502, 503, 504, 500, and Network dropouts.
- * Ignores 401s (handled by AuthContext in-place re-auth) and operational 4xx errors.
+ * Attaches the global Axios interceptor for 502, 503, 504, and 500 server crashes.
+ * Ignores 401s (handled by AuthContext in-place re-auth), background polls, and network dropouts.
  */
 export function initGlobalErrorInterceptor() {
   const interceptor = axios.interceptors.response.use(
@@ -91,11 +90,18 @@ export function initGlobalErrorInterceptor() {
         return Promise.reject(error);
       }
 
+      // 4. Skip background polling requests (e.g. notification checking)
+      if (error.config?.url?.includes('/api/notifications')) {
+        return Promise.reject(error);
+      }
+
       const status = error.response?.status;
-      const isNetworkError = !error.response && (error.code === 'ERR_NETWORK' || error.message === 'Network Error');
+
+      // Do NOT trigger blocking modals on network disconnects or websocket reboots.
+      // Connection dropouts (ERR_NETWORK, !error.response) are handled quietly or via non-blocking toasts.
       const isServerCrashOrGateway = status === 500 || status === 502 || status === 503 || status === 504;
 
-      if (isNetworkError || isServerCrashOrGateway) {
+      if (isServerCrashOrGateway) {
         const { title, body, debugInfo } = getSystemErrorDetails(error);
 
         // Styled DevTools log for immediate developer debugging
@@ -108,20 +114,25 @@ export function initGlobalErrorInterceptor() {
         error.handled = true;
         error._handledByModal = true;
 
-        // Dispatch Error Modal with "Retry" action
+        const isGetRequest = (error.config?.method || 'GET').toUpperCase() === 'GET';
+
+        // Dispatch Error Modal:
+        // For GET requests (initial page loads), offer a real 'Reload Page' action that recovers the view.
+        // For mutating requests (POST/PUT/DELETE), provide 'Close' so user inputs remain preserved on the form.
         dispatchSystemErrorModal({
           title,
           body,
           debugInfo,
           wide: true,
-          retryLabel: 'Retry',
           dismissLabel: 'Close',
-          onRetry: () => {
-            // Re-invoke the exact failed Axios request
-            if (error.config) {
-              return axios(error.config);
+          ...(isGetRequest ? {
+            retryLabel: 'Reload Page',
+            onRetry: () => {
+              if (typeof window !== 'undefined') {
+                window.location.reload();
+              }
             }
-          }
+          } : {})
         });
       }
 
@@ -144,10 +155,13 @@ export function handleApiError(err, fallbackMessage, toast) {
   }
 
   const rawData = err?.response?.data;
+  const isNetwork = !err?.response && (err?.code === 'ERR_NETWORK' || err?.message === 'Network Error');
+
   const message =
     (typeof rawData === 'object' && rawData?.message) ||
     (typeof rawData === 'object' && rawData?.error) ||
     (typeof rawData === 'string' && rawData.trim() ? rawData.slice(0, 200) : null) ||
+    (isNetwork ? 'Network connection lost. Please verify server connection and try again.' : null) ||
     err?.message ||
     fallbackMessage ||
     'Operation failed';
