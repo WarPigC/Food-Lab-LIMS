@@ -467,7 +467,7 @@ export default function Dispatcher() {
       job?.parameters?.filter((p) => {
         if (!p || (!p.parameterId && !p.name)) return false;
         const d = user?.department ? user.department.toLowerCase() : "";
-        const pt = p.type ? p.type.toLowerCase() : "";
+        const pt = (p.type || p.department) ? (p.type || p.department).toLowerCase() : "";
         if ((d === "chemical" || d === "chemical") && pt === "chemical")
           return true;
         if (d === "micro" && pt === "micro") return true;
@@ -868,23 +868,20 @@ export default function Dispatcher() {
                 {/* Card Header: always visible */}
                 <div
                   onClick={() => toggleExpand(job._id)}
+                  className="dispatcher-card-header"
                   style={{
-                    padding: "1.25rem 1.5rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
                     backgroundColor: isExpanded
                       ? "var(--color-surface-hover)"
                       : "var(--color-surface)",
-                    transition: "background-color 0.2s",
                   }}
                 >
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
+                      alignItems: "flex-start",
                       gap: "1rem",
+                      flex: 1,
+                      minWidth: 0,
                     }}
                   >
                     <div
@@ -909,6 +906,7 @@ export default function Dispatcher() {
                         justifyContent: "center",
                         transition: "all 0.15s ease",
                         flexShrink: 0,
+                        marginTop: "2px",
                       }}
                     >
                       {selectedJobIds.has(job._id) && (
@@ -928,11 +926,12 @@ export default function Dispatcher() {
                         padding: "0.5rem",
                         backgroundColor: "var(--color-primary)15",
                         borderRadius: "var(--radius-md)",
+                        flexShrink: 0,
                       }}
                     >
                       <ClipboardCheck size={22} color="var(--color-primary)" />
                     </div>
-                    <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
                           fontWeight: 700,
@@ -965,10 +964,62 @@ export default function Dispatcher() {
                         style={{
                           fontSize: "0.85rem",
                           color: "var(--color-text-muted)",
-                          marginTop: "0.15rem",
+                          marginTop: "0.25rem",
+                          wordBreak: "break-word",
+                          lineHeight: "1.4",
                         }}
                       >
                         {job.clientName}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          marginTop: "0.85rem",
+                          fontSize: "0.8rem",
+                          color: "var(--color-text-muted)",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span>{formatDate(job.createdAt)}</span>
+                        <span>•</span>
+                        <span>
+                          <strong
+                            style={{
+                              fontWeight: 600,
+                              color: "var(--color-primary)",
+                            }}
+                          >
+                            {deptParams.length}
+                          </strong>{" "}
+                          parameter{deptParams.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div style={{ marginTop: "0.6rem" }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            modal.confirm({
+                              title: `Job Details: ${formatJobCode(job.jobCode)}`,
+                              body: <JobEssentialDetails job={job} />,
+                              confirmLabel: "Close",
+                              cancelLabel: null,
+                              wide: true,
+                            });
+                          }}
+                          className="btn btn-secondary"
+                          style={{
+                            padding: "0.3rem 0.65rem",
+                            fontSize: "0.78rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.35rem",
+                          }}
+                          title="View all customer, sample, and compliance details"
+                        >
+                          <ClipboardCheck size={13} /> View Details
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -976,56 +1027,10 @@ export default function Dispatcher() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "1.5rem",
+                      paddingLeft: "0.5rem",
+                      flexShrink: 0,
                     }}
                   >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        modal.confirm({
-                          title: `Job Details: ${formatJobCode(job.jobCode)}`,
-                          body: <JobEssentialDetails job={job} />,
-                          confirmLabel: "Close",
-                          cancelLabel: null,
-                          wide: true,
-                        });
-                      }}
-                      className="btn btn-secondary"
-                      style={{
-                        padding: "0.4rem 0.8rem",
-                        fontSize: "0.8rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                      title="View all customer, sample, and compliance details"
-                    >
-                      <ClipboardCheck size={14} /> View Details
-                    </button>
-                    <div style={{ textAlign: "right" }}>
-                      <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "var(--color-text-muted)",
-                        }}
-                      >
-                        {formatDate(job.createdAt)}
-                      </div>
-                      <div style={{ fontSize: "0.8rem", marginTop: "0.15rem" }}>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: "var(--color-primary)",
-                          }}
-                        >
-                          {deptParams.length}
-                        </span>
-                        <span style={{ color: "var(--color-text-muted)" }}>
-                          {" "}
-                          parameter{deptParams.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    </div>
                     <div
                       className={`card-accordion-chevron ${isExpanded ? "expanded" : ""}`}
                       style={{ color: isExpanded ? "var(--color-primary)" : "var(--color-text-muted)" }}
@@ -1039,8 +1044,8 @@ export default function Dispatcher() {
                 <div className={`card-accordion-wrapper ${isExpanded ? "expanded" : ""}`}>
                   <div className="card-accordion-inner">
                     <div
+                      className="card-accordion-content"
                       style={{
-                        padding: "1.5rem",
                         borderTop: "1px solid var(--color-border)",
                         backgroundColor: "var(--color-surface)",
                       }}
@@ -1110,34 +1115,30 @@ export default function Dispatcher() {
                             </div>
 
                             {/* Parameter rows */}
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "0.5rem",
-                                marginBottom: "1.5rem",
-                              }}
-                            >
+                            <div className="dispatcher-params-grid">
                               {stagedParams.map((p) => {
                                 const pId = getParamId(p);
                                 return (
                                   <div
                                     key={pId}
-                                    style={{
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      backgroundColor: "var(--color-surface-hover)",
-                                      border: "1px solid transparent",
-                                      padding: "0.6rem 1rem",
-                                      borderRadius: "var(--radius-md)",
-                                      gap: "1rem",
-                                    }}
+                                    className="dispatcher-param-card"
                                   >
-                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
-                                      <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                                        ({p.unit})
+                                    <div className="dispatcher-param-label">
+                                      <span
+                                        className="dispatcher-param-name"
+                                        title={p.name}
+                                      >
+                                        {p.name}
+                                      </span>
+                                      <span
+                                        style={{
+                                          fontSize: "0.8rem",
+                                          color: "var(--color-text-muted)",
+                                          whiteSpace: "nowrap",
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        ({p.unit || "-"})
                                       </span>
                                       <span
                                         style={{
@@ -1148,6 +1149,8 @@ export default function Dispatcher() {
                                           backgroundColor: "rgba(245, 158, 11, 0.15)",
                                           color: "#B45309",
                                           border: "1px solid rgba(245, 158, 11, 0.4)",
+                                          whiteSpace: "nowrap",
+                                          flexShrink: 0,
                                         }}
                                       >
                                         Amended
@@ -1158,9 +1161,14 @@ export default function Dispatcher() {
                                       value={amendmentAssignments[`${job._id}-${pId}`] || ""}
                                       onChange={(e) => handleAssignAmendment(job._id, pId, e.target.value)}
                                       required
-                                      style={{ minWidth: "180px" }}
+                                      className={`analyst-select-dropdown ${
+                                        amendmentAssignments[`${job._id}-${pId}`]
+                                          ? "is-assigned"
+                                          : "is-unassigned"
+                                      }`}
+                                      aria-label={`Select analyst for ${p.name}`}
                                     >
-                                      <option value="" disabled>
+                                      <option value="">
                                         Select Analyst...
                                       </option>
                                       {assistants.map((ast) => (
@@ -1176,23 +1184,17 @@ export default function Dispatcher() {
                               {deptParams.map((p) => (
                                 <div
                                   key={getParamId(p)}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    backgroundColor: p.isPanel
-                                      ? "rgba(52, 152, 219, 0.08)"
-                                      : "var(--color-surface-hover)",
-                                    border: p.isPanel
-                                      ? "1px solid rgba(52, 152, 219, 0.25)"
-                                      : "1px solid transparent",
-                                    padding: "0.6rem 1rem",
-                                    borderRadius: "var(--radius-md)",
-                                    gap: "1rem",
-                                  }}
+                                  className={`dispatcher-param-card ${
+                                    p.isPanel ? "is-special-panel" : ""
+                                  }`}
                                 >
-                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                  <div className="dispatcher-param-label">
+                                    <span
+                                      className="dispatcher-param-name"
+                                      title={p.name}
+                                    >
+                                      {p.name}
+                                    </span>
                                     {p.isPanel && (
                                       <span
                                         style={{
@@ -1202,13 +1204,22 @@ export default function Dispatcher() {
                                           borderRadius: "4px",
                                           backgroundColor: "rgba(52, 152, 219, 0.15)",
                                           color: "var(--color-primary)",
+                                          whiteSpace: "nowrap",
+                                          flexShrink: 0,
                                         }}
                                       >
                                         Special Panel
                                       </span>
                                     )}
-                                    <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                                      ({p.unit})
+                                    <span
+                                      style={{
+                                        fontSize: "0.8rem",
+                                        color: "var(--color-text-muted)",
+                                        whiteSpace: "nowrap",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      ({p.unit || "-"})
                                     </span>
                                   </div>
                                 </div>
@@ -1223,7 +1234,9 @@ export default function Dispatcher() {
                                 alignItems: "center",
                                 marginBottom: "1rem",
                                 borderTop: "1px solid var(--color-border)",
-                                paddingTop: "1.5rem",
+                                paddingTop: "1.25rem",
+                                gap: "0.5rem",
+                                flexWrap: "wrap",
                               }}
                             >
                               <div></div>
@@ -1238,6 +1251,7 @@ export default function Dispatcher() {
                                   style={{
                                     fontSize: "0.85rem",
                                     color: "var(--color-text-muted)",
+                                    whiteSpace: "nowrap",
                                   }}
                                 >
                                   Bulk assign all to:
@@ -1248,7 +1262,8 @@ export default function Dispatcher() {
                                     e.target.value = "";
                                   }}
                                   defaultValue=""
-                                  style={{ minWidth: "150px" }}
+                                  className="analyst-select-dropdown is-unassigned"
+                                  aria-label="Bulk assign all amended parameters"
                                 >
                                   <option value="" disabled>
                                     Select analyst...
@@ -1311,34 +1326,19 @@ export default function Dispatcher() {
                         <>
 
                             {/* Parameter rows (Always visible) */}
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "0.5rem",
-                                marginBottom: "1.5rem",
-                              }}
-                            >
+                            <div className="dispatcher-params-grid">
                               {deptParams.map((p) => (
                                 <div
                                   key={getParamId(p)}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    backgroundColor: p.isPanel
-                                      ? "rgba(52, 152, 219, 0.08)"
-                                      : "var(--color-surface-hover)",
-                                    border: p.isPanel
-                                      ? "1px solid rgba(52, 152, 219, 0.25)"
-                                      : "1px solid transparent",
-                                    padding: "0.6rem 1rem",
-                                    borderRadius: "var(--radius-md)",
-                                    gap: "1rem",
-                                  }}
+                                  className={`dispatcher-param-card ${
+                                    p.isPanel ? "is-special-panel" : ""
+                                  }`}
                                 >
-                                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    <span style={{ fontWeight: 600 }}>
+                                  <div className="dispatcher-param-label">
+                                    <span
+                                      className="dispatcher-param-name"
+                                      title={p.name}
+                                    >
                                       {p.name}
                                     </span>
                                     {p.isPanel && (
@@ -1350,6 +1350,8 @@ export default function Dispatcher() {
                                           borderRadius: "4px",
                                           backgroundColor: "rgba(52, 152, 219, 0.15)",
                                           color: "var(--color-primary)",
+                                          whiteSpace: "nowrap",
+                                          flexShrink: 0,
                                         }}
                                       >
                                         Special Panel
@@ -1359,9 +1361,11 @@ export default function Dispatcher() {
                                       style={{
                                         fontSize: "0.8rem",
                                         color: "var(--color-text-muted)",
+                                        whiteSpace: "nowrap",
+                                        flexShrink: 0,
                                       }}
                                     >
-                                      ({p.unit})
+                                      ({p.unit || "-"})
                                     </span>
                                   </div>
 
@@ -1383,15 +1387,20 @@ export default function Dispatcher() {
                                       disabled={
                                         iAmChemical && !canChemicalDispatch
                                       }
+                                      className={`analyst-select-dropdown ${
+                                        assignments[`${job._id}-${getParamId(p)}`]
+                                          ? "is-assigned"
+                                          : "is-unassigned"
+                                      }`}
                                       style={{
-                                        minWidth: "180px",
                                         opacity:
                                           iAmChemical && !canChemicalDispatch
                                             ? 0.6
                                             : 1,
                                       }}
+                                      aria-label={`Select analyst for ${p.name}`}
                                     >
-                                      <option value="" disabled>
+                                      <option value="">
                                         Select Analyst...
                                       </option>
                                       {assistants.map((ast) => (
@@ -1666,7 +1675,9 @@ export default function Dispatcher() {
                                         marginBottom: "1rem",
                                         borderTop:
                                           "1px solid var(--color-border)",
-                                        paddingTop: "1.5rem",
+                                        paddingTop: "1.25rem",
+                                        gap: "0.5rem",
+                                        flexWrap: "wrap",
                                       }}
                                     >
                                       <div></div>
@@ -1681,6 +1692,7 @@ export default function Dispatcher() {
                                           style={{
                                             fontSize: "0.85rem",
                                             color: "var(--color-text-muted)",
+                                            whiteSpace: "nowrap",
                                           }}
                                         >
                                           Bulk assign all to:
@@ -1695,7 +1707,8 @@ export default function Dispatcher() {
                                             e.target.value = "";
                                           }}
                                           defaultValue=""
-                                          style={{ minWidth: "150px" }}
+                                          className="analyst-select-dropdown is-unassigned"
+                                          aria-label="Bulk assign all parameters"
                                         >
                                           <option value="" disabled>
                                             Select analyst...

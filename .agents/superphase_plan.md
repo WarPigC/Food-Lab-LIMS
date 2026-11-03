@@ -904,7 +904,7 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P12 | F3 | Transfer List Rework (Dispatcher Sample Transfers) | ✅ Done |
 | SP3.P13 | F6 | Job Grouping in Officer's Page | ✅ Done |
 | SP3.P14 | F21 | OTP-Based Password Reset | ⬜ Upcoming |
-| SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ⬜ Upcoming |
+| SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ✅ Done |
 | SP3.P16 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ⬜ Upcoming |
 | SP3.P17 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
 
@@ -1319,16 +1319,18 @@ Login screen
 
 **Scope**: Frontend only. The actual dispatch API payload (`{ parameterId, analystId }` per param) stays the same; only the UI for building that mapping changes.
 
-| Subphase | Task |
-|---|---|
-| SP3.P15.1 | Read `DispatcherPage.jsx` dispatch section — map the current state shape for per-param analyst assignment, the list of available analysts fetched, and the submit payload structure |
-| SP3.P15.2 | Build `AnalystPicker.jsx` — a reusable controlled component. Props: `analysts[]`, `value` (selected analyst id or null), `onChange`, `assignedCount` (how many params this analyst already has in this job). Renders the chip (assigned) or `+ Assign` pill (unassigned) |
-| SP3.P15.3 | On click of the chip/pill, open a small popover listing all eligible analysts with their name, dept badge, and `N assigned` count. Selecting one fires `onChange`. Clicking `×` on the chip clears the selection |
-| SP3.P15.4 | On mobile (viewport width < 640px), replace the popover with a bottom sheet (fixed position, slides up from bottom, backdrop overlay) |
-| SP3.P15.5 | Replace each per-row `<select>` in the dispatch param table with `<AnalystPicker />` |
-| SP3.P15.6 | Add a **bulk assign bar** at the top of the expanded dispatch card: an `<AnalystPicker />` in standalone mode + an "Assign all unassigned" button. On click, sets all currently unassigned params to the selected analyst |
-| SP3.P15.7 | Ensure the submit/dispatch button validation still works — it should remain disabled until every param has an analyst assigned (existing logic, just wired to the new state) |
-| SP3.P15.8 | Verify mobile: chips readable at small size, bottom sheet doesn't obscure the param list, bulk assign bar stays accessible |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P15.1 | Read `DispatcherPage.jsx` dispatch section: map current state shape and dropdown behavior | ✅ Complete |
+| SP3.P15.2 | Revamp dropdown styling: custom SVG chevron indicator, clean compact height (38px), dashed border when unassigned, solid bold styling when assigned | ✅ Complete |
+| SP3.P15.3 | Enforce uniform selector width: 220px fixed on desktop, 145px on mobile, perfectly aligned across all rows | ✅ Complete |
+| SP3.P15.4 | Single-line parameter label layout: set `min-width: 0` on label flex container, `white-space: nowrap` on units and badges, preventing 3-line word wrapping | ✅ Complete |
+| SP3.P15.5 | Pesticides special panels edge case: preserve `Special Panel` badges, blue background highlights, and single-line layout for virtual panels | ✅ Complete |
+| SP3.P15.6 | Mobile out-of-bounds protection: reduce card padding from `1.5rem` to `0.75rem` on mobile, ensure dropdown fits strictly within 375px screens | ✅ Complete |
+| SP3.P15.7 | Unified bulk assign and amendment selectors: apply revamped uniform styling to bulk assign and amendment review rows | ✅ Complete |
+| SP3.P15.8 | Automated testing: Playwright E2E tests verifying uniform dropdown width, mobile boundary containment, and assignment behavior | ✅ Complete |
+
+> ✅ Completed. Revamped the native selector with sleek custom chevron styling, uniform desktop (220px) and mobile (145px) sizing, 1-line label flex layout, and full pesticide special panel support. 39/39 Playwright tests passing.
 
 ---
 

@@ -131,4 +131,81 @@ test.describe('Department Head Experience', () => {
     await expect(page.getByPlaceholder('Search Client or Code...')).toBeVisible();
     await expect(page.locator('table')).toBeVisible();
   });
+
+  test('should render uniform revamped analyst dropdowns and assign analyst', async ({ page }) => {
+    await loginAs(page, 'HEAD', { department: 'Chemical' });
+    await page.goto('/head/dispatcher');
+
+    // Click job card to expand
+    await page.getByText(/2604230001/).first().click();
+
+    // Verify uniform select dropdowns on parameter rows
+    const dropdowns = page.locator('.analyst-select-dropdown');
+    await expect(dropdowns.first()).toBeVisible();
+
+    // Verify unassigned class on initial load
+    await expect(dropdowns.first()).toHaveClass(/is-unassigned/);
+
+    // Select an analyst in first row
+    await dropdowns.first().selectOption({ label: 'Analyst Bob' });
+
+    // Verify dropdown updates to assigned class
+    await expect(dropdowns.first()).toHaveClass(/is-assigned/);
+    await expect(dropdowns.first()).toHaveValue('u-asst-2');
+
+    // Test bulk assign dropdown
+    const bulkSelect = page.locator('select[aria-label="Bulk assign all parameters"]');
+    await expect(bulkSelect).toBeVisible();
+    await bulkSelect.selectOption({ label: 'Analyst Bob' });
+
+    // All parameter dropdowns should now have Analyst Bob assigned
+    const paramDropdowns = page.locator('select[aria-label^="Select analyst for"]');
+    const count = await paramDropdowns.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await expect(paramDropdowns.nth(i)).toHaveValue('u-asst-2');
+      await expect(paramDropdowns.nth(i)).toHaveClass(/is-assigned/);
+    }
+  });
+
+  test('should render uniform dropdowns without out-of-bounds overflow on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await loginAs(page, 'HEAD', { department: 'Chemical' });
+    await page.goto('/head/dispatcher');
+
+    // Expand job card
+    await page.getByText(/2604230001/).first().click();
+
+    // Verify dropdown is visible and does not overflow viewport width
+    const firstDropdown = page.locator('.analyst-select-dropdown').first();
+    await expect(firstDropdown).toBeVisible();
+
+    const box = await firstDropdown.boundingBox();
+    expect(box).not.toBeNull();
+    // Dropdown right boundary must be strictly within 375px mobile screen width
+    expect(box.x + box.width).toBeLessThanOrEqual(375);
+  });
+
+  test('should lay out parameters in a responsive grid and display special panels', async ({ page }) => {
+    await loginAs(page, 'HEAD', { department: 'Chemical' });
+    await page.goto('/head/dispatcher');
+
+    // Expand job card
+    await page.getByText(/2604230001/).first().click();
+
+    // Verify grid container exists
+    const grid = page.locator('.dispatcher-params-grid');
+    await expect(grid).toBeVisible();
+
+    // Verify parameter cards inside grid
+    const cards = grid.locator('.dispatcher-param-card');
+    const cardCount = await cards.count();
+    expect(cardCount).toBeGreaterThan(1);
+
+    // Verify pesticide special panels have the special panel class and badge
+    const specialPanels = grid.locator('.dispatcher-param-card.is-special-panel');
+    await expect(specialPanels.first()).toBeVisible();
+    await expect(specialPanels.first().getByText('Special Panel')).toBeVisible();
+    await expect(specialPanels.first().getByText(/Food Pesticides/)).toBeVisible();
+  });
 });
