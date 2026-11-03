@@ -50,9 +50,33 @@ export function useListControls(rawItems, config, options = {}) {
   const processedItems = useMemo(() => {
     let filtered = [...rawItems];
 
-    // If search is active and fuse instance provided, search over it instead of rawItems
-    if (searchQuery && fuse) {
-      filtered = fuse.search(searchQuery).map(r => r.item);
+    // High-accuracy search with exact-match prioritization
+    if (searchQuery) {
+      const term = searchQuery.trim().toLowerCase();
+      const isNumeric = /\d/.test(term);
+      const pool = (fuse && fullItems && fullItems.length > 0) ? fullItems : rawItems;
+
+      // 1. Exact substring check across primary identifier fields
+      const exactMatches = [];
+      for (const item of pool) {
+        const code = String(item.jobCode || item.testCode || '').toLowerCase();
+        const client = String(item.clientName || item.customer?.customer_name || '').toLowerCase();
+        const sample = String(item.sample?.sample_name || item.sample?.sample_id || '').toLowerCase();
+        const searchKey = String(item._searchKey || item._paramNames || item._actors || item._details || '').toLowerCase();
+
+        if (code.includes(term) || client.includes(term) || sample.includes(term) || (searchKey && searchKey.includes(term))) {
+          exactMatches.push(item);
+        }
+      }
+
+      if (exactMatches.length > 0) {
+        filtered = exactMatches;
+      } else if (!isNumeric && fuse) {
+        // Fuzzy search ONLY for non-numeric text queries if no exact substring matches found
+        filtered = fuse.search(searchQuery).map(r => r.item);
+      } else {
+        filtered = [];
+      }
     }
 
     if (!filtered || filtered.length === 0) return [];
@@ -95,8 +119,23 @@ export function useListControls(rawItems, config, options = {}) {
       }
     }
 
-    // Sort
+    // Sort: when search is active, prioritize exact match position before regular field sort
     filtered.sort((a, b) => {
+      if (searchQuery) {
+        const term = searchQuery.trim().toLowerCase();
+        const aCode = String(a.jobCode || a.testCode || '').toLowerCase();
+        const bCode = String(b.jobCode || b.testCode || '').toLowerCase();
+        const aExact = aCode === term;
+        const bExact = bCode === term;
+        if (aExact && !bExact) return -1;
+        if (bExact && !aExact) return 1;
+
+        const aStarts = aCode.startsWith(term);
+        const bStarts = bCode.startsWith(term);
+        if (aStarts && !bStarts) return -1;
+        if (bStarts && !aStarts) return 1;
+      }
+
       if (sortKey === 'jobCode' || sortKey === 'testCode') {
         const aCode = a.jobCode || a.testCode;
         const bCode = b.jobCode || b.testCode;
@@ -112,7 +151,7 @@ export function useListControls(rawItems, config, options = {}) {
     });
 
     return filtered;
-  }, [rawItems, activeFilters, sortKey, sortDir, filterDefs, fullItems, getSiblingId, groupRoots]);
+  }, [rawItems, searchQuery, fuse, activeFilters, sortKey, sortDir, filterDefs, fullItems, getSiblingId, groupRoots]);
 
   const isFiltered = searchQuery !== '' || Object.keys(activeFilters).length > 0;
 

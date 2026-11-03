@@ -100,6 +100,7 @@ export default function JobLogTable({
   onLoadMoreData,
   isLoadingMoreData,
   onServerSearch,
+  searchTerm: externalSearchTerm = "",
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -128,7 +129,7 @@ export default function JobLogTable({
   }, [openActionJobId]);
 
   const toggleActionDropdown = React.useCallback((job, triggerEl) => {
-    if (openActionJobId === job._id) {
+    if (openActionJobId && String(openActionJobId) === String(job._id)) {
       closeActionDropdown();
     } else {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -168,6 +169,17 @@ export default function JobLogTable({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [openActionJobId, closeActionDropdown]);
+
+  const prevJobsRef = React.useRef(jobs);
+  const prevSearchRef = React.useRef(externalSearchTerm);
+
+  React.useEffect(() => {
+    if (prevJobsRef.current !== jobs || prevSearchRef.current !== externalSearchTerm) {
+      prevJobsRef.current = jobs;
+      prevSearchRef.current = externalSearchTerm;
+      closeActionDropdown();
+    }
+  }, [jobs, externalSearchTerm, closeActionDropdown]);
 
   React.useEffect(() => {
     return () => {
@@ -579,7 +591,7 @@ export default function JobLogTable({
 
   React.useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, externalSearchTerm, statusFilter]);
 
   // Debounced server search
   React.useEffect(() => {
@@ -624,35 +636,74 @@ export default function JobLogTable({
   // Group jobs: only show ROOT jobs in the main table. Child jobs will be fetched/passed inside JobTimeline.
   const rootJobs = jobs.filter((j) => !j.isRetest);
 
-  // When server search is active, skip local filtering entirely —
-  // the server owns the result set. Only apply local status filter.
-  const filteredJobsAll = (onServerSearch && searchTerm)
-    ? rootJobs.filter((j) => {
-        const jobStatus = getJobStatus(j);
-        return statusFilter === "ALL" || jobStatus === statusFilter;
-      })
+  const effectiveSearchTerm = (externalSearchTerm || searchTerm).trim();
+
+  // If externalSearchTerm or onServerSearch is active, jobs are already filtered externally
+  const isExternallyFiltered = Boolean(externalSearchTerm || onServerSearch);
+
+  const filteredJobsAll = isExternallyFiltered
+    ? rootJobs
     : rootJobs.filter((j) => {
-        const term = searchTerm.toLowerCase();
+        const term = effectiveSearchTerm.toLowerCase();
         const matchSearch =
-          j.jobCode.toLowerCase().includes(term) ||
-          j.clientName.toLowerCase().includes(term);
+          !term ||
+          String(j.jobCode || '').toLowerCase().includes(term) ||
+          String(j.clientName || '').toLowerCase().includes(term) ||
+          String(j.customer?.customer_name || '').toLowerCase().includes(term) ||
+          String(j.sample?.sample_name || '').toLowerCase().includes(term);
         const jobStatus = getJobStatus(j);
         const matchStatus = statusFilter === "ALL" || jobStatus === statusFilter;
         return matchSearch && matchStatus;
       });
 
+  const isSearchActive = Boolean(effectiveSearchTerm);
   const totalPages = Math.ceil(filteredJobsAll.length / PAGE_SIZE);
-  const visibleJobs = filteredJobsAll.slice(0, page * PAGE_SIZE);
+  const visibleJobs = isSearchActive
+    ? filteredJobsAll
+    : filteredJobsAll.slice(0, page * PAGE_SIZE);
+
+  const getNextPageForVisibleItems = (startPage) => {
+    let p = startPage;
+    while (p < totalPages) {
+      const sliceStart = (p - 1) * PAGE_SIZE;
+      const sliceEnd = Math.min(p * PAGE_SIZE, filteredJobsAll.length);
+      const slice = filteredJobsAll.slice(sliceStart, sliceEnd);
+
+      let hasVisible = false;
+      for (let idx = 0; idx < slice.length; idx++) {
+        const job = slice[idx];
+        const group = enableGrouping ? findGroupForJob(job) : null;
+        if (!group) {
+          hasVisible = true;
+          break;
+        }
+        if (expandedGroupId === group.id) {
+          hasVisible = true;
+          break;
+        }
+        const firstIdx = filteredJobsAll.findIndex((j) => isJobInGroup(j, group));
+        const absIdx = sliceStart + idx;
+        if (firstIdx === absIdx) {
+          hasVisible = true;
+          break;
+        }
+      }
+
+      if (hasVisible) return p;
+      p++;
+    }
+    return p;
+  };
 
   const handleLoadMore = () => {
     if (page < totalPages) {
-      setPage(p => p + 1);
+      const nextP = getNextPageForVisibleItems(page + 1);
+      setPage(nextP);
       
       // Proactive Pre-fetching:
-      // If we are now on the last page of our locally loaded data, 
+      // If we are now on or near the last page of locally loaded data, 
       // fire the network request for the next batch in the background.
-      // This hides the 2-second API delay completely!
-      if (page + 1 >= totalPages && hasMoreData && onLoadMoreData && !isLoadingMoreData) {
+      if (nextP + 1 >= totalPages && hasMoreData && onLoadMoreData && !isLoadingMoreData) {
         onLoadMoreData();
       }
     } else if (hasMoreData && onLoadMoreData && !isLoadingMoreData) {
@@ -661,6 +712,18 @@ export default function JobLogTable({
       setPage(p => p + 1);
     }
   };
+
+  // Safety net: if the current page slice produced no new visible items because
+  // all jobs in the slice belong to an already rendered collapsed group, auto-advance
+  // so infinite scroll never gets stuck on large collapsed groups.
+  React.useEffect(() => {
+    if (page < totalPages) {
+      const targetP = getNextPageForVisibleItems(page);
+      if (targetP > page) {
+        setPage(targetP);
+      }
+    }
+  }, [page, totalPages, expandedGroupId]);
 
   const toggleExpand = (id) => {
     setExpandedJobId(expandedJobId === id ? null : id);
@@ -757,23 +820,30 @@ export default function JobLogTable({
       displayItems.push({ type: "job", job, index, isGrouped: false });
     } else {
       if (!renderedGroupIds.has(group.id)) {
+        const groupMemberJobs = filteredJobsAll
+          .filter((j) => isJobInGroup(j, group))
+          .sort((a, b) => {
+            if (group.jobCodes && group.jobCodes.length > 0) {
+              const idxA = group.jobCodes.indexOf(a.jobCode);
+              const idxB = group.jobCodes.indexOf(b.jobCode);
+              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            }
+            const sA = getJobSerial(a) || 0;
+            const sB = getJobSerial(b) || 0;
+            if (sA !== sB) return sB - sA;
+            return (b.jobCode || "").localeCompare(a.jobCode || "");
+          });
+
+        if (groupMemberJobs.length === 0) {
+          // If the folder is empty, it shouldn't appear
+          displayItems.push({ type: "job", job, index, isGrouped: false });
+          return;
+        }
+
         renderedGroupIds.add(group.id);
         displayItems.push({ type: "group-header", group });
         const isGroupOpen = expandedGroupId === group.id || closingGroupId === group.id;
         if (isGroupOpen) {
-          const groupMemberJobs = filteredJobsAll
-            .filter((j) => isJobInGroup(j, group))
-            .sort((a, b) => {
-              if (group.jobCodes && group.jobCodes.length > 0) {
-                const idxA = group.jobCodes.indexOf(a.jobCode);
-                const idxB = group.jobCodes.indexOf(b.jobCode);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-              }
-              const sA = getJobSerial(a) || 0;
-              const sB = getJobSerial(b) || 0;
-              if (sA !== sB) return sB - sA;
-              return (b.jobCode || "").localeCompare(a.jobCode || "");
-            });
           groupMemberJobs.forEach((mJob, mIdx) => {
             displayItems.push({
               type: "job",
@@ -790,13 +860,17 @@ export default function JobLogTable({
     }
   });
 
-  if (enableGrouping && !searchTerm && statusFilter === "ALL") {
+  if (enableGrouping && !effectiveSearchTerm && statusFilter === "ALL") {
     const lastVisibleJob = visibleJobs.length > 0 ? visibleJobs[visibleJobs.length - 1] : null;
     const minVisibleCode = lastVisibleJob ? String(lastVisibleJob.jobCode).replace(/-.*/, "").trim() : null;
     const isAtEndOfAllData = !hasMoreData && page >= totalPages;
 
     jobGroups.forEach((g) => {
       if (!renderedGroupIds.has(g.id)) {
+        // If the folder is empty, it shouldn't appear
+        const groupMemberJobs = filteredJobsAll.filter((j) => isJobInGroup(j, g));
+        if (groupMemberJobs.length === 0) return;
+
         // Determine the newest/maximum job code boundary for this group
         const rawMaxCode = (g.jobCodes && g.jobCodes.length > 0)
           ? g.jobCodes.reduce((m, c) => (c > m ? c : m), g.jobCodes[0])
@@ -811,20 +885,18 @@ export default function JobLogTable({
           displayItems.push({ type: "group-header", group: g });
           const isGroupOpen = expandedGroupId === g.id || closingGroupId === g.id;
           if (isGroupOpen) {
-            const groupMemberJobs = filteredJobsAll
-              .filter((j) => isJobInGroup(j, g))
-              .sort((a, b) => {
-                if (g.jobCodes && g.jobCodes.length > 0) {
-                  const idxA = g.jobCodes.indexOf(a.jobCode);
-                  const idxB = g.jobCodes.indexOf(b.jobCode);
-                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                }
-                const sA = getJobSerial(a) || 0;
-                const sB = getJobSerial(b) || 0;
-                if (sA !== sB) return sB - sA;
-                return (b.jobCode || "").localeCompare(a.jobCode || "");
-              });
-            groupMemberJobs.forEach((mJob, mIdx) => {
+            const sortedMemberJobs = [...groupMemberJobs].sort((a, b) => {
+              if (g.jobCodes && g.jobCodes.length > 0) {
+                const idxA = g.jobCodes.indexOf(a.jobCode);
+                const idxB = g.jobCodes.indexOf(b.jobCode);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              }
+              const sA = getJobSerial(a) || 0;
+              const sB = getJobSerial(b) || 0;
+              if (sA !== sB) return sB - sA;
+              return (b.jobCode || "").localeCompare(a.jobCode || "");
+            });
+            sortedMemberJobs.forEach((mJob, mIdx) => {
               displayItems.push({
                 type: "job",
                 job: mJob,
@@ -843,86 +915,6 @@ export default function JobLogTable({
 
   return (
     <div className="card" style={{ padding: "0", overflow: "hidden" }}>
-      <div
-        style={{
-          padding: "1.5rem",
-          borderBottom: "1px solid var(--color-border)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          backgroundColor: "var(--color-surface)",
-          flexWrap: "wrap",
-          gap: "1rem",
-        }}
-      >
-        <h2 style={{ margin: 0, width: "100%" }}>{title}</h2>
-        <div
-          style={{
-            display: "flex",
-            gap: "1rem",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ position: "relative" }}>
-            <Search
-              size={18}
-              style={{
-                position: "absolute",
-                left: "10px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--color-text-muted)",
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Search Client or Code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                paddingLeft: "2.2rem",
-                paddingRight: "1rem",
-                paddingBottom: "0.4rem",
-                paddingTop: "0.4rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-md)",
-              }}
-            />
-          </div>
-          <div style={{ position: "relative" }}>
-            <Filter
-              size={18}
-              style={{
-                position: "absolute",
-                left: "10px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--color-text-muted)",
-              }}
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                paddingLeft: "2.2rem",
-                appearance: "auto",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-md)",
-                paddingBottom: "0.4rem",
-                paddingTop: "0.4rem",
-              }}
-            >
-              <option value="ALL">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="RETURNED">Returned</option>
-              <option value="COMPLETED">Completed</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       <div
         className="hide-on-mobile"
         style={{ overflowX: "auto", overflowY: "hidden", width: "100%" }}
@@ -955,16 +947,26 @@ export default function JobLogTable({
           </thead>
           <tbody>
             {displayItems.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={showActions ? 6 : 5}
-                  style={{ textAlign: "center", padding: "2rem" }}
-                >
-                  {serverSearchPending || isLoadingMoreData
-                    ? null
-                    : "No jobs match your filters."}
-                </td>
-              </tr>
+              (serverSearchPending || isLoadingMoreData) ? (
+                <>
+                  {[1, 2, 3].map((n) => (
+                    <tr key={`skeleton-row-${n}`} className="skeleton-row">
+                      <td colSpan={showActions ? 6 : 5} style={{ padding: "0.85rem 1.25rem" }}>
+                        <div className="skeleton-block" style={{ height: "36px", margin: 0, borderRadius: "6px" }} />
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
+                <tr>
+                  <td
+                    colSpan={showActions ? 6 : 5}
+                    style={{ textAlign: "center", padding: "2.5rem", color: "var(--color-text-muted)" }}
+                  >
+                    No jobs match your filters.
+                  </td>
+                </tr>
+              )
             ) : (
               displayItems.map((item) => {
                 if (item.type === "group-header") {
@@ -1355,7 +1357,7 @@ export default function JobLogTable({
 
                             if (!hasAnyAction) return null;
 
-                            const isOpen = openActionJobId === job._id;
+                            const isOpen = openActionJobId && String(openActionJobId) === String(job._id);
 
                             return (
                               <div
@@ -1452,17 +1454,23 @@ export default function JobLogTable({
         }}
       >
         {visibleJobs.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "2rem",
-              color: "var(--color-text-muted)",
-            }}
-          >
-            {serverSearchPending || isLoadingMoreData
-              ? null
-              : "No jobs match your filters."}
-          </div>
+          (serverSearchPending || isLoadingMoreData) ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "1rem 0" }}>
+              {[1, 2, 3].map((n) => (
+                <div key={`mobile-skeleton-${n}`} className="skeleton-block" style={{ height: "60px", margin: 0, borderRadius: "8px" }} />
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "2rem",
+                color: "var(--color-text-muted)",
+              }}
+            >
+              No jobs match your filters.
+            </div>
+          )
         ) : (
           displayItems.map((item) => {
             if (item.type === "group-header") {
@@ -1885,8 +1893,8 @@ export default function JobLogTable({
       </div>
 
       <InfiniteScroll 
-        hasMore={page < totalPages || hasMoreData} 
-        isLoading={isLoadingMoreData || false} 
+        hasMore={displayItems.length > 0 && (page < totalPages || hasMoreData)} 
+        isLoading={displayItems.length > 0 && Boolean(isLoadingMoreData)} 
         onLoadMore={handleLoadMore} 
       />
 

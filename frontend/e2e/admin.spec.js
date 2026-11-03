@@ -48,7 +48,8 @@ test.describe('Admin Experience', () => {
     await expect(searchInput).toBeVisible();
 
     // Status filter combobox
-    await expect(page.getByRole('combobox')).toBeVisible();
+    await page.getByRole('button', { name: 'Filter' }).click();
+    await expect(page.getByRole('combobox').first()).toBeVisible();
 
     // Table presence
     const table = page.locator('table');

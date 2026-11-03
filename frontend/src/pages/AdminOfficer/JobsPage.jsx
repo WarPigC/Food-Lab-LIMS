@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchWithCache, invalidateCache, CACHE_KEYS, isCached } from "../../utils/cache";
@@ -20,6 +20,36 @@ import SpecialProfilesSection from "../../components/SpecialProfilesSection";
 import { useToast } from "../../hooks/useToast";
 import { useModal } from "../../hooks/useModal";
 import { handleApiError } from "../../utils/errorHandler";
+import Fuse from "fuse.js";
+import PageHeader from "../../components/PageHeader";
+import { useListControls } from "../../hooks/useListControls";
+
+function getJobStatus(job) {
+  if (job.status === "ON_HOLD") return "ON_HOLD";
+  if (job.status === "CANCELLED") return "CANCELLED";
+
+  let statuses = [];
+  if (job.distribution?.micro?.required)
+    statuses.push(job.distribution.micro.status);
+  if (job.distribution?.chemical?.required)
+    statuses.push(job.distribution.chemical.status);
+
+  if (statuses.length === 0) return "PENDING";
+  if (statuses.some((s) => s === "RETURNED")) return "RETURNED";
+  if (statuses.every((s) => s === "COMPLETED")) return "COMPLETED";
+  if (statuses.every((s) => s === "PENDING")) return "PENDING";
+  return "IN_PROGRESS";
+}
+
+function getJobNablMode(job) {
+  if (job.siblingJobId || (job.sample?.nabl_type || "").toLowerCase() === "hybrid") {
+    return "hybrid";
+  }
+  if ((job.sample?.nabl_type || "").toLowerCase() === "nabl") {
+    return "nabl";
+  }
+  return "non nabl";
+}
 
 function buildJobCodePreview(serial, dateStr) {
   if (!serial) return "…";
@@ -319,6 +349,7 @@ export default function Jobs() {
 
   const fetchJobs = async () => {
     try {
+      setAllJobsLoaded(false);
       await fetchWithCache(`${API_URL}/api/jobs?includeCancelled=true`, CACHE_KEYS.JOBS_ALL, handleJobsData);
     } catch (err) {
       console.error(err);
@@ -343,6 +374,128 @@ export default function Jobs() {
       setIsLoadingMore(false);
     }
   };
+
+  const [allJobs, setAllJobs] = useState([]);
+  const [allJobsLoaded, setAllJobsLoaded] = useState(false);
+  const [isLoadingAllJobs, setIsLoadingAllJobs] = useState(false);
+
+  const currentJobsList = allJobsLoaded ? allJobs : jobs;
+
+  const searchableJobs = useMemo(() => {
+    return currentJobsList.map((job) => ({
+      ...job,
+      _searchKey: [
+        job.jobCode,
+        job.clientName,
+        job.customer?.customer_name,
+        job.sample?.sample_name,
+        job.sample?.sample_id,
+        job.sample?.ulr_no,
+      ].filter(Boolean).join(" "),
+    }));
+  }, [currentJobsList]);
+
+  const officerFuse = useMemo(() => new Fuse(searchableJobs, {
+    keys: ["_searchKey", "jobCode", "clientName", "customer.customer_name", "sample.sample_name"],
+    threshold: 0.35,
+    ignoreLocation: true,
+  }), [searchableJobs]);
+
+  const officerFilterDefs = useMemo(() => [
+    {
+      id: "nabl",
+      label: "NABL Type",
+      type: "select",
+      options: [
+        { value: "Nabl", label: "NABL" },
+        { value: "Non Nabl", label: "Non-NABL" },
+        { value: "Hybrid", label: "Hybrid" },
+      ],
+      test: (job, value) => {
+        if (!value) return true;
+        const target = value.toLowerCase().replace("-", " ");
+        return getJobNablMode(job) === target;
+      },
+    },
+    {
+      id: "status",
+      label: "Overall Status",
+      type: "select",
+      options: [
+        { value: "PENDING", label: "Pending" },
+        { value: "IN_PROGRESS", label: "In Progress" },
+        { value: "RETURNED", label: "Returned" },
+        { value: "COMPLETED", label: "Completed" },
+        { value: "ON_HOLD", label: "On Hold" },
+        { value: "CANCELLED", label: "Cancelled" },
+      ],
+      test: (job, value) => !value || getJobStatus(job) === value,
+    },
+    {
+      id: "dateRange",
+      label: "Date Created",
+      type: "dateRange",
+      test: (job, value) => {
+        if (!value) return true;
+        const d = new Date(job.createdAt);
+        if (isNaN(d.getTime())) return true;
+        if (value.from) {
+          const fromDate = new Date(value.from);
+          fromDate.setHours(0, 0, 0, 0);
+          if (d < fromDate) return false;
+        }
+        if (value.to) {
+          const toDate = new Date(value.to);
+          toDate.setHours(23, 59, 59, 999);
+          if (d > toDate) return false;
+        }
+        return true;
+      },
+    },
+  ], []);
+
+  const officerSortConfig = useMemo(() => ({
+    defaultSortKey: "createdAt",
+    defaultSortDir: "desc",
+    searchPlaceholder: "Search Client or Code...",
+    sortOptions: [
+      { key: "createdAt", label: "Date Created" },
+      { key: "jobCode", label: "Job Code" },
+    ],
+    filterDefs: officerFilterDefs,
+  }), [officerFilterDefs]);
+
+  const officerControls = useListControls(
+    searchableJobs,
+    officerSortConfig,
+    {
+      fullItems: searchableJobs,
+      fuse: officerFuse,
+    }
+  );
+
+  const hasActiveFilters = Object.keys(officerControls.activeFilters || {}).length > 0;
+
+  useEffect(() => {
+    const delay = (officerControls.searchQuery || hasActiveFilters) ? 0 : 500;
+    const timer = setTimeout(() => {
+      if (!allJobsLoaded && !isLoadingAllJobs) {
+        setIsLoadingAllJobs(true);
+        axios
+          .get(`${API_URL}/api/jobs?includeCancelled=true&limit=1000`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          })
+          .then((res) => {
+            setAllJobs(res.data.jobs || []);
+            setAllJobsLoaded(true);
+          })
+          .catch(console.error)
+          .finally(() => setIsLoadingAllJobs(false));
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [officerControls.searchQuery, hasActiveFilters, allJobsLoaded, isLoadingAllJobs]);
 
   const fetchHeads = async () => {
     try {
@@ -375,6 +528,7 @@ export default function Jobs() {
   useEffect(() => {
     if (!socket) return;
     const triggerUpdate = () => {
+      setAllJobsLoaded(false);
       invalidateCache(CACHE_KEYS.JOBS_ALL);
       invalidateCache(CACHE_KEYS.INSTANCES);
       fetchJobs();
@@ -3061,8 +3215,17 @@ export default function Jobs() {
         })()}
 
       <div style={{ marginTop: "2rem" }}>
+        <PageHeader
+          config={officerSortConfig}
+          controls={officerControls}
+          onSearchChange={officerControls.setSearchQuery}
+          resultCount={officerControls.processedItems.length}
+          totalCount={currentJobsList.length}
+          placeholder="Search Client or Code..."
+        />
         <JobLogTable
-          jobs={jobs}
+          jobs={officerControls.processedItems}
+          searchTerm={officerControls.searchQuery}
           title="All Client Sample Jobs"
           enableGrouping={true}
           onMergeJobs={(newJobs) => {
@@ -3076,6 +3239,18 @@ export default function Jobs() {
                 return idB.localeCompare(idA);
               });
             });
+            if (allJobsLoaded) {
+              setAllJobs((prev) => {
+                const existingIds = new Set(prev.map((j) => j._id));
+                const toAdd = newJobs.filter((j) => !existingIds.has(j._id));
+                if (toAdd.length === 0) return prev;
+                return [...prev, ...toAdd].sort((a, b) => {
+                  const idA = a._id ? a._id.toString() : "";
+                  const idB = b._id ? b._id.toString() : "";
+                  return idB.localeCompare(idA);
+                });
+              });
+            }
           }}
           loadingJobId={loadingJobId}
           onDeleteJob={handleDeleteJob}
@@ -3086,8 +3261,8 @@ export default function Jobs() {
             navigate("/admin-officer/jobs", { state: { reopenJob: job } })
           }
           defaultExpandedId={location.state?.expandJobId}
-          hasMoreData={hasMoreJobs}
-          isLoadingMoreData={isLoadingMore}
+          hasMoreData={!allJobsLoaded && hasMoreJobs}
+          isLoadingMoreData={isLoadingMore || isLoadingAllJobs}
           onLoadMoreData={loadMoreJobs}
         />
       </div>

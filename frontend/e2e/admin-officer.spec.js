@@ -156,8 +156,8 @@ test.describe('Admin Officer Experience', () => {
     await page.goto('/admin-officer/jobs');
 
     // Group header should be visible
-    await expect(page.getByText('Sunrise Batch')).toBeVisible();
-    await expect(page.getByText(/1 Job\(s\)/i)).toBeVisible();
+    await expect(page.locator('#group-row-grp-test-1').getByText('Sunrise Batch')).toBeVisible();
+    await expect(page.getByText(/1 Job\(s\)/i).first()).toBeVisible();
 
     // Clicking group header expands member jobs
     await page.locator('#group-row-grp-test-1').getByText('Sunrise Batch').click();

@@ -497,7 +497,7 @@ router.get('/', protect, async (req, res) => {
     const isRangeQuery = Boolean(jobCodes || (rangeStart && rangeEnd) || (startSerial && endSerial));
     const limit = isRangeQuery
       ? 200
-      : Math.min(parseInt(req.query.limit) || 50, 100);
+      : Math.min(parseInt(req.query.limit) || 50, 1000);
     const cursor = req.query.cursor;  // MongoDB _id of the last item from previous page
 
     if (cursor) {

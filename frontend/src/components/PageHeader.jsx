@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp, X, Filter, SlidersHorizontal } from 'lucide-react';
 
-export default function PageHeader({ config, controls, resultCount, totalCount, onSearchChange, filterSelectOptions = {} }) {
+export default function PageHeader({ config, controls, resultCount, totalCount, onSearchChange, filterSelectOptions = {}, placeholder }) {
   const [localQuery, setLocalQuery] = useState(controls.searchQuery);
   const debounceRef = useRef(null);
   
@@ -30,11 +30,7 @@ export default function PageHeader({ config, controls, resultCount, totalCount, 
   const handleSearchInput = (e) => {
     const val = e.target.value;
     setLocalQuery(val);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onSearchChange && onSearchChange(val);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 300);
+    onSearchChange && onSearchChange(val);
   };
 
   useEffect(() => {
@@ -67,7 +63,7 @@ export default function PageHeader({ config, controls, resultCount, totalCount, 
           <Search size={16} color="var(--color-text-muted)" style={{ marginRight: '0.5rem' }} />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder={placeholder || config?.searchPlaceholder || "Search..."}
             value={localQuery}
             onChange={handleSearchInput}
             style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.9rem' }}
@@ -257,7 +253,7 @@ export default function PageHeader({ config, controls, resultCount, totalCount, 
       <div className={`active-filters-wrapper ${isFiltered ? 'expanded' : ''}`}>
         <div className="active-filters-inner">
           <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>Showing {resultCount} of {totalCount} items</span>
+            <span>Showing {resultCount} item{resultCount === 1 ? '' : 's'}</span>
           </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.25rem' }}>

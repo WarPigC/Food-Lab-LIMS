@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, F7, F3, F6, C2, C3, C4, C5, C6, F21 | 🔄 Ongoing (P1 to P13 Complete) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P14 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -903,10 +903,10 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P11 | F7 | Dashboard History Revamp | ✅ Done |
 | SP3.P12 | F3 | Transfer List Rework (Dispatcher Sample Transfers) | ✅ Done |
 | SP3.P13 | F6 | Job Grouping in Officer's Page | ✅ Done |
-| SP3.P14 | F21 | OTP-Based Password Reset | ⬜ Upcoming |
-| SP3.P15 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ✅ Done |
-| SP3.P16 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ⬜ Upcoming |
-| SP3.P17 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
+| SP3.P14 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ✅ Done |
+| SP3.P15 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ✅ Done |
+| SP3.P16 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
+| SP3.P17 | **B15** | **Unauthenticated Codebase Exposure & Missing Wildcard Route Guard** | ⬜ Upcoming |
 
 ---
 
@@ -1264,81 +1264,40 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 | SP3.P13.8 | **Frontend - Sub-range Removal & Splitting**: Support trimming outer edges, splitting middle selections into two groups, or disbanding when selecting sub-ranges within an open group | ✅ Complete |
 | SP3.P13.9 | **Frontend - Explicit Membership & Group Creation Modal**: Built single-line group naming modal with Enter/Escape handlers via `modal.custom`; upgraded group storage to explicit `jobCodes: [...]` membership eliminating date-prefix mismatches and yearly rollover collisions | ✅ Complete |
 | SP3.P13.10 | **Testing, Portal Dropdown & Verification**: Resolved action drawer clipping bug on search results via `ReactDOM.createPortal`; 115/115 backend tests passing; 37/37 Playwright E2E tests passing including dedicated search action drawer test; clean production Vite build | ✅ Complete |
+| SP3.P13.11 | **Collapsed Group Infinite Scroll Auto-Advance**: Auto-advance pagination when a slice of jobs is swallowed by an already rendered collapsed group so scrolling never stalls | ✅ Complete |
 
 > ✅ Completed. Full sequential job grouping engine implemented with explicit `jobCodes` membership, smooth animations, single-line naming modals, and database persistence on the User model.
 
 ---
 
-### SP3.P14 — F21: OTP-Based Password Reset
+### SP3.P14: F22 - Analyst Selection UI Overhaul (Dispatcher) ✅
 
-**Files**: `backend/routes/authRoutes.js`, `frontend/src/pages/Login.jsx`
+**Files**: `frontend/src/pages/Head/DispatcherPage.jsx`, `frontend/src/index.css`, `frontend/e2e/head.spec.js`
 
-**Why SP3**: The full OTP infrastructure already exists — `Otp` model, `sendOtpEmail` (Brevo), `POST /api/auth/request-otp`, and `POST /api/auth/verify-otp` are all live. `verify-otp` currently issues a JWT for a direct OTP login. This feature adds one missing link: a `POST /api/auth/reset-password-with-otp` route that accepts `{ email, otp, newPassword }` and updates the password after verifying the OTP. The frontend flow in `Login.jsx` already has OTP and password-change UI panels; they just need wiring together with a "Forgot Password?" entry point.
+**What the problem was**: The previous dispatcher dispatch flow showed inconsistent, unstyled native `<select>` dropdowns per parameter row. Long parameter names and multi-badge layouts broke rows onto 2 to 3 lines, widths were uneven, and mobile viewports caused severe overflow outside card bounds.
 
-**User flow**:
-```
-Login screen
-  └─ "Forgot Password?" link
-       └─ Step 1: Enter email → OTP sent to inbox
-            └─ Step 2: Enter OTP
-                 └─ Step 3: Enter new password + confirm
-                      └─ Success → redirect to Login
-```
-
-**Scope boundary**: This is self-service reset by the user. Admin-initiated password resets (assigning a temp password) are already handled by the Admin dashboard and remain unchanged.
-
-| Subphase | Task |
-|---|---|
-| SP3.P14.1 | **Backend — new route**: Add `POST /api/auth/reset-password-with-otp` (no auth required — unauthenticated route). Body: `{ email, otp, newPassword }`. Logic: verify OTP via `Otp.findOne({ email, code: otp })`; if invalid/missing return 401; if valid, delete the OTP record, find User by email, set `user.password = newPassword`, set `user.requiresPasswordChange = false`, save. Audit log: `PASSWORD_RESET_VIA_OTP` |
-| SP3.P14.2 | **Backend — OTP expiry**: `Otp` model already has a TTL index (confirm it). If it doesn’t, add `createdAt: { type: Date, expires: 300 }` (5 minutes). Do not add it twice |
-| SP3.P14.3 | **Frontend — entry point**: In `Login.jsx`, add a `"Forgot Password?"` text link below the Password input on the login form. On click, transition the page to `mode = 'forgot'` (new local state) |
-| SP3.P14.4 | **Frontend — Step 1 (Email entry)**: Show an email input + "Send OTP" button. On submit, call `POST /api/auth/request-otp`. On success, advance to Step 2. On failure, show toast |
-| SP3.P14.5 | **Frontend — Step 2 (OTP entry)**: Show a 6-digit OTP input (single field or 6 individual digit boxes). "Verify OTP" button calls `POST /api/auth/reset-password-with-otp` with `{ email, otp, newPassword: '' }` — wait, actually just verify the OTP is valid here before asking for password. Alternatively: do all three fields in one step (email pre-filled from Step 1, OTP, new password, confirm password) and submit once to `reset-password-with-otp`. **Decision**: single-step form after OTP is received is simpler and less error-prone |
-| SP3.P14.6 | **Frontend — Step 2 revised (single confirm form)**: After OTP is sent, show: OTP field (pre-focused), New Password field, Confirm Password field, and "Reset Password" button. On submit, call `POST /api/auth/reset-password-with-otp`. On success, show success toast + return to login. On OTP mismatch, show inline error |
-| SP3.P14.7 | **Frontend — Resend OTP**: Add a "Resend OTP" button in Step 2 with a 60-second cooldown (countdown timer shown inline). On click, call `request-otp` again |
-| SP3.P14.8 | **Frontend — Back to login**: Provide a "Back to Login" link at each step so the user is never trapped |
-| SP3.P14.9 | Client-side validation: new password must be at least 8 characters. Confirm password must match. Show inline errors, not toasts, for these |
-| SP3.P14.10 | Verify mobile: each step must fit on one screen without scrolling. OTP input must not trigger autocorrect/autocapitalize. New password field must have `type="password"` with show/hide toggle |
-
----
-
-### SP3.P15 — F22: Analyst Selection UI Overhaul (Dispatcher)
-
-**Files**: `frontend/src/pages/Head/DispatcherPage.jsx`, possibly a new `frontend/src/components/AnalystPicker.jsx`
-
-**What the problem is**: The current dispatcher dispatch flow shows a plain native `<select>` dropdown per parameter row labelled "Select Analyst...". With 40+ parameters per job, this is visually noisy, repetitive, and error-prone on mobile. The head has to open dozens of individual dropdowns.
-
-**What to build**: Replace the per-row native dropdown with a **chip-style analyst picker**. Each parameter row shows an unassigned state by default. Clicking opens a small floating popover/panel listing available analysts (with their dept badge and current load count). Selecting an analyst stamps a coloured chip on that row. The head can then bulk-assign remaining rows using a "Assign all remaining to:" quick-action bar at the top of the expanded card.
-
-**UI spec:**
-- **Unassigned state**: light grey pill — `+ Assign`
-- **Assigned state**: coloured chip with analyst initials/avatar + name + an `×` to clear
-- **Popover**: shows analyst name, department badge, and how many params they already have in this job (e.g. `"3 assigned"`)
-- **Bulk assign bar**: sticky at top of the expanded dispatch card — analyst picker + "Assign to all unassigned" button. Eliminates the need to click every row individually for simple single-analyst jobs.
-- **Mobile**: popover opens as a bottom sheet instead of a floating panel
-
-**Scope**: Frontend only. The actual dispatch API payload (`{ parameterId, analystId }` per param) stays the same; only the UI for building that mapping changes.
+**What was built**: Revamped the native analyst selector with clean custom SVG chevrons, uniform desktop (220px) and mobile (145px) widths, compact 38px touch targets, dashed unassigned borders, bold assigned states, single-line label truncation, and full mobile containment within 375px screens.
 
 | Subphase | Task | Status |
 |---|---|---|
-| SP3.P15.1 | Read `DispatcherPage.jsx` dispatch section: map current state shape and dropdown behavior | ✅ Complete |
-| SP3.P15.2 | Revamp dropdown styling: custom SVG chevron indicator, clean compact height (38px), dashed border when unassigned, solid bold styling when assigned | ✅ Complete |
-| SP3.P15.3 | Enforce uniform selector width: 220px fixed on desktop, 145px on mobile, perfectly aligned across all rows | ✅ Complete |
-| SP3.P15.4 | Single-line parameter label layout: set `min-width: 0` on label flex container, `white-space: nowrap` on units and badges, preventing 3-line word wrapping | ✅ Complete |
-| SP3.P15.5 | Pesticides special panels edge case: preserve `Special Panel` badges, blue background highlights, and single-line layout for virtual panels | ✅ Complete |
-| SP3.P15.6 | Mobile out-of-bounds protection: reduce card padding from `1.5rem` to `0.75rem` on mobile, ensure dropdown fits strictly within 375px screens | ✅ Complete |
-| SP3.P15.7 | Unified bulk assign and amendment selectors: apply revamped uniform styling to bulk assign and amendment review rows | ✅ Complete |
-| SP3.P15.8 | Automated testing: Playwright E2E tests verifying uniform dropdown width, mobile boundary containment, and assignment behavior | ✅ Complete |
+| SP3.P14.1 | Read `DispatcherPage.jsx` dispatch section: map current state shape and dropdown behavior | ✅ Complete |
+| SP3.P14.2 | Revamp dropdown styling: custom SVG chevron indicator, clean compact height (38px), dashed border when unassigned, solid bold styling when assigned | ✅ Complete |
+| SP3.P14.3 | Enforce uniform selector width: 220px fixed on desktop, 145px on mobile, perfectly aligned across all rows | ✅ Complete |
+| SP3.P14.4 | Single-line parameter label layout: set `min-width: 0` on label flex container, `white-space: nowrap` on units and badges, preventing 3-line word wrapping | ✅ Complete |
+| SP3.P14.5 | Pesticides special panels edge case: preserve `Special Panel` badges, blue background highlights, and single-line layout for virtual panels | ✅ Complete |
+| SP3.P14.6 | Mobile out-of-bounds protection: reduce card padding from `1.5rem` to `0.75rem` on mobile, ensure dropdown fits strictly within 375px screens | ✅ Complete |
+| SP3.P14.7 | Unified bulk assign and amendment selectors: apply revamped uniform styling to bulk assign and amendment review rows | ✅ Complete |
+| SP3.P14.8 | Automated testing: Playwright E2E tests verifying uniform dropdown width, mobile boundary containment, and assignment behavior | ✅ Complete |
 
 > ✅ Completed. Revamped the native selector with sleek custom chevron styling, uniform desktop (220px) and mobile (145px) sizing, 1-line label flex layout, and full pesticide special panel support. 39/39 Playwright tests passing.
 
 ---
 
-### SP3.P16 — F2-ext: PageHeader Integration — Admin Officer Job Distributor + Activity Logs
+### SP3.P15: F2-ext - PageHeader Integration: Admin Officer Job Distributor + Activity Logs ✅
 
-**Files**: `frontend/src/pages/AdminOfficer/JobDistributorPage.jsx` (or equivalent), `frontend/src/pages/ActivityLogs.jsx` (or equivalent), `frontend/src/components/PageHeader.jsx`, `frontend/src/hooks/useListControls.js`
+**Files**: `frontend/src/pages/AdminOfficer/JobsPage.jsx`, `frontend/src/pages/ActivityLogsPage.jsx`, `frontend/src/components/PageHeader.jsx`, `frontend/src/hooks/useListControls.js`, `frontend/src/components/JobLogTable.jsx`
 
-**Why SP3**: These two pages were explicitly deferred from SP2.P6.15 and SP2.P6.16 during the SP2.P6 implementation. The `PageHeader` component and `useListControls` hook are already stable and production-ready from SP2.P6. This phase is purely a wiring pass — no new infrastructure needed.
+**Why SP3**: These two pages were explicitly deferred from SP2.P6.15 and SP2.P6.16 during the SP2.P6 implementation. The `PageHeader` component and `useListControls` hook are already stable and production-ready from SP2.P6. This phase is purely a wiring pass, no new infrastructure needed.
 
 **Admin Officer Job Distributor config:**
 - Sort: date (`createdAt`), job code
@@ -1346,24 +1305,26 @@ Login screen
 - Search: job code, client name, sample name
 
 **Activity Logs config:**
-- Sort: date (`createdAt`), action type
-- Filter: action type (select from enum), role of actor, date range
+- Sort: date (`createdAt`), job code, client name
+- Filter: NABL type, overall status, action type (select from enum), role of actor, date range
 - Search: actor name, job code, description/detail field
 
-| Subphase | Task |
-|---|---|
-| SP3.P16.1 | Read `JobDistributorPage.jsx` (or whichever file renders the Admin Officer job list) — identify the current data shape, how jobs are fetched, and what fields are available for search/filter |
-| SP3.P16.2 | Wire `useListControls` to the Admin Officer job list. Config: `searchFields` (job code, client name, sample name), `sortOptions` (date, job code), `filterDefs` (NABL type select, status select, date range) |
-| SP3.P16.3 | Mount `<PageHeader>` at the top of the Admin Officer job distributor page with the config from SP3.P16.2. Verify sticky scroll, chip row, and Clear All work correctly |
-| SP3.P16.4 | Read the Activity Logs page — identify the data shape (action type enum values, actor role field names, description/detail field) |
-| SP3.P16.5 | Wire `useListControls` to the Activity Logs list. Config: `searchFields` (actor name, job code, detail), `sortOptions` (date, action type), `filterDefs` (action type select, actor role select, date range) |
-| SP3.P16.6 | Mount `<PageHeader>` on the Activity Logs page with the config from SP3.P16.5 |
-| SP3.P16.7 | Mobile verification on both pages: sticky header must not eat too much vertical space, filter chips must wrap cleanly, no viewport overflow on dropdowns |
-| SP3.P16.8 | Revamp search action drawer behavior in `JobLogTable.jsx` during search result states |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P15.1 | Read `JobsPage.jsx`: identify the current data shape, how jobs are fetched, and what fields are available for search/filter | ✅ Complete |
+| SP3.P15.2 | Wire `useListControls` to the Admin Officer job list. Config: `searchFields` (job code, client name, sample name), `sortOptions` (date, job code), `filterDefs` (NABL type select, status select, date range) | ✅ Complete |
+| SP3.P15.3 | Mount `<PageHeader>` at the top of the Admin Officer job distributor page with the config from SP3.P15.2. Verify sticky scroll, chip row, and Clear All work correctly | ✅ Complete |
+| SP3.P15.4 | Read the Activity Logs page: identify the data shape (action type enum values, actor role field names, description/detail field) | ✅ Complete |
+| SP3.P15.5 | Wire `useListControls` to the Activity Logs list. Config: `searchFields` (actor name, job code, detail), `sortOptions` (date, job code, client), `filterDefs` (NABL type, overall status, action type select, actor role select, date range) | ✅ Complete |
+| SP3.P15.6 | Mount `<PageHeader>` on the Activity Logs page with the config from SP3.P15.5 | ✅ Complete |
+| SP3.P15.7 | Mobile verification on both pages: sticky header must not eat too much vertical space, filter chips must wrap cleanly, no viewport overflow on dropdowns | ✅ Complete |
+| SP3.P15.8 | Revamp search action drawer behavior in `JobLogTable.jsx` during search result states | ✅ Complete |
+
+> ✅ Completed. Integrated `PageHeader` across Admin Officer Job Distributor and all 3 roles' Activity Logs. Removed internal redundant header from `JobLogTable`. Fixed fuzzy search exact code ranking, empty folder isolation on filters, and infinite scroll thrashing. 40/40 Playwright frontend tests and 117/117 backend tests passing.
 
 ---
 
-### SP3.P17 — B11: History & Timeline Display Overhaul
+### SP3.P16: B11 - History & Timeline Display Overhaul
 
 **Files**: `frontend/src/components/GlobalJobHistory.jsx`, `frontend/src/components/AssignmentHistory.jsx`, `backend/routes/tests/testResultRoutes.js`
 
@@ -1373,37 +1334,37 @@ Login screen
 
 ---
 
-#### Bug B11a — Phantom "Unknown User" Reassignment in GlobalJobHistory
+#### Bug B11a: Phantom "Unknown User" Reassignment in GlobalJobHistory
 
 **Where**: `GlobalJobHistory.jsx`, lines 25–67.
 
 **Symptom**: When a HEAD dispatches a job to two analysts **simultaneously** (same timestamp), the second instance is incorrectly treated as a reassignment from analyst 1 to analyst 2. The trigger lookup finds no `REASSIGN` review entry (because it was a clean initial dispatch), so `by = null`, rendering `By: Unknown User`.
 
-**Fix**: Before pushing a `REASSIGNED_TO_ANALYST` event for `idx > 0`, check if the instance has a `parentInstanceId`. If `parentInstanceId` is `null` and no `REASSIGN`/`REASSIGN_MERGED` trigger was found in any prior sibling, the instance is part of the **initial concurrent dispatch** — not a reassignment. In that case, skip the event entirely (the `DISPATCHED` entry in `job.history` covers it).
+**Fix**: Before pushing a `REASSIGNED_TO_ANALYST` event for `idx > 0`, check if the instance has a `parentInstanceId`. If `parentInstanceId` is `null` and no `REASSIGN`/`REASSIGN_MERGED` trigger was found in any prior sibling, the instance is part of the **initial concurrent dispatch**, not a reassignment. In that case, skip the event entirely (the `DISPATCHED` entry in `job.history` covers it).
 
 | Subphase | Task |
 |---|---|
-| SP3.P17.1 | In `GlobalJobHistory.jsx` lines 45–67: before pushing a `REASSIGNED_TO_ANALYST` event, add a guard: `if (!trigger && !inst.parentInstanceId) return;` — concurrent initial dispatches have no `parentInstanceId` and no triggering review entry |
-| SP3.P17.2 | Verify with job `2610051840`: the phantom event `from Nikita Sharma to Diksha Dwivedi by Unknown User` must no longer appear |
+| SP3.P16.1 | In `GlobalJobHistory.jsx` lines 45–67: before pushing a `REASSIGNED_TO_ANALYST` event, add a guard: `if (!trigger && !inst.parentInstanceId) return;`, concurrent initial dispatches have no `parentInstanceId` and no triggering review entry |
+| SP3.P16.2 | Verify with job `2610051840`: the phantom event `from Nikita Sharma to Diksha Dwivedi by Unknown User` must no longer appear |
 
 ---
 
-#### Bug B11b — Inverted Reassignment Recipient in AssignmentHistory
+#### Bug B11b: Inverted Reassignment Recipient in AssignmentHistory
 
 **Where**: `AssignmentHistory.jsx`, lines 28–35 and 130–133.
 
-**Symptom**: A `REASSIGN` review entry is stored on the **source** instance (`2610051840-2b`, Diksha). The component reads `inst.assignedTo.name` (Diksha) and renders `Reassigned to Diksha Dwivedi` — the exact opposite of what happened (Diksha's work was reassigned *to* Devesh, not to herself).
+**Symptom**: A `REASSIGN` review entry is stored on the **source** instance (`2610051840-2b`, Diksha). The component reads `inst.assignedTo.name` (Diksha) and renders `Reassigned to Diksha Dwivedi`, the exact opposite of what happened (Diksha's work was reassigned *to* Devesh, not to herself).
 
 **Fix**: For a `REASSIGN` action, the display should read `Reassigned from ${analystName}` (indicating who lost the work) rather than `Reassigned to ${analystName}`. Or, if a target analyst is available, show both. For the stale note issue (see B11d), the root cause is separate.
 
 | Subphase | Task |
 |---|---|
-| SP3.P17.3 | In `AssignmentHistory.jsx` line 132: change the `REASSIGN` label from `Reassigned to ${analystName}` to `Reassigned away from ${analystName}`. Update `ACTION_CONFIG.REASSIGN.label` from `'Reassigned'` to `'Reassigned away from'` and adjust the `actionLine` interpolation accordingly |
-| SP3.P17.4 | Verify with job `2610051840`: the entry on `-2b` now reads `Reassigned away from Diksha Dwivedi` instead of `Reassigned to Diksha Dwivedi` |
+| SP3.P16.3 | In `AssignmentHistory.jsx` line 132: change the `REASSIGN` label from `Reassigned to ${analystName}` to `Reassigned away from ${analystName}`. Update `ACTION_CONFIG.REASSIGN.label` from `'Reassigned'` to `'Reassigned away from'` and adjust the `actionLine` interpolation accordingly |
+| SP3.P16.4 | Verify with job `2610051840`: the entry on `-2b` now reads `Reassigned away from Diksha Dwivedi` instead of `Reassigned to Diksha Dwivedi` |
 
 ---
 
-#### Bug B11c — In-Place Reassignments Invisible in GlobalJobHistory
+#### Bug B11c: In-Place Reassignments Invisible in GlobalJobHistory
 
 **Where**: `GlobalJobHistory.jsx`, lines 25–80.
 
@@ -1413,31 +1374,31 @@ Login screen
 
 | Subphase | Task |
 |---|---|
-| SP3.P17.5 | After the `sorted.forEach` loop in `GlobalJobHistory.jsx`, add a second loop over all instances: collect any `REASSIGN` entry from `inst.reviewHistory` whose `date` does NOT match the `createdAt` of any later sibling. Push a `REASSIGNED_TO_ANALYST` event with `by: rh.by`, `timestamp: rh.date`, `note: \"returned for revision to ${inst.assignedTo?.name}\"` |
-| SP3.P17.6 | Verify with job `2610051840`: the in-place return to Devesh at 08/10 11:23 (`pls enter correct specification`) must now appear as an event in the Global Job History Timeline |
+| SP3.P16.5 | After the `sorted.forEach` loop in `GlobalJobHistory.jsx`, add a second loop over all instances: collect any `REASSIGN` entry from `inst.reviewHistory` whose `date` does NOT match the `createdAt` of any later sibling. Push a `REASSIGNED_TO_ANALYST` event with `by: rh.by`, `timestamp: rh.date`, `note: \"returned for revision to ${inst.assignedTo?.name}\"` |
+| SP3.P16.6 | Verify with job `2610051840`: the in-place return to Devesh at 08/10 11:23 (`pls enter correct specification`) must now appear as an event in the Global Job History Timeline |
 
 ---
 
-#### Bug B11d — Duplicate Merge Logs and Stale Notes in AssignmentHistory
+#### Bug B11d: Duplicate Merge Logs and Stale Notes in AssignmentHistory
 
 **Where**: `AssignmentHistory.jsx` flatMap over `testInstances`.
 
 **Symptom**: When a parameter is merged from instance A to instance B:
-- Instance A gets a `REASSIGN` entry (its analyst appears as `Reassigned away from Nikita Sharma`) — correct after B11b fix.
-- Instance B gets a `REASSIGN_MERGED` entry — also correct.
+- Instance A gets a `REASSIGN` entry (its analyst appears as `Reassigned away from Nikita Sharma`), correct after B11b fix.
+- Instance B gets a `REASSIGN_MERGED` entry, also correct.
 - However, the `note` on the `REASSIGN` entry of instance A was carried over from the *previous* review action (Devesh's spec correction note `"pls enter correct specification"`), creating a stale/misleading note display.
 
 **Root cause**: The backend does not clear or reset the `note` field when composing the merge review entry on the source instance. The stale note is a data integrity issue at write time, not a frontend rendering issue.
 
 | Subphase | Task |
 |---|---|
-| SP3.P17.7 | In `backend/routes/tests/testResultRoutes.js`, locate where `REASSIGN_MERGED` is pushed to the **source** instance's `reviewHistory`. Confirm the `note` field is explicitly set (e.g., `note: \"Parameters merged into [target]\"`) rather than forwarded from `req.body.note` |
-| SP3.P17.8 | If the note is forwarded from `req.body.note`, override it with a structured string: `` note: `${paramIds.length} parameter(s) transferred to ${targetTestCode}` `` |
-| SP3.P17.9 | Verify with a local test: after a merge, the source instance's `REASSIGN` entry in `reviewHistory` must NOT carry the note from any prior review action |
+| SP3.P16.7 | In `backend/routes/tests/testResultRoutes.js`, locate where `REASSIGN_MERGED` is pushed to the **source** instance's `reviewHistory`. Confirm the `note` field is explicitly set (e.g., `note: \"Parameters merged into [target]\"`) rather than forwarded from `req.body.note` |
+| SP3.P16.8 | If the note is forwarded from `req.body.note`, override it with a structured string: `` note: `${paramIds.length} parameter(s) transferred to ${targetTestCode}` `` |
+| SP3.P16.9 | Verify with a local test: after a merge, the source instance's `REASSIGN` entry in `reviewHistory` must NOT carry the note from any prior review action |
 
 ---
 
-#### Bug B11e — Backend Audit Log Case Mismatch (Approve Always Logged as Reassign)
+#### Bug B11e: Backend Audit Log Case Mismatch (Approve Always Logged as Reassign)
 
 **Where**: `backend/routes/tests/testResultRoutes.js`, line 425.
 
@@ -1450,8 +1411,47 @@ Login screen
 
 | Subphase | Task |
 |---|---|
-| SP3.P17.10 | In `testResultRoutes.js` line 425: change `action === 'approve'` to `action.toLowerCase() === 'approve'` in the audit message ternary |
-| SP3.P17.11 | Verify by approving a test locally and inspecting `SystemLog`: message must read `"approved by HEAD"`, not `"reassigned by HEAD"` |
+| SP3.P16.10 | In `testResultRoutes.js` line 425: change `action === 'approve'` to `action.toLowerCase() === 'approve'` in the audit message ternary |
+| SP3.P16.11 | Verify by approving a test locally and inspecting `SystemLog`: message must read `"approved by HEAD"`, not `"reassigned by HEAD"` |
+
+---
+
+### SP3.P17: B15 - Unauthenticated Codebase Exposure & Missing Wildcard Route Guard
+
+**Files**: `frontend/src/App.jsx`, `frontend/vite.config.js`
+
+**Severity**: Critical (Security & Route Protection)
+
+**Symptoms**:
+1. When an unauthenticated user enters an arbitrary or deep nested route while logged out (such as `http://localhost:5173/audit`), the application renders a blank screen instead of redirecting to `/login`. React Router prints `No routes matched location "/audit"` in the browser console.
+2. In the browser DevTools Network tab, the unauthenticated user receives the source code of the entire application across all roles (`HeadDashboard.jsx`, `AdminDashboard.jsx`, `AdminOfficerDashboard.jsx`, `AssistantDashboard.jsx`, and all child components).
+
+**Root Cause**:
+1. **Missing Wildcard / Catch-All Route in `App.jsx`**:
+   The `<Routes>` tree defines fixed top-level paths (`/login`, `/admin/*`, `/admin-officer/*`, `/head/*`, `/assistant/*`, `/notifications`, `/report-bug`). There is no fallback `<Route path="*" ... />`. Any non-matching path fails to match, leaving React Router with no component to render and causing a blank page without an auth check or redirection.
+2. **Synchronous Eager Imports Without Code Splitting**:
+   All role-specific dashboards (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`, etc.) are imported statically at the top of `App.jsx`. In Vite development mode (native ESM), the browser immediately downloads every imported file regardless of authentication status. In production builds, this bundles all protected role code into the initial client bundle.
+
+**Fix Architecture**:
+1. **Dynamic Code Splitting with `React.lazy` and `Suspense`**:
+   Convert protected page imports in `App.jsx` (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`, `NotificationsPage`, `BugReportPage`) to `React.lazy(() => import(...))`. Wrap the route tree in `<Suspense fallback={<div className="flex-center" style={{ height: '100vh' }}>Loading...</div>}>`.
+   - Result: Chunks for protected dashboards are only fetched by the browser after `ProtectedRoute` verifies the user's token and role. Unauthenticated visitors on `/login` will never load or receive role-specific codebase chunks.
+2. **Global Fallback / Wildcard Redirection Route**:
+   Add a catch-all route at the very end of `<Routes>`:
+   `<Route path="*" element={<Navigate to="/" replace />} />`
+   Because `/` already evaluates authentication state (redirecting to `/login` if `!user`, or to the appropriate role dashboard based on `user.role`), any non-matching route automatically and instantly redirects unauthenticated users to `/login` and authenticated users to their home dashboard.
+3. **Vite Production Chunk Hardening**:
+   In `frontend/vite.config.js`, verify production rollup chunking so bundles isolate vendor libraries and role modules cleanly without source leakage.
+
+| Subphase | Task |
+|---|---|
+| SP3.P17.1 | In `frontend/src/App.jsx`, convert static dashboard imports (`AdminDashboard`, `HeadDashboard`, `AdminOfficerDashboard`, `AssistantDashboard`, `NotificationsPage`, `BugReportPage`) to dynamic `React.lazy` imports |
+| SP3.P17.2 | Wrap `<Routes>` in `<Suspense fallback={<div className="flex-center" style={{ height: '100vh' }}>Loading...</div>}>` |
+| SP3.P17.3 | In `frontend/src/App.jsx`, add `<Route path="*" element={<Navigate to="/" replace />} />` at the bottom of the `<Routes>` block to catch all unmatched locations |
+| SP3.P17.4 | Test unmatched routes while logged out (e.g. `/audit`, `/unknown`, `/random`): verify instant replacement redirect to `/login` with zero blank pages and zero console warnings |
+| SP3.P17.5 | Test network inspection while logged out on `/login` and unmatched URLs: verify browser network tab only requests login/auth chunks and downloads zero protected dashboard files (`HeadDashboard.jsx`, etc.) |
+| SP3.P17.6 | Test authenticated access across all 4 roles: verify each role cleanly loads its respective dashboard chunk on demand with no regression in routing, re-authentication, or deep linking |
+| SP3.P17.7 | Verify clean production build (`npm --prefix frontend run build`) and confirm Vite produces separate role chunks |
 
 ---
 
