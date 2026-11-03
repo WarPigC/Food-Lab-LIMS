@@ -10,7 +10,7 @@ import { Droplet, Bug, FlaskConical, AlertCircle, CheckCircle2 } from 'lucide-re
  */
 export default function SpecialProfilesSection({
   specialProfiles = {
-    waterIso10500: false,
+    waterIso10500: { enabled: false, variant: null },
     pesticides: false,
     fattyAcids: { enabled: false, variant: null },
   },
@@ -23,7 +23,9 @@ export default function SpecialProfilesSection({
   idPrefix = 'default',
   title = 'Special Profiles & Panels',
 }) {
-  const isWaterExclusive = Boolean(specialProfiles?.waterIso10500);
+  const isWaterObj = typeof specialProfiles?.waterIso10500 === 'object' && specialProfiles?.waterIso10500 !== null;
+  const isWaterExclusive = isWaterObj ? Boolean(specialProfiles.waterIso10500.enabled) : Boolean(specialProfiles?.waterIso10500);
+  const waterVariant = isWaterObj ? (specialProfiles.waterIso10500.variant || 'full') : 'full';
 
   const isPesticidesDisabled =
     disabled ||
@@ -39,7 +41,7 @@ export default function SpecialProfilesSection({
     const checked = e.target.checked;
     if (checked) {
       const updated = {
-        waterIso10500: true,
+        waterIso10500: { enabled: true, variant: 'full' },
         pesticides: false,
         fattyAcids: { enabled: false, variant: null },
       };
@@ -48,11 +50,23 @@ export default function SpecialProfilesSection({
     } else {
       const updated = {
         ...specialProfiles,
-        waterIso10500: false,
+        waterIso10500: { enabled: false, variant: null },
       };
       onChange(updated);
       if (onExclusivityChange) onExclusivityChange(false);
     }
+  };
+
+  const handleWaterVariantChange = (variant) => {
+    onChange({
+      ...specialProfiles,
+      waterIso10500: {
+        enabled: true,
+        variant,
+      },
+      pesticides: false,
+      fattyAcids: { enabled: false, variant: null },
+    });
   };
 
   const handlePesticidesToggle = (e) => {
@@ -129,8 +143,7 @@ export default function SpecialProfilesSection({
       >
         {/* Card 1: Water ISO 10500:2012 (Exclusive, hidden in hybrid mode) */}
         {!hideWaterIso && (
-          <label
-            htmlFor={`special-profile-water-${idPrefix}`}
+          <div
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -142,7 +155,6 @@ export default function SpecialProfilesSection({
               backgroundColor: isWaterExclusive
                 ? 'rgba(44, 62, 80, 0.04)'
                 : 'var(--color-surface)',
-              cursor: disabled ? 'not-allowed' : 'pointer',
               transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
               boxShadow: isWaterExclusive ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
               position: 'relative',
@@ -150,11 +162,14 @@ export default function SpecialProfilesSection({
               boxSizing: 'border-box',
             }}
           >
-            <div
+            <label
+              htmlFor={`special-profile-water-${idPrefix}`}
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '0.75rem',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                marginBottom: 0,
               }}
             >
               <input
@@ -221,11 +236,107 @@ export default function SpecialProfilesSection({
                     lineHeight: 1.35,
                   }}
                 >
-                  Complete standard drinking water profile (102 parameters). Disables standard group selection.
+                  Standard drinking water profile. Disables standard group selection.
                 </p>
               </div>
-            </div>
-          </label>
+            </label>
+
+            {/* Water ISO Variant Radios */}
+            {isWaterExclusive && (
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  paddingTop: '0.65rem',
+                  borderTop: '1px solid var(--color-border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                }}
+              >
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.6rem',
+                    fontSize: '0.82rem',
+                    color: 'var(--color-text-main)',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    backgroundColor:
+                      waterVariant === 'full'
+                        ? 'rgba(52, 152, 219, 0.08)'
+                        : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                    margin: 0,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={`waterIsoVariant-${idPrefix}`}
+                    value="full"
+                    checked={waterVariant === 'full'}
+                    disabled={disabled}
+                    onChange={() => handleWaterVariantChange('full')}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      minWidth: '16px',
+                      maxWidth: '16px',
+                      flexShrink: 0,
+                      margin: '0.15rem 0 0 0',
+                      padding: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span style={{ lineHeight: 1.35 }}>
+                    <strong>Full 60+ Parameters</strong> (Complete standard report)
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.6rem',
+                    fontSize: '0.82rem',
+                    color: 'var(--color-text-main)',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                    backgroundColor:
+                      waterVariant === 'short'
+                        ? 'rgba(52, 152, 219, 0.08)'
+                        : 'transparent',
+                    transition: 'background-color 0.15s ease',
+                    margin: 0,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={`waterIsoVariant-${idPrefix}`}
+                    value="short"
+                    checked={waterVariant === 'short'}
+                    disabled={disabled}
+                    onChange={() => handleWaterVariantChange('short')}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      minWidth: '16px',
+                      maxWidth: '16px',
+                      flexShrink: 0,
+                      margin: '0.15rem 0 0 0',
+                      padding: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span style={{ lineHeight: 1.35 }}>
+                    <strong>Short / 3 Parameters</strong> (TDS, Total Coliform, E. coli)
+                  </span>
+                </label>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Card 2: Food Pesticides Residues */}

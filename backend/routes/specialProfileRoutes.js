@@ -69,6 +69,9 @@ router.put('/:key/parameters', protect, authorize('ADMIN_OFFICER', 'HEAD', 'ADMI
 // Update parameters array for a specific variant (fattyAcids or pesticides)
 router.put('/:key/variants/:variantKey/parameters', protect, authorize('ADMIN_OFFICER', 'HEAD', 'ADMIN'), async (req, res) => {
   try {
+    if (req.params.key === 'waterIso10500') {
+      return res.status(403).json({ message: 'Water ISO 10500 is a locked standard profile and cannot be modified.' });
+    }
     const { parameters } = req.body;
     if (!Array.isArray(parameters)) {
       return res.status(400).json({ message: 'parameters must be an array' });

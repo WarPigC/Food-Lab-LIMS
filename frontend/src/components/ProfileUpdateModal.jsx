@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
-import { Mail, Lock, Eye, EyeOff, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import API_URL from '../utils/api';
 import { useToast } from '../hooks/useToast';
@@ -306,65 +305,4 @@ export function openProfileUpdateModal(modal, updateType) {
   });
 }
 
-/**
- * Fallback standalone component for backwards-compatibility.
- */
-export default function ProfileUpdateModal({ isOpen, onClose, updateType }) {
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen || typeof document === 'undefined' || !document.body) {
-    return null;
-  }
-
-  const isPassword = updateType === 'password';
-
-  return ReactDOM.createPortal(
-    <div
-      className="modal-overlay"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className="modal-card"
-        style={{ borderTop: '4px solid var(--color-primary)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="modal-header modal-header--custom"
-          style={{ color: 'var(--color-primary)' }}
-        >
-          <div className="modal-header-content">
-            {isPassword ? <Lock size={24} /> : <Mail size={24} />}
-            <h3 className="modal-title">Change {isPassword ? 'Password' : 'Email'}</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="modal-close-btn"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <ProfileUpdateForm
-          updateType={updateType}
-          onClose={onClose}
-          resolve={onClose}
-        />
-      </div>
-    </div>,
-    document.body
-  );
-}
+export default openProfileUpdateModal;

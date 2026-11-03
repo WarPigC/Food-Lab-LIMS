@@ -23,7 +23,10 @@ const jobSchema = new mongoose.Schema({
     productCategory: { type: String }
   },
   specialProfiles: {
-    waterIso10500: { type: Boolean, default: false },
+    waterIso10500: {
+      enabled: { type: Boolean, default: false },
+      variant: { type: String, enum: ['full', 'short', null], default: null }
+    },
     pesticides:    { type: Boolean, default: false },
     fattyAcids: {
       enabled: { type: Boolean, default: false },

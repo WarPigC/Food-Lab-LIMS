@@ -181,8 +181,9 @@ router.post('/:id/retest', protect, authorize('ADMIN_OFFICER'), async (req, res)
 
     const { customer, sample, compliance, parameters, groupMetadata, specialProfiles, pesticidePanel, reopenReason } = req.body;
 
-    const activeSpecialProfiles = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
-    const isSpecialChem = Boolean(activeSpecialProfiles?.pesticides || activeSpecialProfiles?.waterIso10500 || activeSpecialProfiles?.fattyAcids?.enabled);
+    const activeSpecialProfiles = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: { enabled: false, variant: null }, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: { enabled: false, variant: null }, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+    const isWaterActive = typeof activeSpecialProfiles?.waterIso10500 === 'object' ? Boolean(activeSpecialProfiles?.waterIso10500?.enabled) : Boolean(activeSpecialProfiles?.waterIso10500);
+    const isSpecialChem = Boolean(activeSpecialProfiles?.pesticides || isWaterActive || activeSpecialProfiles?.fattyAcids?.enabled);
 
     if (!parameters || (!Array.isArray(parameters) && !isSpecialChem)) {
       return res.status(400).json({ message: 'Parameters or Special Profiles are required for retest' });

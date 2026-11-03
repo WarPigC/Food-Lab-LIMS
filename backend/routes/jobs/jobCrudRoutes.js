@@ -20,22 +20,64 @@ const { attemptUlrAssignment } = require('../../utils/ulrService');
 /**
  * Helper to resolve parameter snapshotting from Special Profiles
  */
+const isProfileActive = (p, key) => {
+  if (!p) return false;
+  const val = p[key];
+  if (typeof val === 'object' && val !== null) return Boolean(val.enabled);
+  return Boolean(val);
+};
+
+const normalizeSpecialProfiles = (profiles) => {
+  if (!profiles) {
+    return {
+      waterIso10500: { enabled: false, variant: null },
+      pesticides: false,
+      fattyAcids: { enabled: false, variant: null }
+    };
+  }
+  const isWaterObj = typeof profiles.waterIso10500 === 'object' && profiles.waterIso10500 !== null;
+  const waterEnabled = isWaterObj ? Boolean(profiles.waterIso10500.enabled) : Boolean(profiles.waterIso10500);
+  const waterVariant = waterEnabled ? ((isWaterObj && profiles.waterIso10500.variant) || 'full') : null;
+
+  return {
+    waterIso10500: { enabled: waterEnabled, variant: waterVariant },
+    pesticides: Boolean(profiles.pesticides),
+    fattyAcids: {
+      enabled: Boolean(profiles.fattyAcids?.enabled),
+      variant: profiles.fattyAcids?.enabled ? (profiles.fattyAcids?.variant || 'compiled') : null
+    }
+  };
+};
+
 const resolveProfileParameters = async (incomingParams, profiles) => {
   let params = (incomingParams || []).map(p => ({
     ...p,
     parameterId: p.parameterId || new mongoose.Types.ObjectId()
   }));
-  if (profiles?.waterIso10500) {
+  const isWaterIsoObj = typeof profiles?.waterIso10500 === 'object' && profiles?.waterIso10500 !== null;
+  const isWaterIsoEnabled = isWaterIsoObj ? Boolean(profiles.waterIso10500?.enabled) : Boolean(profiles?.waterIso10500);
+  if (isWaterIsoEnabled) {
+    const variantKey = (isWaterIsoObj && profiles.waterIso10500?.variant) ? profiles.waterIso10500.variant : 'full';
     const profile = await SpecialProfile.findOne({ key: 'waterIso10500' });
-    const profileParams = (profile?.parameters || [])
+    let sourceParams = [];
+    if (profile?.variants && profile.variants.length > 0) {
+      const v = profile.variants.find(item => item.key === variantKey);
+      sourceParams = v ? v.parameters : (profile.parameters || []);
+    } else {
+      sourceParams = profile?.parameters || [];
+    }
+    const profileParams = sourceParams
       .filter(p => !p.isCategoryHeader)
-      .map(p => ({
-        parameterId: new mongoose.Types.ObjectId(),
-        name: p.name,
-        unit: p.unit,
-        type: 'Chemical',
-        specification: p.requirement || ''
-      }));
+      .map(p => {
+        const isMicro = ['Total Coliform', 'E. coli', 'Escherichia coli'].some(m => (p.name || '').toLowerCase().includes(m.toLowerCase()));
+        return {
+          parameterId: new mongoose.Types.ObjectId(),
+          name: p.name,
+          unit: p.unit,
+          type: isMicro ? 'Micro' : 'Chemical',
+          specification: p.requirement || ''
+        };
+      });
     params = [...params, ...profileParams];
   }
   if (profiles?.pesticides) {
@@ -205,9 +247,9 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       customCreationDate
     } = req.body;
 
-    const activeSpecialProfiles = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
-    const activeNablSpecialProfiles = nablSpecialProfiles || (nablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
-    const activeNonNablSpecialProfiles = nonNablSpecialProfiles || (nonNablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+    const activeSpecialProfiles = normalizeSpecialProfiles(specialProfiles || (pesticidePanel?.enabled ? { pesticides: true } : undefined));
+    const activeNablSpecialProfiles = normalizeSpecialProfiles(nablSpecialProfiles || (nablPesticidePanel?.enabled ? { pesticides: true } : undefined));
+    const activeNonNablSpecialProfiles = normalizeSpecialProfiles(nonNablSpecialProfiles || (nonNablPesticidePanel?.enabled ? { pesticides: true } : undefined));
 
     // customCreationDate is an optional YYYY-MM-DD string chosen by the officer.
     // It overrides the date prefix in the job code but does NOT affect the counter.
@@ -272,8 +314,8 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
     let createdJobs = [];
 
     if (nablMode === 'hybrid') {
-      const isNablSpecial = Boolean(activeNablSpecialProfiles?.pesticides || activeNablSpecialProfiles?.waterIso10500 || activeNablSpecialProfiles?.fattyAcids?.enabled);
-      const isNonNablSpecial = Boolean(activeNonNablSpecialProfiles?.pesticides || activeNonNablSpecialProfiles?.waterIso10500 || activeNonNablSpecialProfiles?.fattyAcids?.enabled);
+      const isNablSpecial = Boolean(activeNablSpecialProfiles?.pesticides || activeNablSpecialProfiles?.waterIso10500?.enabled || activeNablSpecialProfiles?.fattyAcids?.enabled);
+      const isNonNablSpecial = Boolean(activeNonNablSpecialProfiles?.pesticides || activeNonNablSpecialProfiles?.waterIso10500?.enabled || activeNonNablSpecialProfiles?.fattyAcids?.enabled);
 
       const resolvedNablParams = await resolveProfileParameters(nablParameters, activeNablSpecialProfiles);
       const resolvedNonNablParams = await resolveProfileParameters(nonNablParameters, activeNonNablSpecialProfiles);
@@ -370,7 +412,7 @@ router.post('/', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       }
 
       const effectiveNablType = isNabl ? 'Nabl' : 'Non Nabl';
-      const isSpecialChem = Boolean(activeSpecialProfiles?.pesticides || activeSpecialProfiles?.waterIso10500 || activeSpecialProfiles?.fattyAcids?.enabled);
+      const isSpecialChem = Boolean(activeSpecialProfiles?.pesticides || activeSpecialProfiles?.waterIso10500?.enabled || activeSpecialProfiles?.fattyAcids?.enabled);
       const resolvedParams = await resolveProfileParameters(parameters, activeSpecialProfiles);
       const dist = getDistribution(resolvedParams, isSpecialChem);
 
@@ -563,7 +605,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       isResubmitted = true;
     }
 
-    const activeSpecial = specialProfiles || (pesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined);
+    const activeSpecial = specialProfiles ? normalizeSpecialProfiles(specialProfiles) : (pesticidePanel?.enabled ? normalizeSpecialProfiles({ pesticides: true }) : undefined);
     if (activeSpecial) job.specialProfiles = activeSpecial;
 
     // Resolve profile parameters so that special profile additions (e.g. fattyAcids, pesticides) are captured in the parameter delta
@@ -657,7 +699,7 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
       }));
       if (groupMetadata) job.groupMetadata = groupMetadata;
 
-      const isSpecialChem = Boolean(job.specialProfiles?.pesticides || job.specialProfiles?.waterIso10500 || job.specialProfiles?.fattyAcids?.enabled);
+      const isSpecialChem = Boolean(job.specialProfiles?.pesticides || isProfileActive(job.specialProfiles, 'waterIso10500') || job.specialProfiles?.fattyAcids?.enabled);
       const hasMicro = resolvedParameters.some(p => p.type === 'Micro');
       const hasChemical = resolvedParameters.some(p => p.type === 'Chemical') || isSpecialChem;
 
@@ -847,8 +889,8 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
         const siblingParams    = isCurrentJobNabl ? nonNablParameters : nablParameters;
         const siblingGroupMeta = isCurrentJobNabl ? nonNablGroupMetadata : nablGroupMetadata;
         const siblingSpecial = isCurrentJobNabl
-          ? (nonNablSpecialProfiles || (nonNablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined))
-          : (nablSpecialProfiles || (nablPesticidePanel?.enabled ? { waterIso10500: false, pesticides: true, fattyAcids: { enabled: false, variant: null } } : undefined));
+          ? (nonNablSpecialProfiles ? normalizeSpecialProfiles(nonNablSpecialProfiles) : (nonNablPesticidePanel?.enabled ? normalizeSpecialProfiles({ pesticides: true }) : undefined))
+          : (nablSpecialProfiles ? normalizeSpecialProfiles(nablSpecialProfiles) : (nablPesticidePanel?.enabled ? normalizeSpecialProfiles({ pesticides: true }) : undefined));
         const siblingShowSpecs = isCurrentJobNabl ? nonNablShowSpecifications : nablShowSpecifications;
     
         if (siblingParams) {

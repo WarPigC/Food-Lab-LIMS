@@ -1,4 +1,5 @@
 import React, { useState, useContext } from "react";
+import ReactDOM from "react-dom";
 import {
   Search,
   ChevronDown,
@@ -26,7 +27,7 @@ import axios from "axios";
 import API_URL from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 import JobTimeline from "./JobTimeline";
-import GlobalJobHistory, { openJobHistoryModal } from "./GlobalJobHistory";
+import { openJobHistoryModal } from "./GlobalJobHistory";
 import AssignmentHistory from "./AssignmentHistory";
 import ReportModal from "./ReportModal";
 import InfiniteScroll from "./InfiniteScroll";
@@ -105,6 +106,8 @@ export default function JobLogTable({
   const [expandedJobId, setExpandedJobId] = useState(defaultExpandedId || null);
   const [openActionJobId, setOpenActionJobId] = useState(null);
   const [closingActionJobId, setClosingActionJobId] = useState(null);
+  const [actionMenuJob, setActionMenuJob] = useState(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState(null);
   const closeTimerRef = React.useRef(null);
   const [page, setPage] = useState(1);
   // True during the debounce window, prevents the local filter from showing
@@ -119,24 +122,51 @@ export default function JobLogTable({
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => {
       setClosingActionJobId(null);
+      setActionMenuJob(null);
+      setActionMenuPosition(null);
     }, 300);
   }, [openActionJobId]);
 
-  const toggleActionDropdown = React.useCallback((jobId) => {
-    if (openActionJobId === jobId) {
+  const toggleActionDropdown = React.useCallback((job, triggerEl) => {
+    if (openActionJobId === job._id) {
       closeActionDropdown();
     } else {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
       setClosingActionJobId(null);
-      setOpenActionJobId(jobId);
+      if (triggerEl) {
+        const rect = triggerEl.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpward = spaceBelow < 220 && rect.top > spaceBelow;
+        setActionMenuPosition({
+          top: openUpward ? "auto" : `${Math.round(rect.bottom + 2)}px`,
+          bottom: openUpward ? `${Math.round(window.innerHeight - rect.top + 2)}px` : "auto",
+          right: `${Math.round(Math.max(8, window.innerWidth - rect.right))}px`,
+          openUpward,
+        });
+      }
+      setActionMenuJob(job);
+      setOpenActionJobId(job._id);
     }
   }, [openActionJobId, closeActionDropdown]);
 
   React.useEffect(() => {
     if (!openActionJobId) return;
-    const handleClickOutside = () => closeActionDropdown();
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
+    const handleClose = () => closeActionDropdown();
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") closeActionDropdown();
+    };
+
+    window.addEventListener("click", handleClose);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("click", handleClose);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [openActionJobId, closeActionDropdown]);
 
   React.useEffect(() => {
@@ -195,7 +225,7 @@ export default function JobLogTable({
     const code = typeof jobOrCode === "object" ? jobOrCode.jobCode : String(jobOrCode);
 
     // Explicit membership check
-    if (group.jobCodes && Array.isArray(group.jobCodes)) {
+    if (group.jobCodes && Array.isArray(group.jobCodes) && group.jobCodes.length > 0) {
       return group.jobCodes.includes(code);
     }
 
@@ -761,36 +791,51 @@ export default function JobLogTable({
   });
 
   if (enableGrouping && !searchTerm && statusFilter === "ALL") {
+    const lastVisibleJob = visibleJobs.length > 0 ? visibleJobs[visibleJobs.length - 1] : null;
+    const minVisibleCode = lastVisibleJob ? String(lastVisibleJob.jobCode).replace(/-.*/, "").trim() : null;
+    const isAtEndOfAllData = !hasMoreData && page >= totalPages;
+
     jobGroups.forEach((g) => {
       if (!renderedGroupIds.has(g.id)) {
-        renderedGroupIds.add(g.id);
-        displayItems.push({ type: "group-header", group: g });
-        const isGroupOpen = expandedGroupId === g.id || closingGroupId === g.id;
-        if (isGroupOpen) {
-          const groupMemberJobs = filteredJobsAll
-            .filter((j) => isJobInGroup(j, g))
-            .sort((a, b) => {
-              if (g.jobCodes && g.jobCodes.length > 0) {
-                const idxA = g.jobCodes.indexOf(a.jobCode);
-                const idxB = g.jobCodes.indexOf(b.jobCode);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-              }
-              const sA = getJobSerial(a) || 0;
-              const sB = getJobSerial(b) || 0;
-              if (sA !== sB) return sB - sA;
-              return (b.jobCode || "").localeCompare(a.jobCode || "");
+        // Determine the newest/maximum job code boundary for this group
+        const rawMaxCode = (g.jobCodes && g.jobCodes.length > 0)
+          ? g.jobCodes.reduce((m, c) => (c > m ? c : m), g.jobCodes[0])
+          : (g.startJobCode > g.endJobCode ? g.startJobCode : g.endJobCode);
+        const cleanMaxCode = rawMaxCode ? String(rawMaxCode).replace(/-.*/, "").trim() : null;
+
+        // Hide unrendered groups whose positions have not been reached yet by the scrolling cursor
+        const hasReachedGroup = minVisibleCode && cleanMaxCode ? minVisibleCode <= cleanMaxCode : false;
+
+        if (isAtEndOfAllData || hasReachedGroup) {
+          renderedGroupIds.add(g.id);
+          displayItems.push({ type: "group-header", group: g });
+          const isGroupOpen = expandedGroupId === g.id || closingGroupId === g.id;
+          if (isGroupOpen) {
+            const groupMemberJobs = filteredJobsAll
+              .filter((j) => isJobInGroup(j, g))
+              .sort((a, b) => {
+                if (g.jobCodes && g.jobCodes.length > 0) {
+                  const idxA = g.jobCodes.indexOf(a.jobCode);
+                  const idxB = g.jobCodes.indexOf(b.jobCode);
+                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                }
+                const sA = getJobSerial(a) || 0;
+                const sB = getJobSerial(b) || 0;
+                if (sA !== sB) return sB - sA;
+                return (b.jobCode || "").localeCompare(a.jobCode || "");
+              });
+            groupMemberJobs.forEach((mJob, mIdx) => {
+              displayItems.push({
+                type: "job",
+                job: mJob,
+                index: mIdx,
+                isGrouped: true,
+                group: g,
+                isClosing: closingGroupId === g.id,
+                groupIndex: mIdx,
+              });
             });
-          groupMemberJobs.forEach((mJob, mIdx) => {
-            displayItems.push({
-              type: "job",
-              job: mJob,
-              index: mIdx,
-              isGrouped: true,
-              group: g,
-              isClosing: closingGroupId === g.id,
-              groupIndex: mIdx,
-            });
-          });
+          }
         }
       }
     });
@@ -1311,9 +1356,6 @@ export default function JobLogTable({
                             if (!hasAnyAction) return null;
 
                             const isOpen = openActionJobId === job._id;
-                            const isClosing = closingActionJobId === job._id;
-                            const isRendered = isOpen || isClosing;
-                            const isNearBottom = index >= visibleJobs.length - 2 && visibleJobs.length > 3;
 
                             return (
                               <div
@@ -1329,7 +1371,7 @@ export default function JobLogTable({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    toggleActionDropdown(job._id);
+                                    toggleActionDropdown(job, e.currentTarget);
                                   }}
                                   style={{
                                     border: "none",
@@ -1358,102 +1400,6 @@ export default function JobLogTable({
                                 >
                                   {isOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                                 </button>
-
-                                {isRendered && (
-                                  <div
-                                    className={`action-dropdown-menu ${isOpen ? "is-open" : "is-closing"} ${isNearBottom ? "open-upward" : ""}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {hasHistory && (
-                                      <button
-                                        className="action-dropdown-item"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          closeActionDropdown();
-                                          openJobHistoryModal(modal, job);
-                                        }}
-                                      >
-                                        <Clock size={15} style={{ color: "var(--color-text-muted)" }} />
-                                        <span>Job History</span>
-                                      </button>
-                                    )}
-
-                                    {canEdit && (
-                                      <button
-                                        className="action-dropdown-item"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          closeActionDropdown();
-                                          onEditJob(job);
-                                        }}
-                                        style={{
-                                          color: job.pendingParamAmendments?.status === "REJECTED"
-                                            ? "var(--color-danger)"
-                                            : editingJobId === job._id
-                                            ? "var(--color-warning)"
-                                            : "inherit",
-                                        }}
-                                      >
-                                        <Edit size={15} style={{ color: "var(--color-primary)" }} />
-                                        <span>{editingJobId === job._id ? "Editing..." : "Edit Job"}</span>
-                                      </button>
-                                    )}
-
-                                    {canHold && (
-                                      <button
-                                        className="action-dropdown-item"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          closeActionDropdown();
-                                          onHoldJob(job._id);
-                                        }}
-                                      >
-                                        <PauseCircle size={15} style={{ color: "#F59E0B" }} />
-                                        <span>Place on Hold</span>
-                                      </button>
-                                    )}
-
-                                    {canCancel && (
-                                      <button
-                                        className="action-dropdown-item action-dropdown-item--danger"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          closeActionDropdown();
-                                          onDeleteJob(job._id);
-                                        }}
-                                      >
-                                        <XCircle size={15} style={{ color: "var(--color-danger)" }} />
-                                        <span>Cancel Job</span>
-                                      </button>
-                                    )}
-
-                                    {enableGrouping && !findGroupForJob(job) && (
-                                      <button
-                                        className="action-dropdown-item"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleStartGrouping(job);
-                                        }}
-                                      >
-                                        <FolderPlus size={15} style={{ color: "var(--color-primary)" }} />
-                                        <span>Group Jobs</span>
-                                      </button>
-                                    )}
-
-                                    {enableGrouping && findGroupForJob(job) && (
-                                      <button
-                                        className="action-dropdown-item action-dropdown-item--danger"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleStartSubRangeRemoval(findGroupForJob(job), job);
-                                        }}
-                                      >
-                                        <FolderMinus size={15} style={{ color: "var(--color-danger)" }} />
-                                        <span>Remove from Group</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
                               </div>
                             );
                           })()}
@@ -2040,6 +1986,110 @@ export default function JobLogTable({
             </button>
           </div>
         </div>
+      )}
+
+      {actionMenuJob && actionMenuPosition && (openActionJobId || closingActionJobId) && ReactDOM.createPortal(
+        <div
+          className={`action-dropdown-menu ${openActionJobId ? "is-open" : "is-closing"} ${actionMenuPosition.openUpward ? "open-upward" : ""}`}
+          style={{
+            position: "fixed",
+            top: actionMenuPosition.top,
+            bottom: actionMenuPosition.bottom,
+            right: actionMenuPosition.right,
+            zIndex: 9999,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {actionMenuJob.history?.length > 0 && (
+            <button
+              className="action-dropdown-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeActionDropdown();
+                openJobHistoryModal(modal, actionMenuJob);
+              }}
+            >
+              <Clock size={15} style={{ color: "var(--color-text-muted)" }} />
+              <span>Job History</span>
+            </button>
+          )}
+
+          {onEditJob && !["COMPLETED", "CANCELLED"].includes(getJobStatus(actionMenuJob)) && (
+            <button
+              className="action-dropdown-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeActionDropdown();
+                onEditJob(actionMenuJob);
+              }}
+              style={{
+                color: actionMenuJob.pendingParamAmendments?.status === "REJECTED"
+                  ? "var(--color-danger)"
+                  : editingJobId === actionMenuJob._id
+                  ? "var(--color-warning)"
+                  : "inherit",
+              }}
+            >
+              <Edit size={15} style={{ color: "var(--color-primary)" }} />
+              <span>{editingJobId === actionMenuJob._id ? "Editing..." : "Edit Job"}</span>
+            </button>
+          )}
+
+          {onHoldJob && !["ON_HOLD", "COMPLETED", "CANCELLED"].includes(getJobStatus(actionMenuJob)) && (
+            <button
+              className="action-dropdown-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeActionDropdown();
+                onHoldJob(actionMenuJob._id);
+              }}
+            >
+              <PauseCircle size={15} style={{ color: "#F59E0B" }} />
+              <span>Place on Hold</span>
+            </button>
+          )}
+
+          {onDeleteJob && !["COMPLETED", "CANCELLED"].includes(actionMenuJob.status) && (
+            <button
+              className="action-dropdown-item action-dropdown-item--danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeActionDropdown();
+                onDeleteJob(actionMenuJob._id);
+              }}
+            >
+              <XCircle size={15} style={{ color: "var(--color-danger)" }} />
+              <span>Cancel Job</span>
+            </button>
+          )}
+
+          {enableGrouping && !findGroupForJob(actionMenuJob) && (
+            <button
+              className="action-dropdown-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartGrouping(actionMenuJob);
+              }}
+            >
+              <FolderPlus size={15} style={{ color: "var(--color-primary)" }} />
+              <span>Group Jobs</span>
+            </button>
+          )}
+
+          {enableGrouping && findGroupForJob(actionMenuJob) && (
+            <button
+              className="action-dropdown-item action-dropdown-item--danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartSubRangeRemoval(findGroupForJob(actionMenuJob), actionMenuJob);
+              }}
+            >
+              <FolderMinus size={15} style={{ color: "var(--color-danger)" }} />
+              <span>Remove from Group</span>
+            </button>
+          )}
+        </div>,
+        document.body
       )}
     </div>
   );

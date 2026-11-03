@@ -97,7 +97,7 @@ export default function Jobs() {
     return saved
       ? JSON.parse(saved)
       : {
-          waterIso10500: false,
+          waterIso10500: { enabled: false, variant: null },
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         };
@@ -107,7 +107,7 @@ export default function Jobs() {
     return saved
       ? JSON.parse(saved)
       : {
-          waterIso10500: false,
+          waterIso10500: { enabled: false, variant: null },
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         };
@@ -117,7 +117,7 @@ export default function Jobs() {
     return saved
       ? JSON.parse(saved)
       : {
-          waterIso10500: false,
+          waterIso10500: { enabled: false, variant: null },
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         };
@@ -263,17 +263,17 @@ export default function Jobs() {
     setGroupMetadata(null);
     setPesticidePanel({ enabled: false, panelType: null });
     setSpecialProfiles({
-      waterIso10500: false,
+      waterIso10500: { enabled: false, variant: null },
       pesticides: false,
       fattyAcids: { enabled: false, variant: null },
     });
     setNablSpecialProfiles({
-      waterIso10500: false,
+      waterIso10500: { enabled: false, variant: null },
       pesticides: false,
       fattyAcids: { enabled: false, variant: null },
     });
     setNonNablSpecialProfiles({
-      waterIso10500: false,
+      waterIso10500: { enabled: false, variant: null },
       pesticides: false,
       fattyAcids: { enabled: false, variant: null },
     });
@@ -574,12 +574,19 @@ export default function Jobs() {
     setShowSpecifications(!!j.showSpecifications);
     setGroupMetadata(j.groupMetadata || null);
     setPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
-    setSpecialProfiles(j.specialProfiles || {
-      waterIso10500: false,
-      pesticides: false,
-      fattyAcids: { enabled: false, variant: null },
-    });
+    const normalizeLoadedProfiles = (sp) => {
+      if (!sp) return { waterIso10500: { enabled: false, variant: null }, pesticides: false, fattyAcids: { enabled: false, variant: null } };
+      const isWaterObj = typeof sp.waterIso10500 === 'object' && sp.waterIso10500 !== null;
+      return {
+        waterIso10500: isWaterObj
+          ? { enabled: Boolean(sp.waterIso10500.enabled), variant: sp.waterIso10500.variant || (sp.waterIso10500.enabled ? 'full' : null) }
+          : { enabled: Boolean(sp.waterIso10500), variant: sp.waterIso10500 ? 'full' : null },
+        pesticides: Boolean(sp.pesticides),
+        fattyAcids: sp.fattyAcids || { enabled: false, variant: null }
+      };
+    };
 
+    setSpecialProfiles(normalizeLoadedProfiles(j.specialProfiles));
 
     if (j.siblingJobId) {
       try {
@@ -592,25 +599,25 @@ export default function Jobs() {
           setNablShowSpecifications(!!j.showSpecifications);
           setNablGroupMetadata(j.groupMetadata || null);
           setNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
-          setNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+          setNablSpecialProfiles(normalizeLoadedProfiles(j.specialProfiles));
 
           setNonNablParams(mapParams(sib.parameters));
           setNonNablShowSpecifications(!!sib.showSpecifications);
           setNonNablGroupMetadata(sib.groupMetadata || null);
           setNonNablPesticidePanel(sib.pesticidePanel || { enabled: false, panelType: null });
-          setNonNablSpecialProfiles(sib.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+          setNonNablSpecialProfiles(normalizeLoadedProfiles(sib.specialProfiles));
         } else {
           setNonNablParams(mapParams(j.parameters));
           setNonNablShowSpecifications(!!j.showSpecifications);
           setNonNablGroupMetadata(j.groupMetadata || null);
           setNonNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
-          setNonNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+          setNonNablSpecialProfiles(normalizeLoadedProfiles(j.specialProfiles));
 
           setNablParams(mapParams(sib.parameters));
           setNablShowSpecifications(!!sib.showSpecifications);
           setNablGroupMetadata(sib.groupMetadata || null);
           setNablPesticidePanel(sib.pesticidePanel || { enabled: false, panelType: null });
-          setNablSpecialProfiles(sib.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+          setNablSpecialProfiles(normalizeLoadedProfiles(sib.specialProfiles));
         }
       } catch (err) {
         console.error('Failed to load sibling job for hybrid edit:', err);
@@ -621,13 +628,13 @@ export default function Jobs() {
       setNablShowSpecifications(!!j.showSpecifications);
       setNablGroupMetadata(j.groupMetadata || null);
       setNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
-      setNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+      setNablSpecialProfiles(normalizeLoadedProfiles(j.specialProfiles));
 
       setNonNablParams(mapParams(j.parameters));
       setNonNablShowSpecifications(!!j.showSpecifications);
       setNonNablGroupMetadata(j.groupMetadata || null);
       setNonNablPesticidePanel(j.pesticidePanel || { enabled: false, panelType: null });
-      setNonNablSpecialProfiles(j.specialProfiles || { waterIso10500: false, pesticides: false, fattyAcids: { enabled: false, variant: null } });
+      setNonNablSpecialProfiles(normalizeLoadedProfiles(j.specialProfiles));
     }
 
     setShowForm(true);
@@ -724,11 +731,20 @@ export default function Jobs() {
         return;
       }
     } else {
+      const isWaterProfileActive = typeof specialProfiles?.waterIso10500 === 'object'
+        ? Boolean(specialProfiles?.waterIso10500?.enabled)
+        : Boolean(specialProfiles?.waterIso10500);
       const hasSpecial = Boolean(
-        specialProfiles?.waterIso10500 ||
+        isWaterProfileActive ||
         specialProfiles?.pesticides ||
         specialProfiles?.fattyAcids?.enabled
       );
+
+      // Water ISO variant validation
+      if (typeof specialProfiles?.waterIso10500 === 'object' && specialProfiles?.waterIso10500?.enabled && !specialProfiles?.waterIso10500?.variant) {
+        toast.error("Please select a variant for Water ISO 10500 (Full or Short).");
+        return;
+      }
 
       // Fatty acid variant validation
       if (specialProfiles?.fattyAcids?.enabled && !specialProfiles?.fattyAcids?.variant) {
@@ -997,17 +1013,17 @@ export default function Jobs() {
         setGroupMetadata(null);
         setPesticidePanel({ enabled: false, panelType: null });
         setSpecialProfiles({
-          waterIso10500: false,
+          waterIso10500: { enabled: false, variant: null },
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         });
         setNablSpecialProfiles({
-          waterIso10500: false,
+          waterIso10500: { enabled: false, variant: null },
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         });
         setNonNablSpecialProfiles({
-          waterIso10500: false,
+          waterIso10500: { enabled: false, variant: null },
           pesticides: false,
           fattyAcids: { enabled: false, variant: null },
         });
@@ -2190,10 +2206,10 @@ export default function Jobs() {
                             {
                               id: "hybrid",
                               label: "Hybrid",
-                              desc: specialProfiles?.waterIso10500
+                              desc: (typeof specialProfiles?.waterIso10500 === 'object' ? specialProfiles?.waterIso10500?.enabled : specialProfiles?.waterIso10500)
                                 ? "Disabled (Water ISO not supported in Hybrid)"
                                 : "Creates both NABL & Non-NABL jobs",
-                              disabled: Boolean(specialProfiles?.waterIso10500),
+                              disabled: Boolean(typeof specialProfiles?.waterIso10500 === 'object' ? specialProfiles?.waterIso10500?.enabled : specialProfiles?.waterIso10500),
                             },
                           ].map((mode) => {
                             const isModeDisabled = Boolean(editingJobId || mode.disabled);
@@ -2630,7 +2646,10 @@ export default function Jobs() {
                                 disabled={!!editingJobId && isJobFullyComplete}
                                 onChange={(newProfiles) => {
                                   setSpecialProfiles(newProfiles);
-                                  if (newProfiles.waterIso10500) {
+                                  const isNewWater = typeof newProfiles?.waterIso10500 === 'object'
+                                    ? Boolean(newProfiles?.waterIso10500?.enabled)
+                                    : Boolean(newProfiles?.waterIso10500);
+                                  if (isNewWater) {
                                     setSelectedParams([]);
                                     setGroupMetadata(null);
                                     setNablParams([]);
@@ -2641,7 +2660,7 @@ export default function Jobs() {
                                 }}
                               />
 
-                              {specialProfiles?.waterIso10500 ? (
+                              {(typeof specialProfiles?.waterIso10500 === 'object' ? specialProfiles?.waterIso10500?.enabled : specialProfiles?.waterIso10500) ? (
                                 <div
                                   style={{
                                     padding: "1rem 1.25rem",
@@ -2657,9 +2676,11 @@ export default function Jobs() {
                                 >
                                   <Shield size={20} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
                                   <div>
-                                    <strong>Water ISO 10500:2012 Standard Profile is active.</strong>
+                                    <strong>Water ISO 10500:2012 Standard Profile is active ({typeof specialProfiles?.waterIso10500 === 'object' && specialProfiles?.waterIso10500?.variant === 'short' ? 'Short / 3 Parameters' : 'Full 60+ Parameters'}).</strong>
                                     <p style={{ margin: "0.2rem 0 0", fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-                                      All 102 required parameters from IS 10500:2012 will be automatically included in this job.
+                                      {typeof specialProfiles?.waterIso10500 === 'object' && specialProfiles?.waterIso10500?.variant === 'short'
+                                        ? "3 key parameters (Total Dissolved solid, Total Coliform, E. coli) will be automatically included."
+                                        : "All 102 required parameters from IS 10500:2012 will be automatically included in this job."}
                                     </p>
                                   </div>
                                 </div>

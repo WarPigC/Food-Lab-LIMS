@@ -160,7 +160,26 @@ test.describe('Admin Officer Experience', () => {
     await expect(page.getByText(/1 Job\(s\)/i)).toBeVisible();
 
     // Clicking group header expands member jobs
-    await page.getByText('Sunrise Batch').click();
+    await page.locator('#group-row-grp-test-1').getByText('Sunrise Batch').click();
     await expect(page.getByRole('cell', { name: 'Sunrise Organic Foods Ltd' })).toBeVisible();
+  });
+
+  test('action button opens action menu when searching for a job', async ({ page }) => {
+    await loginAs(page, 'ADMIN_OFFICER');
+    await page.goto('/admin-officer/jobs');
+    await page.getByPlaceholder('Search Client or Code...').fill('Sunrise');
+    const actionBtn = page.getByTitle('Show Actions');
+    await expect(actionBtn).toBeVisible();
+    await actionBtn.click();
+    const menu = page.locator('.action-dropdown-menu');
+    await expect(menu).toBeVisible();
+    await expect(page.getByText('Edit Job')).toBeVisible();
+    await expect(page.getByText('Place on Hold')).toBeVisible();
+    await expect(page.getByText('Cancel Job')).toBeVisible();
+    await expect(page.getByText('Group Jobs')).toBeVisible();
+
+    // Verify closing when clicking outside or pressing Escape
+    await page.keyboard.press('Escape');
+    await expect(menu).not.toBeVisible();
   });
 });

@@ -30,7 +30,9 @@ const lcPestNames = new Set((pestConstant?.variants?.find(v => v.key === 'LCMSMS
 // Estimate how many lines a text will need in a column of given width
 const formatSignatoryName = (name, fallback) => {
   if (!name) return fallback;
-  const trimmed = name.trim();
+  const rawName = typeof name === 'object' && name.name ? name.name : (typeof name === 'string' ? name : String(name));
+  const trimmed = rawName.trim();
+  if (!trimmed) return fallback;
   if (/^(Mr\.|Ms\.|Dr\.|Mrs\.)/i.test(trimmed)) return trimmed;
 
   const firstName = trimmed.split(/\s+/)[0].toLowerCase();
@@ -456,7 +458,10 @@ const buildResultsTable = (rowsData, hasSpec, startIdx, repeatHeader = null) => 
 };
 
 const generateReport = async (job, reportType) => {
-  if (job.specialProfiles?.waterIso10500) {
+  const isWaterIso = typeof job.specialProfiles?.waterIso10500 === 'object'
+    ? Boolean(job.specialProfiles?.waterIso10500?.enabled)
+    : Boolean(job.specialProfiles?.waterIso10500);
+  if (isWaterIso) {
     const { generateWaterIso10500Report } = require('./waterIsoReportGenerator');
     return await generateWaterIso10500Report(job, reportType);
   }

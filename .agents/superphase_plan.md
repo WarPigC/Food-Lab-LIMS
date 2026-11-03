@@ -1263,7 +1263,7 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 | SP3.P13.7 | **Frontend - Accordion Table Rows**: Render `<tr className="group-header-row">` with folder icon, group name (with generous spacing), count/range badge, Rename and Disband actions; single-accordion enforcement; left colored accent stripe flush with table border; smooth waterfall opening and closing animations | ✅ Complete |
 | SP3.P13.8 | **Frontend - Sub-range Removal & Splitting**: Support trimming outer edges, splitting middle selections into two groups, or disbanding when selecting sub-ranges within an open group | ✅ Complete |
 | SP3.P13.9 | **Frontend - Explicit Membership & Group Creation Modal**: Built single-line group naming modal with Enter/Escape handlers via `modal.custom`; upgraded group storage to explicit `jobCodes: [...]` membership eliminating date-prefix mismatches and yearly rollover collisions | ✅ Complete |
-| SP3.P13.10 | **Testing & Verification**: 106/106 backend tests passing; 36/36 Playwright E2E tests passing including dedicated group expansion test; clean production Vite build | ✅ Complete |
+| SP3.P13.10 | **Testing, Portal Dropdown & Verification**: Resolved action drawer clipping bug on search results via `ReactDOM.createPortal`; 115/115 backend tests passing; 37/37 Playwright E2E tests passing including dedicated search action drawer test; clean production Vite build | ✅ Complete |
 
 > ✅ Completed. Full sequential job grouping engine implemented with explicit `jobCodes` membership, smooth animations, single-line naming modals, and database persistence on the User model.
 
@@ -1357,6 +1357,7 @@ Login screen
 | SP3.P16.5 | Wire `useListControls` to the Activity Logs list. Config: `searchFields` (actor name, job code, detail), `sortOptions` (date, action type), `filterDefs` (action type select, actor role select, date range) |
 | SP3.P16.6 | Mount `<PageHeader>` on the Activity Logs page with the config from SP3.P16.5 |
 | SP3.P16.7 | Mobile verification on both pages: sticky header must not eat too much vertical space, filter chips must wrap cleanly, no viewport overflow on dropdowns |
+| SP3.P16.8 | Revamp search action drawer behavior in `JobLogTable.jsx` during search result states |
 
 ---
 

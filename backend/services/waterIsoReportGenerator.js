@@ -8,6 +8,7 @@ const {
 } = require('./reportGenerator');
 
 const templatePath = path.join(__dirname, '../assets/templates/waterIso10500Template.docx');
+const template3ParamPath = path.join(__dirname, '../assets/templates/waterIso3ParamTemplate.docx');
 
 function escapeXml(unsafe) {
   if (unsafe === undefined || unsafe === null) return '';
@@ -46,11 +47,14 @@ function formatDate(d) {
  * Free of Python dependencies and contains zero customer PII in source control.
  */
 const generateWaterIso10500Report = async (job, reportType) => {
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(`Water ISO template not found at ${templatePath}`);
+  const isShortVariant = job.specialProfiles?.waterIso10500?.variant === 'short';
+  const activeTemplatePath = isShortVariant ? template3ParamPath : templatePath;
+
+  if (!fs.existsSync(activeTemplatePath)) {
+    throw new Error(`Water ISO template not found at ${activeTemplatePath}`);
   }
 
-  const content = fs.readFileSync(templatePath);
+  const content = fs.readFileSync(activeTemplatePath);
   const zip = await JSZip.loadAsync(content);
 
   const isNabl = reportType === 'nabl' || job.sample?.nabl_type === 'Nabl';
@@ -135,8 +139,8 @@ const generateWaterIso10500Report = async (job, reportType) => {
   }
 
   // Delete the trailing empty paragraph after the header line to eliminate the newline before customer table
-  hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00413138"[\s\S]*?<\/w:p>\s*(?=<\/w:hdr>)/, '');
-  hdrXml = hdrXml.replace(/<w:p[^>]*>\s*<w:pPr>[\s\S]*?<\/w:pPr>\s*<\/w:p>\s*(?=<\/w:hdr>)/, '');
+  hdrXml = hdrXml.replace(/<w:p w:rsidR="00E75A7A" w:rsidRPr="00413138"(?:(?!<w:p\b)[\s\S])*?<\/w:p>\s*(?=<\/w:hdr>)/, '');
+  hdrXml = hdrXml.replace(/<w:p\b[^>]*>(?:(?!<w:p\b)[\s\S])*?<w:pPr>(?:(?!<w:pPr\b)[\s\S])*?<\/w:pPr>(?:(?!<w:t\b)[\s\S])*?<\/w:p>\s*(?=<\/w:hdr>)/, '');
 
   // Subtle spacing for TEST REPORT headline: 60 dxa (3pt / 4px) before
   hdrXml = hdrXml.replace(/(<w:pPr>[\s\S]*?<w:spacing\s+)(w:after="0"|w:before="\d+"\s+w:after="\d+")([^>]*>[\s\S]*?<w:t>TEST REPORT<\/w:t>)/, (m, p1, p2, p3) => {
@@ -149,6 +153,7 @@ const generateWaterIso10500Report = async (job, reportType) => {
       /<!-- NABL_CELL_START -->[\s\S]*?<!-- NABL_CELL_END -->/,
       ''
     );
+    // Expand middle cell for 8-page template
     hdrXml = hdrXml.replace(
       /<w:gridCol w:w="6257"\s*\/>\s*<w:gridCol w:w="2650"\s*\/>/,
       '<w:gridCol w:w="8907"/>'
@@ -156,6 +161,15 @@ const generateWaterIso10500Report = async (job, reportType) => {
     hdrXml = hdrXml.replace(
       /<w:tcW w:w="6257" w:type="dxa"\s*\/>/,
       '<w:tcW w:w="8907" w:type="dxa"/>'
+    );
+    // Expand middle cell for 3-param template
+    hdrXml = hdrXml.replace(
+      /<w:gridCol w:w="5245"\s*\/>\s*<w:gridCol w:w="3260"\s*\/>/,
+      '<w:gridCol w:w="8505"/>'
+    );
+    hdrXml = hdrXml.replace(
+      /<w:tcW w:w="5245" w:type="dxa"\s*\/>/,
+      '<w:tcW w:w="8505" w:type="dxa"/>'
     );
   }
   zip.file('word/header1.xml', hdrXml);
@@ -196,7 +210,7 @@ const generateWaterIso10500Report = async (job, reportType) => {
   }
 
   // Format Signatures table (clean 3-column borderless table with cantSplit that fits on Page 8)
-  const analystName = formatSignatoryName(job.assignedAnalyst, 'Ms. Diksha Dwivedi');
+  const analystName = formatSignatoryName(job.assignedAnalyst?.name || job.assignedAnalyst, 'Ms. Diksha Dwivedi');
   const dist = job.distribution || {};
   const chemHead = formatSignatoryName(dist.chemical?.assignedHead?.name, 'Ms. Monika Pali');
   const microHead = formatSignatoryName(dist.micro?.assignedHead?.name, 'Ms. Jyoti Pathak');
@@ -263,15 +277,12 @@ const generateWaterIso10500Report = async (job, reportType) => {
       return rowXml;
     }
 
-    const nameMatch = tcs[1].match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/);
-    if (!nameMatch) return rowXml;
-
-    const paramName = nameMatch[1].trim();
-    if (!paramName || ['Test Parameters', 'WaterSub Group - Drinking water', 'Drinking water', 'Group - Water'].includes(paramName) || paramName.includes('Group')) {
+    const cell1Text = tcs[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!cell1Text || ['Test Parameters', 'WaterSub Group - Drinking water', 'Drinking water', 'Group - Water'].includes(cell1Text) || cell1Text.includes('Group')) {
       return rowXml;
     }
 
-    const normKey = paramName.replace(/[\s\-_]+/g, '').toLowerCase();
+    const normKey = cell1Text.replace(/[\s\-_]+/g, '').toLowerCase();
     if (jobParamMap[normKey]) {
       const pData = jobParamMap[normKey];
       let val = pData.value;
@@ -291,6 +302,9 @@ const generateWaterIso10500Report = async (job, reportType) => {
 
     return rowXml;
   });
+
+  // Ensure discipline headers always show Drinking Water regardless of sample type
+  docXml = docXml.replace(/Sub Group\s*[\u2013\u2014\-]\s*Ground Water/gi, 'Sub Group \u2013 Drinking Water');
 
   zip.file('word/document.xml', docXml);
 

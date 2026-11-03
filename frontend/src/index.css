@@ -1566,10 +1566,8 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 /* Job Actions Dropdown (Table Row Drawer) */
 .action-dropdown-menu {
-  position: absolute;
-  right: 0.5rem;
-  top: calc(100% + 2px);
-  z-index: 60;
+  position: fixed;
+  z-index: 1000;
   min-width: 155px;
   background-color: var(--color-surface, #ffffff);
   border-radius: 8px;
@@ -1584,8 +1582,6 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .action-dropdown-menu.open-upward {
-  top: auto;
-  bottom: calc(100% + 2px);
   transform-origin: bottom right;
   animation: actionDrawerInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

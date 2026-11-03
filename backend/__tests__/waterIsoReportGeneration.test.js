@@ -75,4 +75,47 @@ describe('Water ISO 10500 Report Generation', () => {
     expect(buf).toBeInstanceOf(Buffer);
     expect(buf.length).toBeGreaterThan(10000);
   });
+
+  it('generates a valid docx buffer for Water ISO 10500 Short (3 parameters) variant job', async () => {
+    const shortJob = {
+      ...sampleJob,
+      jobCode: '2608211734',
+      specialProfiles: {
+        waterIso10500: { enabled: true, variant: 'short' },
+      },
+      parameters: [
+        { name: 'Total Dissolved solid', value: '84', unit: 'mg/L' },
+        { name: 'Total Coliform', value: 'Absent', unit: 'Per 100ml' },
+        { name: 'E. coli', value: 'Absent', unit: 'Per 100ml' },
+      ],
+    };
+
+    const buf = await generateReport(shortJob, 'nabl');
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.length).toBeGreaterThan(10000);
+  });
+
+  it('generates a valid docx buffer for Non-NABL Water ISO 10500 short variant report', async () => {
+    const nonNablShortJob = {
+      ...sampleJob,
+      jobCode: '2608211734',
+      sample: {
+        ...sampleJob.sample,
+        nabl_type: 'Non Nabl',
+        ulr_no: '',
+      },
+      specialProfiles: {
+        waterIso10500: { enabled: true, variant: 'short' },
+      },
+      parameters: [
+        { name: 'Total Dissolved solid', value: '120', unit: 'mg/L' },
+        { name: 'Total Coliform', value: 'Absent', unit: 'Per 100ml' },
+        { name: 'E. coli', value: 'Absent', unit: 'Per 100ml' },
+      ],
+    };
+
+    const buf = await generateReport(nonNablShortJob, 'non-nabl');
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf.length).toBeGreaterThan(10000);
+  });
 });

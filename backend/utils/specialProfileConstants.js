@@ -3349,4 +3349,48 @@ const SPECIAL_PROFILE_CONSTANTS = [
   }
 ];
 
-module.exports = { SPECIAL_PROFILE_CONSTANTS };
+const WATER_ISO_SHORT_PARAMS = [
+  {
+    name: "Total Dissolved solid",
+    unit: "mg/L",
+    testMethod: "IS 3025 (Part 16): 2023",
+    specification: "",
+    requirement: "Max.500",
+    permissibleLimit: "Max. 2000",
+    isCategoryHeader: false
+  },
+  {
+    name: "Total Coliform",
+    unit: "Per 100ml",
+    testMethod: "IS 15185:2016",
+    specification: "",
+    requirement: "Shall not be Detected",
+    permissibleLimit: "-",
+    isCategoryHeader: false
+  },
+  {
+    name: "E. coli",
+    unit: "Per 100ml",
+    testMethod: "IS 15185:2016",
+    specification: "",
+    requirement: "Shall not be Detected",
+    permissibleLimit: "-",
+    isCategoryHeader: false
+  }
+];
+
+// Populate full and short variants for waterIso10500
+SPECIAL_PROFILE_CONSTANTS[0].variants = [
+  {
+    key: 'full',
+    label: 'Full 60+ Parameters',
+    parameters: SPECIAL_PROFILE_CONSTANTS[0].parameters
+  },
+  {
+    key: 'short',
+    label: 'Short / 3 Parameters',
+    parameters: WATER_ISO_SHORT_PARAMS
+  }
+];
+
+module.exports = { SPECIAL_PROFILE_CONSTANTS, WATER_ISO_SHORT_PARAMS };
