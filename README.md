@@ -1,69 +1,228 @@
 # Acropolis FTL LIMS
 
-## Overview
-Acropolis FTL LIMS is a specialized Laboratory Information Management System developed specifically for the Food Testing Laboratory at the Acropolis Institute of Pharmaceutical Education and Research (AIPER). Built to handle the rigorous demands of a modern testing facility, this system streamlines the entire lifecycle of sample testing, from client intake and job distribution to the automated, high-fidelity generation of NABL-compliant test reports. 
+> Laboratory Information Management System for the Food Testing Laboratory at Acropolis Institute of Pharmaceutical Education and Research (AIPER).
 
-## Core Tech Stack
-- **Frontend:** React 19, Vite 8, React Router v7, Socket.IO Client, Fuse.js
-- **Backend:** Node.js, Express 5, Socket.IO
-- **Database & Storage:** MongoDB, Mongoose v9, GridFS Stream
-- **Document Engine:** docx (Programmatic XML Generation), docx-preview, html2pdf
-- **Security & Logging:** JWT, bcrypt, Winston (MongoDB Transport)
+---
 
-## Technical Achievements
+## 1. Overview
 
-This software was engineered from the ground up to bypass the limitations of typical off-the-shelf LIMS solutions, requiring our team to architect several highly advanced, custom systems:
+Acropolis FTL LIMS is a dedicated, full-stack Laboratory Information Management System built to digitize, streamline, and audit the complete sample testing lifecycle at the Food Testing Laboratory of the Acropolis Institute of Pharmaceutical Education and Research (AIPER).
 
-### Mathematical Document Construction
-Standard web-to-PDF libraries lack the precision required for official lab reports. To ensure absolute, millimeter-perfect layouts for NABL compliance, we engineered a programmatic Document Object Model using raw XML and DXA math. By dynamically splitting table cells on the fly and calculating widths in fiftieths of a percent, we bypassed native third-party previewer crashes and guaranteed flawless structural integrity across all devices and printers.
+Testing laboratories handle strict regulatory mandates, complex testing taxonomies across microbiology and chemistry, and multi-step approval gates. Before this system, operations relied on manual paper registers, static spreadsheets, and informal coordination. This LIMS replaces that fragmented workflow with a centralized, real-time platform that governs sample intake, custody transfer, parameter assignment, analytical data entry, multi-level review, and the automated generation of NABL-compliant test reports.
 
-### Concurrent Network Orchestration
-Generating and parsing heavy document blobs in real-time creates intense memory overhead and layout thrashing, especially within React 19's concurrent rendering mode. We implemented a sophisticated network orchestration layer using `AbortController` request-cancellation and strict component-mount tracking. This completely eliminates redundant API calls and memory leaks, allowing the UI to gracefully handle rapid, asynchronous user inputs without overlapping renders.
+---
 
-### Hierarchical State Memoization
-Food testing taxonomy is incredibly complex and deeply nested, spanning multiple groups, sub-groups, parameters, and distinct testing methods. Managing this state dynamically without causing massive re-render lag required a custom architecture. We built a heavily optimized `CascadingParameterSelector` that utilizes memoized state trees, allowing technicians to drill down through hundreds of parameters instantly without dropping UI frames.
+## 2. The Sample Testing Lifecycle
 
-### Secure Asset Streaming
-Laboratory accreditations and official signatures require strict security protocols. Instead of saving these vulnerable assets to a standard local file system, we engineered a direct-to-database streaming pipeline. Utilizing `multer` and `gridfs-stream`, sensitive files are securely chunked and stored directly within MongoDB, eliminating unauthorized filesystem access and simplifying server scaling.
+The core workflow transitions a client sample through a chain of custody and verification:
 
-### Real-Time Data Synchronization
-To eliminate the overhead of traditional HTTP polling, the entire application layer is synchronized via persistent WebSocket connections using `socket.io`. Job status changes, sample transfers, and critical alerts are broadcasted instantaneously to all relevant personnel, ensuring the entire laboratory operates on a unified, real-time data state.
+```mermaid
+graph TD
+    A["1. Client Intake & Job Creation (Admin Officer)"] --> B["2. Departmental Dispatch (Head)"]
+    B --> C["3. Physical Custody Transfer (Micro <-> Chemical)"]
+    C --> D["4. Bench Testing & Data Entry (Analyst)"]
+    D --> E["5. Quality Review & Selective Approval (Head)"]
+    E -->|"Approved"| F["6. NABL / Non-NABL Report Generation (Admin Officer)"]
+    E -->|"Reassign"| D
+```
 
-## Key Features & Capabilities
+1. **Client Intake & Job Registration**: An Admin Officer records customer details, sample characteristics, regulatory scope (NABL, Non-NABL, or Hybrid), and selects required test parameters from a hierarchical catalogue.
+2. **Departmental Dispatch**: Department Heads (Microbiology and Chemical Analysis) receive notifications for assigned parameters, delegate specific parameters to qualified analysts, and set deadlines.
+3. **Chain of Custody & Sample Transfer**: When samples require testing across both departments, the system tracks physical handovers with formal dispatch and receipt confirmations.
+4. **Laboratory Testing**: Analysts access a mobile-ready bench interface on tablets or desktops, record physical observations, enter measurement values, and select standardized test methods.
+5. **Quality Review**: Department Heads inspect submitted results against standard specifications. Heads can approve submissions or selectively reassign specific failed parameters for re-testing without discarding valid work.
+6. **Report Delivery**: Once all departmental tests are approved, the system generates formatted, compliance-ready test reports complete with sequential ULR tracking, QR codes, and digital signatures.
 
-### Multi-Tiered Role Architecture
-Features dedicated dashboards tailored for Lab Heads, Admin Officers, Assistants, and System Administrators. This ensures strict operational boundaries and streamlined, relevant data entry for every department.
+---
 
-### Comprehensive Test Parameter Engine
-Manages the complex taxonomy of food testing using a Cascading Parameter Selector. Coupled with strict backend models for Test Methods and Units, it ensures uncompromising standardization across all analytical procedures.
+## 3. User Roles & Responsibilities
 
-### End-to-End Sample Traceability
-Maintains explicit tracking of physical sample custody transfers between departments. Complete with chronological job timelines and immutable system-wide backend audit logs, ensuring full readiness for regulatory audits.
+The system enforces strict role-based access control (RBAC), providing each laboratory role with a dedicated dashboard and isolated capabilities:
 
-### Advanced Productivity Tools
-Includes a global Command Palette for power users to instantly search and navigate jobs via keyboard shortcuts. An integrated real-time notification engine keeps staff immediately informed of pending approvals or critical updates.
+| Role | Operational Scope | Primary Responsibilities |
+|---|---|---|
+| **System Administrator** | System-wide | Manages user accounts, configures system settings, monitors lab throughput, and inspects the immutable audit log. |
+| **Admin Officer** | Front Office & Registration | Handles client intake, creates and edits jobs, configures test parameters, monitors overall sample progress, and issues completed test reports. |
+| **Department Head** | Microbiology / Chemical Analysis | Distributes incoming test parameters to analysts, manages physical sample transfers between departments, conducts quality reviews, and approves or reassigns test results. |
+| **Analyst (Assistant)** | Bench Laboratory | Conducts laboratory testing, logs physical sample observations, enters analytical results and test methods, and submits completed test runs for review. |
 
-### Automated, Compliant Report Generation
-Automatically generates pixel-perfect DOCX and PDF test reports based on live system data. It mathematically injects NABL logos, dynamic QR codes, and sequential Unique Lab Report (ULR) numbers into compliance-ready layouts with in-browser previews.
+---
 
-### Built-In Support Loop
-Maintains continuous improvement through an in-app bug reporting and feedback mechanism, allowing users to submit issues directly within the platform.
+## 4. Key Platform Features
 
-## Architecture Details
+### Cascading Parameter Engine
+Food and water testing involves hundreds of distinct parameters with specific units, test methods, and regulatory limits. The system organizes testing taxonomy into hierarchical groups and sub-groups (e.g., Water -> Drinking Water -> Total Coliform). A typo-tolerant fuzzy search engine allows staff to quickly locate and attach parameters, while specialized panels (such as pesticide screening) can be attached with a single click.
 
-Acropolis FTL LIMS is engineered for extreme performance, real-time interactivity, and reliability.
+### Multi-Tier Accreditation Modes
+Jobs can be registered under three distinct operational modes:
+- **Non-NABL**: Standard laboratory testing reports.
+- **NABL**: Accreditation-grade jobs with automatic assignment and sequential tracking of Unique Lab Report (ULR) numbers.
+- **Hybrid**: Simultaneously spawns linked NABL and Non-NABL sub-jobs from a single client submission, allowing split parameters without double-entry.
 
-### Responsive React Frontend
-The client-side interface is a blazing-fast Single Page Application (SPA) driven by React 19 and Vite 8, ensuring highly optimized production builds. To prevent layout thrashing and eliminate redundant network requests, sophisticated request-cancellation caching techniques (via AbortControllers) guarantee zero lag during rapid navigation. It utilizes `fuse.js` for typo-tolerant, instant client-side fuzzy searching, and establishes persistent WebSocket connections via `socket.io-client` for real-time state updates without page reloads.
+### Inter-Departmental Custody Tracking
+Samples requiring both microbiological and chemical analysis must follow strict physical custody protocols. The system prevents concurrent testing conflicts by tracking outgoing and incoming transfers, requiring explicit confirmation of sample receipt before downstream testing can commence.
 
-### Node.js / Express Backend Engine
-The core API is powered by Express 5, taking full advantage of native async routing to securely handle business logic and complex validation. Mongoose enforces strict schema typings against MongoDB. For file handling, the backend bypasses vulnerable local file systems entirely; it uses `multer` and `gridfs-stream` to securely chunk and store sensitive files (like signatures and accreditation logos) directly inside the database. Additionally, `winston-mongodb` actively pipes critical API access logs directly into the database for a permanent, tamper-evident audit trail.
+### Selective Reassignment & Quality Gates
+If a review indicates an anomalous reading on one parameter out of twenty, Department Heads do not need to reject the entire batch. The review interface allows selective reassignment of only the affected parameters with specific feedback notes, preserving approved data and minimizing turnaround time.
 
-### Security & Authentication Layer
-Security is baked into the foundational layer of the architecture. The system employs stateless, secure session management utilizing JSON Web Tokens (JWT) coupled with `bcrypt` for cryptographic password hashing. Every API endpoint is protected by granular, role-based middleware that actively verifies user clearance levels before authorizing data mutations, ensuring that assistants cannot access admin-only data settings or approve official reports.
+### Automated Document Generation & In-Browser Preview
+The system builds structured test reports natively, calculating exact layouts, table dimensions, NABL formatting requirements, dynamic QR codes, and signature blocks. Staff can preview full reports directly in the browser before final delivery or export.
 
-### Database & Data Modeling
-While utilizing MongoDB as a flexible NoSQL database, the system enforces heavily structured relational paradigms via Mongoose. Complex data relationships (such as linking Jobs to distinct Test Instances, Parameter Groups, and System Logs) are managed through advanced reference population. This hybrid approach provides the rapid iteration speed of NoSQL while maintaining the strict relational integrity required for laboratory auditing.
+### Real-Time WebSocket Synchronization
+All job queues, task dispatches, sample transfers, and approval states update instantly across all active sessions using persistent WebSockets, eliminating the need for manual browser refreshes.
 
-### Dynamic Document Rendering System
-To meet NABL's strict formatting regulations, the system utilizes a specialized server-side document engine via programmatic `docx` generation. Rather than relying on brittle HTML-to-PDF converters, this engine calculates exact twip/DXA margins, exact percentage-based table widths, and balances inline images mathematically. The frontend then utilizes `docx-preview` and `html2pdf.js` to render these complex blobs natively within the browser canvas, completely eliminating the need to download files just to verify them.
+### Immutable Audit Trail
+Every significant operational event (job creation, parameter modification, status change, re-assignment, user authentication) is permanently recorded in a structured system log. Logs capture timestamps, user context, target identifiers, and modification diffs for compliance auditing.
+
+---
+
+## 5. Technology Stack
+
+### Frontend
+- **Framework:** React 19, Vite 8
+- **Routing:** React Router v7
+- **Styling & UI:** CSS Variables, Lucide React Icons
+- **Real-Time Client:** Socket.IO Client
+- **Search:** Fuse.js (fuzzy matching)
+- **Document Rendering:** docx-preview, html2pdf.js
+
+### Backend
+- **Runtime:** Node.js, Express 5
+- **Database ODM:** Mongoose v9
+- **Real-Time Server:** Socket.IO
+- **Security & Headers:** Helmet, CORS, Express Rate Limit, JWT, bcrypt
+- **Logging:** Winston with MongoDB transport
+- **Document Engine:** Programmatic docx generation with XML and GridFS streaming
+
+### Database & Storage
+- **Primary Database:** MongoDB
+- **Binary Storage:** MongoDB GridFS (for accreditation logos, signatures, and custom report files)
+
+---
+
+## 6. Project Architecture
+
+```
+AIPER/
+├── backend/
+│   ├── config/              # Database connection and environment setup
+│   ├── middlewares/         # Authentication, role verification, rate limiting, logging
+│   ├── models/              # Mongoose schemas (Job, TestInstance, User, SystemLog, etc.)
+│   ├── routes/
+│   │   ├── authRoutes.js    # Login, password updates, and session verification
+│   │   ├── jobs/            # Job creation, listing, workflows, and re-testing
+│   │   ├── tests/           # Test instance assignment, result entry, and reviews
+│   │   └── ...              # Logs, notifications, settings, and file uploads
+│   ├── utils/               # Serial generators, audit logger, document builder, notifier
+│   └── server.js            # Express server entry point and WebSocket initialization
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # Shared UI elements (PageHeader, modals, tables, layout)
+│   │   ├── context/         # AuthContext, SocketContext, ModalContext, ToastContext
+│   │   ├── hooks/           # Custom hooks (useListControls, useToast, useModal)
+│   │   ├── pages/
+│   │   │   ├── AdminDashboard.jsx            # Admin oversight and user management
+│   │   │   ├── AdminOfficer/JobsPage.jsx     # Job creation, registration, and job logs
+│   │   │   ├── Head/                         # Dispatcher, review queue, and monitor pages
+│   │   │   └── AssistantDashboard.jsx        # Mobile-ready bench testing and data entry
+│   │   └── utils/           # API client, date formatting, and caching logic
+│   ├── e2e/                 # Playwright end-to-end test suites
+│   └── vite.config.js       # Vite configuration and build pipeline
+│
+└── .agents/                 # Architecture specifications and development plans
+```
+
+---
+
+## 7. Getting Started
+
+### Prerequisites
+- **Node.js**: v18.x or higher
+- **npm**: v9.x or higher
+- **MongoDB**: v6.x or higher (local instance or MongoDB Atlas URI)
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd AIPER
+   ```
+
+2. **Install Backend Dependencies:**
+   ```bash
+   cd backend
+   npm install
+   ```
+
+3. **Install Frontend Dependencies:**
+   ```bash
+   cd ../frontend
+   npm install
+   ```
+
+### Configuration
+
+Create a `.env` file in the `backend/` directory:
+
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/aiper_lims
+JWT_SECRET=your_jwt_secret_key_here
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+
+# Logging Configuration
+LOG_LEVEL=info
+LOG_DB_ENABLED=true
+LOG_TTL_DAYS=180
+
+# Serial Number Offset
+SAMPLE_ID_START=1
+```
+
+Create a `.env` file in the `frontend/` directory:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+### Running Locally
+
+1. **Start the Backend API:**
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   The backend API will run on `http://localhost:5000`.
+
+2. **Start the Frontend Application:**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   The frontend interface will run on `http://localhost:5173`.
+
+---
+
+## 8. Verification & Testing
+
+The project uses Playwright for comprehensive end-to-end validation across all user roles and workflows:
+
+```bash
+cd frontend
+npx playwright test
+```
+
+To run individual role test suites:
+```bash
+# Admin Officer workflows (Job creation, grouping, filters)
+npx playwright test e2e/admin-officer.spec.js
+
+# Department Head workflows (Dispatcher, review queue, transfers)
+npx playwright test e2e/head.spec.js
+
+# Bench Analyst workflows (Test execution, data entry)
+npx playwright test e2e/assistant.spec.js
+```
