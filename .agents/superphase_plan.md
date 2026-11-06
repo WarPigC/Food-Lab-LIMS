@@ -1490,12 +1490,12 @@ The implementation is structured into two clean stages:
 
 | Subphase | Task | Status |
 |---|---|---|
-| SP3.P17.1 | Add security headers to `deploy/caddy/Caddyfile` and `server_tokens off;` to `frontend/nginx.conf` | ⬜ Upcoming |
-| SP3.P17.2 | Enforce fail-closed CORS in `backend/server.js` when `NODE_ENV === 'production'` and `FRONTEND_URL` is missing | ⬜ Upcoming |
-| SP3.P17.3 | Enable `mongoose.set('sanitizeFilter', true)` in `backend/server.js` to protect against NoSQL operator injection | ⬜ Upcoming |
-| SP3.P17.4 | Add string type validation (`typeof email === 'string' && typeof password === 'string'`) in `backend/routes/authRoutes.js` for login and session renewal | ⬜ Upcoming |
-| SP3.P17.5 | Add `process.exit(1)` inside `mongoose.connect().catch()` in `backend/server.js` to enable clean container restart on database failure | ⬜ Upcoming |
-| SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ⬜ Upcoming |
+| SP3.P17.1 | Add security headers to `deploy/caddy/Caddyfile` and `server_tokens off;` to `frontend/nginx.conf` | ✅ Complete |
+| SP3.P17.2 | Enforce fail-closed CORS in `backend/server.js` when `NODE_ENV === 'production'` and `FRONTEND_URL` is missing | ✅ Complete |
+| SP3.P17.3 | Enable `mongoose.set('sanitizeFilter', true)` in `backend/server.js` to protect against NoSQL operator injection | ✅ Complete |
+| SP3.P17.4 | Add string type validation (`typeof email === 'string' && typeof password === 'string'`) in `backend/routes/authRoutes.js` for login and session renewal | ✅ Complete |
+| SP3.P17.5 | Add `process.exit(1)` inside `mongoose.connect().catch()` in `backend/server.js` to enable clean container restart on database failure | ✅ Complete |
+| SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ✅ Complete |
 | SP3.P17.7 | Implement `frontend/src/AuthenticatedApp.jsx` encapsulating `Layout`, role routes, and internal modal/socket providers | ⬜ Upcoming |
 | SP3.P17.8 | In `frontend/src/App.jsx`, implement the Root Auth Gate with dynamic `React.lazy` import for `AuthenticatedApp` and wildcard redirect to `/login` | ⬜ Upcoming |
 | SP3.P17.9 | Update `backend/middlewares/authMiddleware.js` with dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ⬜ Upcoming |

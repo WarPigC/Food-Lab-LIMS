@@ -15,7 +15,10 @@ const generateToken = (id) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    const user = await User.findOne({ email: email.trim() });
 
     if (user && (await user.comparePassword(password))) {
       audit('LOGIN_SUCCESS', {
@@ -53,11 +56,11 @@ router.post('/login', async (req, res) => {
 router.post('/renew-session', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.trim() });
 
     if (user && (await user.comparePassword(password))) {
       audit('SESSION_RENEWED', {

@@ -33,6 +33,9 @@ const server = http.createServer(app);
 
 const allowedOrigin = process.env.FRONTEND_URL;
 if (!allowedOrigin) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: FRONTEND_URL environment variable must be set in production');
+  }
   console.warn('WARNING: FRONTEND_URL is not set in environment variables. Falling back to "*" for CORS. Do not use this in production!');
 }
 const corsOrigin = allowedOrigin || '*';
@@ -123,6 +126,9 @@ app.use('/api', apiNotFoundHandler);
 // Global error handling middleware (catches next(err) or unhandled route throws)
 app.use(globalErrorHandler);
 
+// Protect against NoSQL operator injection across all Mongoose queries
+mongoose.set('sanitizeFilter', true);
+
 // Connect to MongoDB using MONGODB_URI or MONGO_URI
 const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
 const mongooseOptions = {
@@ -143,7 +149,10 @@ mongoose.connect(mongoUri, mongooseOptions)
       mongoose.connection.db.collection('jobs').dropIndex('sampleSerial_1').catch(() => { });
     });
   })
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => {
+    console.error('FATAL: MongoDB connection error:', err);
+    process.exit(1);
+  });
 
 // Graceful shutdown handling for container termination
 const gracefulShutdown = (signal) => {
