@@ -1492,7 +1492,7 @@ The implementation is structured into two clean stages:
 |---|---|---|
 | SP3.P17.1 | Add security headers to `deploy/caddy/Caddyfile` and `server_tokens off;` to `frontend/nginx.conf` | ✅ Complete |
 | SP3.P17.2 | Enforce fail-closed CORS in `backend/server.js` when `NODE_ENV === 'production'` and `FRONTEND_URL` is missing | ✅ Complete |
-| SP3.P17.3 | Enable `mongoose.set('sanitizeFilter', true)` in `backend/server.js` to protect against NoSQL operator injection | ✅ Complete |
+| SP3.P17.3 | Protect against NoSQL operator injection via route boundary type validation (global sanitizeFilter disabled due to operator rewriting on internal queries) | ✅ Complete |
 | SP3.P17.4 | Add string type validation (`typeof email === 'string' && typeof password === 'string'`) in `backend/routes/authRoutes.js` for login and session renewal | ✅ Complete |
 | SP3.P17.5 | Add `process.exit(1)` inside `mongoose.connect().catch()` in `backend/server.js` to enable clean container restart on database failure | ✅ Complete |
 | SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ✅ Complete |

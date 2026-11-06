@@ -126,9 +126,6 @@ app.use('/api', apiNotFoundHandler);
 // Global error handling middleware (catches next(err) or unhandled route throws)
 app.use(globalErrorHandler);
 
-// Protect against NoSQL operator injection across all Mongoose queries
-mongoose.set('sanitizeFilter', true);
-
 // Connect to MongoDB using MONGODB_URI or MONGO_URI
 const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
 const mongooseOptions = {
