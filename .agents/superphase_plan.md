@@ -1496,16 +1496,16 @@ The implementation is structured into two clean stages:
 | SP3.P17.4 | Add string type validation (`typeof email === 'string' && typeof password === 'string'`) in `backend/routes/authRoutes.js` for login and session renewal | ✅ Complete |
 | SP3.P17.5 | Add `process.exit(1)` inside `mongoose.connect().catch()` in `backend/server.js` to enable clean container restart on database failure | ✅ Complete |
 | SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ✅ Complete |
-| SP3.P17.7 | Implement `frontend/src/AuthenticatedApp.jsx` encapsulating `Layout`, role routes, and internal modal/socket providers | ⬜ Upcoming |
-| SP3.P17.8 | In `frontend/src/App.jsx`, implement the Root Auth Gate with dynamic `React.lazy` import for `AuthenticatedApp` and wildcard redirect to `/login` | ⬜ Upcoming |
+| SP3.P17.7 | Implement `frontend/src/AuthenticatedApp.jsx` encapsulating `Layout`, role routes, and internal modal/socket providers | ✅ Complete |
+| SP3.P17.8 | In `frontend/src/App.jsx`, implement the Root Auth Gate with dynamic `React.lazy` import for `AuthenticatedApp` and wildcard redirect to `/login` | ✅ Complete |
 | SP3.P17.9 | Update `backend/middlewares/authMiddleware.js` with dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ⬜ Upcoming |
 | SP3.P17.10 | Update `backend/routes/authRoutes.js` to issue `httpOnly; Secure; SameSite=Lax` cookie on login/renew, and clear on logout | ⬜ Upcoming |
 | SP3.P17.11 | Update `backend/middlewares/socketAuthMiddleware.js` to parse handshake cookie headers for WebSocket authentication | ⬜ Upcoming |
 | SP3.P17.12 | Update `AuthContext.jsx` 401 interceptor and `renewSession` to preserve `ReAuthModal` in-place renewal lifecycle with cookies | ⬜ Upcoming |
 | SP3.P17.13 | Enable `axios.defaults.withCredentials = true` in `frontend/src/utils/api.js` and implement CSRF token validation | ⬜ Upcoming |
-| SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ⬜ Upcoming |
-| SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ⬜ Upcoming |
-| SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ⬜ Upcoming |
+| SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ✅ Complete |
+| SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ✅ Complete |
+| SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
 
 ---
 

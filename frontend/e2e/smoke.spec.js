@@ -46,4 +46,26 @@ test.describe('AIPER Frontend Smoke Tests', () => {
     await expect(page.getByPlaceholder('••••••••')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Login', exact: true })).toBeVisible();
   });
+
+  test('should redirect unauthenticated /audit navigation directly to /login without blank screen', async ({ page }) => {
+    await page.goto('/audit');
+
+    // Confirm automatic redirection to /login
+    await expect(page).toHaveURL(/\/login/);
+
+    // Confirm login form is rendered and page is NOT empty or blank
+    const loginButton = page.getByRole('button', { name: 'Login', exact: true });
+    await expect(loginButton).toBeVisible();
+  });
+
+  test('should redirect unauthenticated /head/jobs navigation directly to /login without blank screen', async ({ page }) => {
+    await page.goto('/head/jobs');
+
+    // Confirm automatic redirection to /login
+    await expect(page).toHaveURL(/\/login/);
+
+    // Confirm login form is rendered
+    const loginButton = page.getByRole('button', { name: 'Login', exact: true });
+    await expect(loginButton).toBeVisible();
+  });
 });
