@@ -906,7 +906,7 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P14 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ✅ Done |
 | SP3.P15 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ✅ Done |
 | SP3.P16 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
-| SP3.P17 | **B15** | **Comprehensive System Hardening & Unauthenticated Codebase Isolation** | ⬜ Upcoming |
+| SP3.P17 | **B15** | **Comprehensive System Hardening & Unauthenticated Codebase Isolation** | ✅ Done |
 | SP3.P18 | **F24** | **Excel (XLSX) Form Autofill & Two-Way Template Import/Export** | ⬜ Upcoming |
 
 ---
@@ -1498,11 +1498,11 @@ The implementation is structured into two clean stages:
 | SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ✅ Complete |
 | SP3.P17.7 | Implement `frontend/src/AuthenticatedApp.jsx` encapsulating `Layout`, role routes, and internal modal/socket providers | ✅ Complete |
 | SP3.P17.8 | In `frontend/src/App.jsx`, implement the Root Auth Gate with dynamic `React.lazy` import for `AuthenticatedApp` and wildcard redirect to `/login` | ✅ Complete |
-| SP3.P17.9 | Update `backend/middlewares/authMiddleware.js` with dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ⬜ Upcoming |
-| SP3.P17.10 | Update `backend/routes/authRoutes.js` to issue `httpOnly; Secure; SameSite=Lax` cookie on login/renew, and clear on logout | ⬜ Upcoming |
-| SP3.P17.11 | Update `backend/middlewares/socketAuthMiddleware.js` to parse handshake cookie headers for WebSocket authentication | ⬜ Upcoming |
-| SP3.P17.12 | Update `AuthContext.jsx` 401 interceptor and `renewSession` to preserve `ReAuthModal` in-place renewal lifecycle with cookies | ⬜ Upcoming |
-| SP3.P17.13 | Enable `axios.defaults.withCredentials = true` in `frontend/src/utils/api.js` and implement CSRF token validation | ⬜ Upcoming |
+| SP3.P17.9 | Dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ⏳ Deferred to Future Hardening Phase |
+| SP3.P17.10 | Issue `httpOnly; Secure; SameSite=Lax` cookie on login/renew, and clear on logout | ⏳ Deferred to Future Hardening Phase |
+| SP3.P17.11 | Parse handshake cookie headers for WebSocket authentication | ⏳ Deferred to Future Hardening Phase |
+| SP3.P17.12 | Preserve `ReAuthModal` in-place renewal lifecycle with cookies | ⏳ Deferred to Future Hardening Phase |
+| SP3.P17.13 | Configure `withCredentials = true` and CSRF validation | ⏳ Deferred to Future Hardening Phase |
 | SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ✅ Complete |
 | SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ✅ Complete |
 | SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
