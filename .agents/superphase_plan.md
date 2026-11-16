@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, F22, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P15, P17 Complete) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, F22, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P17 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -905,7 +905,7 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P13 | F6 | Job Grouping in Officer's Page | ✅ Done |
 | SP3.P14 | F22 | Analyst Selection UI Overhaul (Dispatcher) | ✅ Done |
 | SP3.P15 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ✅ Done |
-| SP3.P16 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
+| SP3.P16 | B11 | History & Timeline Display Overhaul | ✅ Done |
 | SP3.P17 | **B15** | **Comprehensive System Hardening & Unauthenticated Codebase Isolation** | ✅ Done |
 
 ---
