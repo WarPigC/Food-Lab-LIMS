@@ -815,6 +815,21 @@ router.put('/:id', protect, authorize('ADMIN_OFFICER'), async (req, res) => {
 
         // Attempt ULR assignment if now fully tested
         await attemptUlrAssignment(job, req.user);
+
+        // Conclusive timeline logging: When job reaches completed state
+        const microDone = !job.distribution?.micro?.required || job.distribution?.micro?.status === 'COMPLETED';
+        const chemDone = !job.distribution?.chemical?.required || job.distribution?.chemical?.status === 'COMPLETED';
+        const hasRequired = job.distribution?.micro?.required || job.distribution?.chemical?.required;
+        const isJobConcluded = hasRequired && microDone && chemDone;
+
+        const hasCompletedHistory = (job.history || []).some(h => h.action === 'COMPLETED');
+        if (isJobConcluded && !hasCompletedHistory) {
+          job.history.push({
+            action: 'COMPLETED',
+            note: 'All tests approved',
+            timestamp: new Date()
+          });
+        }
       }
     }
 

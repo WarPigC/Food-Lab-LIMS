@@ -23,7 +23,7 @@ const ACTION_LABELS = {
   REPORT_REVERTED: 'Report Reverted',
   ULR_ASSIGNED: 'ULR Assigned',
   REASSIGNED_TO_ANALYST: 'Analyst Reassignment',
-  COMPLETED: 'Completed',
+  COMPLETED: 'Job concluded',
 };
 
 export function JobHistoryTimelineContent({ history, job }) {
@@ -172,7 +172,66 @@ export function JobHistoryTimelineContent({ history, job }) {
       });
   }
 
-  const historyData = [...baseHistory, ...reassignEvents].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  // 3. Synthesize "Job concluded" event if job has reached completed state and not in history
+  const hasCompletedInHistory = baseHistory.some(h => h.action === 'COMPLETED');
+  if (!hasCompletedInHistory && job) {
+    const microReq = Boolean(job.distribution?.micro?.required);
+    const chemReq = Boolean(job.distribution?.chemical?.required);
+    const hasRequired = microReq || chemReq;
+
+    const microDone = !microReq || job.distribution?.micro?.status === 'COMPLETED';
+    const chemDone = !chemReq || job.distribution?.chemical?.status === 'COMPLETED';
+    const noPendingAmendments = !job.pendingParamAmendments?.status || job.pendingParamAmendments.status === 'NONE';
+
+    const activeInstances = (job.testInstances || []).filter(i => !['REOPENED', 'CANCELLED'].includes(i.status));
+    const allInstancesCompleted = activeInstances.length > 0 && activeInstances.every(i => i.status === 'COMPLETED');
+
+    const isConcluded = job.status !== 'CANCELLED' && hasRequired && (
+      (microDone && chemDone && noPendingAmendments) ||
+      allInstancesCompleted
+    );
+
+    if (isConcluded) {
+      let latestTime = null;
+      activeInstances.forEach(inst => {
+        if (inst.completedAt) {
+          const t = new Date(inst.completedAt).getTime();
+          if (!latestTime || t > latestTime) latestTime = t;
+        }
+        (inst.reviewHistory || []).forEach(rh => {
+          if (rh.action === 'APPROVE' && rh.date) {
+            const t = new Date(rh.date).getTime();
+            if (!latestTime || t > latestTime) latestTime = t;
+          }
+        });
+      });
+
+      baseHistory.forEach(h => {
+        if (h.timestamp) {
+          const t = new Date(h.timestamp).getTime();
+          if (!latestTime || t > latestTime) latestTime = t;
+        }
+      });
+
+      if (!latestTime) {
+        latestTime = job.updatedAt ? new Date(job.updatedAt).getTime() : Date.now();
+      }
+
+      reassignEvents.push({
+        action: 'COMPLETED',
+        timestamp: new Date(latestTime),
+        note: 'All tests approved',
+      });
+    }
+  }
+
+  const historyData = [...baseHistory, ...reassignEvents].sort((a, b) => {
+    const diff = new Date(a.timestamp) - new Date(b.timestamp);
+    if (diff !== 0) return diff;
+    if (a.action === 'COMPLETED') return 1;
+    if (b.action === 'COMPLETED') return -1;
+    return 0;
+  });
 
   const getActionIcon = (action) => {
     switch (action) {
@@ -252,10 +311,12 @@ export function JobHistoryTimelineContent({ history, job }) {
                   </div>
                 </div>
                 
-                <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>By:</span> 
-                  <span style={{ fontWeight: 500 }}>{event.by?.name || 'System'}</span>
-                </div>
+                {event.action !== 'COMPLETED' && (
+                  <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>By:</span> 
+                    <span style={{ fontWeight: 500 }}>{event.by?.name || 'System'}</span>
+                  </div>
+                )}
                 
                 {event.note && (
                   <div style={{ fontSize: '0.85rem', padding: '0.5rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', borderLeft: `3px solid ${getActionColor(event.action)}` }}>

@@ -191,6 +191,21 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
         // Handles both NABL (auto-assign) and Non-NABL opt-in (reserved slot).
         await attemptUlrAssignment(job, req.user);
 
+        // Conclusive timeline logging: When job reaches completed state
+        const microDone = !job.distribution.micro.required || job.distribution.micro.status === 'COMPLETED';
+        const chemDone = !job.distribution.chemical.required || job.distribution.chemical.status === 'COMPLETED';
+        const hasRequired = job.distribution.micro.required || job.distribution.chemical.required;
+        const isJobConcluded = hasRequired && microDone && chemDone && !hasPendingAmendments;
+
+        const hasCompletedHistory = (job.history || []).some(h => h.action === 'COMPLETED');
+        if (isJobConcluded && !hasCompletedHistory) {
+          job.history.push({
+            action: 'COMPLETED',
+            note: 'All tests approved',
+            timestamp: instance.completedAt || new Date()
+          });
+        }
+
         await job.save({ validateBeforeSave: false });
 
       }
