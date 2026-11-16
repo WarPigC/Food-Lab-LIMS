@@ -1,5 +1,5 @@
-# Stage 1: Build React SPA using Node 20 on Alpine
-FROM node:20-alpine AS builder
+# Stage 1: Build React SPA using Node 24 on Alpine
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 

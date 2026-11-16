@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Set server timezone and install tzdata, curl for health checks, and build dependencies for native modules
 RUN apk add --no-cache tzdata curl python3 make g++
