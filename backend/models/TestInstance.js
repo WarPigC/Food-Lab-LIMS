@@ -40,6 +40,7 @@ const testInstanceSchema = new mongoose.Schema({
   reviewHistory: [reviewEntrySchema],        // full audit trail of approvals/rejections
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   completedAt: { type: Date },
+  submittedAt: { type: Date },
   testingPeriod: {
     startDate: { type: Date },
     endDate: { type: Date }

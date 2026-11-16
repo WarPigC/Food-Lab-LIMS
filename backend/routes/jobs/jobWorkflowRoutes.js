@@ -885,7 +885,23 @@ router.put('/:id/monitor-split', protect, authorize('HEAD'), async (req, res) =>
     if (sourceInstance.results.length === 0) {
       sourceInstance.status = 'CANCELLED';
     }
+    sourceInstance.reviewHistory.push({
+      action: 'MONITOR_REASSIGN',
+      by: req.user._id,
+      role: 'HEAD',
+      note: `${paramIds.length} parameter(s) moved to ${targetUser.name || 'another analyst'} via Monitor split`,
+      date: new Date()
+    });
     await sourceInstance.save();
+
+    targetInstance.reviewHistory.push({
+      action: 'MONITOR_REASSIGN',
+      by: req.user._id,
+      role: 'HEAD',
+      note: `${paramIds.length} parameter(s) received via Monitor split`,
+      date: new Date()
+    });
+    await targetInstance.save();
 
     audit('MONITOR_SPLIT', {
       req,

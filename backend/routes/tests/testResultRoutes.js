@@ -75,8 +75,9 @@ router.put('/instances/:id/results', protect, authorize('ASSISTANT'), async (req
         endDate: testingPeriod.endDate || null
       };
     }
-    // Move to HEAD review — NOT completed yet
+    // Move to HEAD review: NOT completed yet
     instance.status = 'PENDING_HEAD_REVIEW';
+    instance.submittedAt = new Date();
     // Clear previousResults since this is a fresh submission
     instance.previousResults = [];
 
@@ -314,6 +315,7 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
           }
 
           // Create or update instances for other analysts
+          const transferSummaries = [];
           for (const [analystId, paramIds] of Object.entries(byAnalyst)) {
             if (analystId === originalAssigneeId) continue; // already handled above
 
@@ -378,6 +380,7 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
               });
 
               await existingInstance.save();
+              transferSummaries.push(`${paramIds.length} parameter(s) transferred to ${existingInstance.testCode}`);
 
               await createNotification({
                 recipient: analystId,
@@ -418,6 +421,7 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
                 parentInstanceId: instance._id
               });
               await subInstance.save();
+              transferSummaries.push(`${paramIds.length} parameter(s) transferred to ${newTestCode}`);
 
               await createNotification({
                 recipient: analystId,
@@ -429,6 +433,18 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
                 link: '/assistant'
               });
             }
+          }
+
+          if (transferSummaries.length > 0) {
+            const lastEntry = instance.reviewHistory[instance.reviewHistory.length - 1];
+            if (lastEntry && lastEntry.action === 'REASSIGN') {
+              if (originalAnalystParams.length === 0) {
+                lastEntry.note = transferSummaries.join(', ');
+              } else {
+                lastEntry.note = `${originalAnalystParams.length} parameter(s) retained for retest, ${transferSummaries.join(', ')}`;
+              }
+            }
+            await instance.save();
           }
         }
       } else {
@@ -473,7 +489,7 @@ router.put('/instances/:id/review', protect, authorize('HEAD'), async (req, res)
 
     audit('TEST_REVIEWED', {
       req,
-      message: `Job ${cleanCode} results ${action === 'approve' ? 'approved' : 'reassigned'} by ${req.user.name || 'Head'}`,
+      message: `Job ${cleanCode} results ${action.toLowerCase() === 'approve' ? 'approved' : 'reassigned'} by ${req.user.name || 'Head'}`,
       target: {
         model: 'Job',
         documentId: (instance.jobId || instance._id).toString(),

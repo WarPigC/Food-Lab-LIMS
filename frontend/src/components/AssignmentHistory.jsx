@@ -1,21 +1,24 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronUp, History, CheckCircle, ArrowRightLeft, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, CheckCircle, ArrowRightLeft, RotateCcw, Send } from 'lucide-react';
 import { formatDateTime } from '../utils/dateUtils';
 import { formatTestCode, formatMessageTestCodes } from '../utils/codeUtils';
 
 const DEPT_COLORS = {
-  micro:    { bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA' },
-  chemical: { bg: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
+  micro:    { bg: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
+  chemical: { bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA' },
 };
 
 const ACTION_CONFIG = {
-  ASSIGN:          { label: 'Dispatched',      color: '#3B82F6', Icon: CheckCircle },
-  REASSIGN:        { label: 'Reassigned',       color: '#F59E0B', Icon: ArrowRightLeft },
-  REASSIGN_MERGED: { label: 'Params merged in', color: '#8B5CF6', Icon: ArrowRightLeft },
-  AMENDMENT_MERGED:{ label: 'Parameter amended', color: '#8B5CF6', Icon: ArrowRightLeft },
-  APPROVE:         { label: 'Approved',         color: '#10B981', Icon: CheckCircle },
-  REJECT:          { label: 'Rejected',         color: '#EF4444', Icon: RotateCcw },
-  RETURN:          { label: 'Returned',         color: '#F59E0B', Icon: RotateCcw },
+  ASSIGN:           { label: 'Dispatched to',           color: '#3B82F6', Icon: CheckCircle },
+  SUBMIT:           { label: 'Results submitted by',    color: '#0EA5E9', Icon: Send },
+  REASSIGN:         { label: 'Reassigned',              color: '#F59E0B', Icon: ArrowRightLeft },
+  REASSIGN_MERGED:  { label: 'Params merged in to',     color: '#8B5CF6', Icon: ArrowRightLeft },
+  AMENDMENT_MERGED: { label: 'Parameter amended for',   color: '#8B5CF6', Icon: ArrowRightLeft },
+  APPROVE:          { label: 'Results approved for',    color: '#10B981', Icon: CheckCircle },
+  REJECT:           { label: 'Results rejected for',    color: '#EF4444', Icon: RotateCcw },
+  RETURN:           { label: 'Returned',                color: '#F59E0B', Icon: RotateCcw },
+  MONITOR_WITHDRAW: { label: 'Dispatch withdrawn for',  color: '#EF4444', Icon: RotateCcw },
+  MONITOR_REASSIGN: { label: 'Reassigned via Monitor',  color: '#F59E0B', Icon: ArrowRightLeft },
 };
 
 export default function AssignmentHistory({ testInstances = [] }) {
@@ -26,14 +29,65 @@ export default function AssignmentHistory({ testInstances = [] }) {
 
   // Memoize the expensive flatMap+sort so it only recomputes when testInstances changes
   const history = useMemo(() => {
-    return testInstances
-      .flatMap(inst => (inst.reviewHistory || []).map(rh => ({
-        ...rh,
-        analystName: inst.assignedTo?.name,
-        testCode:    formatTestCode(inst.testCode),
-        department:  (inst.department || inst.createdBy?.department || '').toLowerCase(),
-      })))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    const events = [];
+
+    testInstances.forEach(inst => {
+      if (['REOPENED', 'CANCELLED'].includes(inst.status) && (!inst.reviewHistory || inst.reviewHistory.length === 0)) {
+        return;
+      }
+
+      const dept = (inst.department || inst.createdBy?.department || '').toLowerCase();
+      const testCodeFormatted = formatTestCode(inst.testCode);
+      const analystName = inst.assignedTo?.name || 'Analyst';
+
+      // 1. Initial Dispatch event for instances not spawned as reassignment children
+      if (!inst.parentInstanceId) {
+        events.push({
+          action: 'ASSIGN',
+          date: inst.createdAt,
+          by: inst.createdBy,
+          role: inst.createdBy?.department ? 'HEAD' : (inst.createdBy?.role || 'HEAD'),
+          analystName,
+          testCode: testCodeFormatted,
+          department: dept,
+          note: `Dispatched test ${testCodeFormatted} with ${inst.results?.length || 0} parameter(s)`,
+        });
+      }
+
+      // 2. Analyst Submission event (if results were submitted)
+      if (inst.submittedAt || inst.status === 'PENDING_HEAD_REVIEW') {
+        events.push({
+          action: 'SUBMIT',
+          date: inst.submittedAt || inst.updatedAt || inst.createdAt,
+          by: inst.assignedTo,
+          role: 'ASSISTANT',
+          analystName,
+          testCode: testCodeFormatted,
+          department: dept,
+          note: null,
+        });
+      }
+
+      // 3. Review History entries
+      (inst.reviewHistory || []).forEach(rh => {
+        const isReassignedAway = (
+          testInstances.some(t => String(t.parentInstanceId) === String(inst._id)) ||
+          (inst.results && inst.results.length === 0) ||
+          Boolean(rh.note && /transferred to/i.test(rh.note))
+        );
+
+        events.push({
+          ...rh,
+          analystName,
+          testCode: testCodeFormatted,
+          department: dept,
+          instanceId: inst._id,
+          isReassignedAway,
+        });
+      });
+    });
+
+    return events.sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [testInstances]);
 
   const hasDualDept = useMemo(
@@ -129,12 +183,28 @@ export default function AssignmentHistory({ testInstances = [] }) {
               const deptColors = DEPT_COLORS[dept] || null;
 
               let actionLine = cfg.label;
-              if (['REASSIGN', 'REASSIGN_MERGED'].includes(entry.action) && entry.analystName) {
-                actionLine = `${cfg.label} to ${entry.analystName}`;
-              } else if (entry.action === 'APPROVE' && entry.analystName) {
-                actionLine = `Results approved for ${entry.analystName}`;
-              } else if (entry.action === 'REJECT' && entry.analystName) {
-                actionLine = `Results rejected for ${entry.analystName}`;
+              if (entry.action === 'ASSIGN') {
+                actionLine = `Dispatched to ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'SUBMIT') {
+                actionLine = `Results submitted by ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'REASSIGN') {
+                if (entry.isReassignedAway) {
+                  actionLine = `Reassigned away from ${entry.analystName || 'Analyst'}`;
+                } else {
+                  actionLine = `Returned for revision to ${entry.analystName || 'Analyst'}`;
+                }
+              } else if (entry.action === 'REASSIGN_MERGED') {
+                actionLine = `Params merged in to ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'AMENDMENT_MERGED') {
+                actionLine = `Parameter amended for ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'APPROVE') {
+                actionLine = `Results approved for ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'REJECT') {
+                actionLine = `Results rejected for ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'MONITOR_WITHDRAW') {
+                actionLine = `Dispatch withdrawn for ${entry.analystName || 'Analyst'}`;
+              } else if (entry.action === 'MONITOR_REASSIGN') {
+                actionLine = `Reassigned via Monitor for ${entry.analystName || 'Analyst'}`;
               }
 
               return (
@@ -178,8 +248,8 @@ export default function AssignmentHistory({ testInstances = [] }) {
 
                     <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
                       {entry.by?.name
-                        ? `by ${entry.by.name} (${entry.role === 'HEAD' ? 'Dept Head' : entry.role === 'ADMIN_OFFICER' ? 'Admin Officer' : entry.role || 'System'})`
-                        : 'System'}
+                        ? `by ${entry.by.name}${entry.role && entry.role !== 'HEAD' ? ` (${entry.role === 'ADMIN_OFFICER' ? 'Admin Officer' : entry.role === 'ASSISTANT' ? 'Analyst' : entry.role})` : ''}`
+                        : (entry.role === 'ASSISTANT' && entry.analystName ? `by ${entry.analystName}` : 'System')}
                     </div>
 
                     {entry.note && (

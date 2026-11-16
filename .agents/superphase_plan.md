@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, F22, F24, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P14 Complete) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, F22, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P15, P17 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -907,7 +907,6 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P15 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ✅ Done |
 | SP3.P16 | B11 | History & Timeline Display Overhaul | ⬜ Upcoming |
 | SP3.P17 | **B15** | **Comprehensive System Hardening & Unauthenticated Codebase Isolation** | ✅ Done |
-| SP3.P18 | **F24** | **Excel (XLSX) Form Autofill & Two-Way Template Import/Export** | ⬜ Upcoming |
 
 ---
 
@@ -1326,9 +1325,9 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 
 ---
 
-### SP3.P16: B11 - History & Timeline Display Overhaul
+### SP3.P16: B11 - History & Timeline Display Overhaul ✅
 
-**Files**: `frontend/src/components/GlobalJobHistory.jsx`, `frontend/src/components/AssignmentHistory.jsx`, `backend/routes/tests/testResultRoutes.js`
+**Files**: `frontend/src/components/GlobalJobHistory.jsx`, `frontend/src/components/AssignmentHistory.jsx`, `backend/routes/tests/testResultRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/models/TestInstance.js`
 
 **Diagnosed from**: Production job `2610051840` audit analysis (`temp/job_2610051840_audit_analysis.md`). Confirmed by running `temp/simulate_ui_diff.js` against `prod_db`.
 
@@ -1338,83 +1337,81 @@ The sample transfers section on the Head's Dispatcher page previously risked bec
 
 #### Bug B11a: Phantom "Unknown User" Reassignment in GlobalJobHistory
 
-**Where**: `GlobalJobHistory.jsx`, lines 25–67.
+**Where**: `GlobalJobHistory.jsx`, lines 25 to 67.
 
-**Symptom**: When a HEAD dispatches a job to two analysts **simultaneously** (same timestamp), the second instance is incorrectly treated as a reassignment from analyst 1 to analyst 2. The trigger lookup finds no `REASSIGN` review entry (because it was a clean initial dispatch), so `by = null`, rendering `By: Unknown User`.
+**Symptom**: When a HEAD dispatches a job to two analysts simultaneously (same timestamp), the second instance is incorrectly treated as a reassignment from analyst 1 to analyst 2. The trigger lookup finds no `REASSIGN` review entry (because it was a clean initial dispatch), so `by = null`, rendering `By: Unknown User`.
 
-**Fix**: Before pushing a `REASSIGNED_TO_ANALYST` event for `idx > 0`, check if the instance has a `parentInstanceId`. If `parentInstanceId` is `null` and no `REASSIGN`/`REASSIGN_MERGED` trigger was found in any prior sibling, the instance is part of the **initial concurrent dispatch**, not a reassignment. In that case, skip the event entirely (the `DISPATCHED` entry in `job.history` covers it).
+**Fix**: Before pushing a `REASSIGNED_TO_ANALYST` event for `idx > 0`, check if the instance has a `parentInstanceId`. If `parentInstanceId` is `null` and no `REASSIGN`/`REASSIGN_MERGED` trigger was found in any prior sibling, the instance is part of the initial concurrent dispatch, not a reassignment. In that case, skip the event entirely (the `DISPATCHED` entry in `job.history` covers it).
 
-| Subphase | Task |
-|---|---|
-| SP3.P16.1 | In `GlobalJobHistory.jsx` lines 45–67: before pushing a `REASSIGNED_TO_ANALYST` event, add a guard: `if (!trigger && !inst.parentInstanceId) return;`, concurrent initial dispatches have no `parentInstanceId` and no triggering review entry |
-| SP3.P16.2 | Verify with job `2610051840`: the phantom event `from Nikita Sharma to Diksha Dwivedi by Unknown User` must no longer appear |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P16.1 | In `GlobalJobHistory.jsx` lines 45 to 67: before pushing a `REASSIGNED_TO_ANALYST` event, add a guard: `if (!trigger && !inst.parentInstanceId) return;`, concurrent initial dispatches have no `parentInstanceId` and no triggering review entry | ✅ Complete |
+| SP3.P16.2 | Verify with job `2610051840`: the phantom event `from Nikita Sharma to Diksha Dwivedi by Unknown User` must no longer appear | ✅ Complete |
 
 ---
 
 #### Bug B11b: Inverted Reassignment Recipient in AssignmentHistory
 
-**Where**: `AssignmentHistory.jsx`, lines 28–35 and 130–133.
+**Where**: `AssignmentHistory.jsx`, lines 28 to 35 and 130 to 133.
 
-**Symptom**: A `REASSIGN` review entry is stored on the **source** instance (`2610051840-2b`, Diksha). The component reads `inst.assignedTo.name` (Diksha) and renders `Reassigned to Diksha Dwivedi`, the exact opposite of what happened (Diksha's work was reassigned *to* Devesh, not to herself).
+**Symptom**: A `REASSIGN` review entry is stored on the source instance (`2610051840-2b`, Diksha). The component reads `inst.assignedTo.name` (Diksha) and renders `Reassigned to Diksha Dwivedi`, the exact opposite of what happened (Diksha's work was reassigned to Devesh, not to herself).
 
-**Fix**: For a `REASSIGN` action, the display should read `Reassigned from ${analystName}` (indicating who lost the work) rather than `Reassigned to ${analystName}`. Or, if a target analyst is available, show both. For the stale note issue (see B11d), the root cause is separate.
+**Fix**: Differentiate between work reassigned away to another analyst (`Reassigned away from ${analystName}`) vs in-place return for rework (`Returned for revision to ${analystName}`).
 
-| Subphase | Task |
-|---|---|
-| SP3.P16.3 | In `AssignmentHistory.jsx` line 132: change the `REASSIGN` label from `Reassigned to ${analystName}` to `Reassigned away from ${analystName}`. Update `ACTION_CONFIG.REASSIGN.label` from `'Reassigned'` to `'Reassigned away from'` and adjust the `actionLine` interpolation accordingly |
-| SP3.P16.4 | Verify with job `2610051840`: the entry on `-2b` now reads `Reassigned away from Diksha Dwivedi` instead of `Reassigned to Diksha Dwivedi` |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P16.3 | In `AssignmentHistory.jsx`: update `REASSIGN` label to distinguish between `Reassigned away from ${analystName}` and `Returned for revision to ${analystName}` | ✅ Complete |
+| SP3.P16.4 | Verify with job `2610051840`: the entry on `-2b` now reads `Reassigned away from Diksha Dwivedi` instead of `Reassigned to Diksha Dwivedi` | ✅ Complete |
 
 ---
 
 #### Bug B11c: In-Place Reassignments Invisible in GlobalJobHistory
 
-**Where**: `GlobalJobHistory.jsx`, lines 25–80.
+**Where**: `GlobalJobHistory.jsx`, lines 25 to 80.
 
-**Symptom**: When HEAD returns a test to the **same analyst** for spec correction (in-place `REASSIGN` with no new `TestInstance`), `GlobalJobHistory.jsx` never shows it. The component only synthesises events from `inst.createdAt` of new sibling instances or `REASSIGN_MERGED` entries. A plain `REASSIGN` that goes back to the same analyst leaves no trace.
+**Symptom**: When HEAD returns a test to the same analyst for spec correction (in-place `REASSIGN` with no new `TestInstance`), `GlobalJobHistory.jsx` never shows it. The component only synthesises events from `inst.createdAt` of new sibling instances or `REASSIGN_MERGED` entries. A plain `REASSIGN` that goes back to the same analyst leaves no trace.
 
-**Fix**: After the existing sibling-instance loop, add a second pass: iterate every instance's `reviewHistory` and collect `REASSIGN` entries where no new sibling instance was created as a result (i.e., in-place rework). These should be emitted as `REASSIGNED_TO_ANALYST` events with `note: "returned for revision to ${inst.assignedTo.name}"`.
+**Fix**: After the existing sibling-instance loop, add a second pass: iterate every instance's `reviewHistory` and collect `REASSIGN` entries where no new sibling instance was created as a result (i.e., in-place rework). These are emitted as `REASSIGNED_TO_ANALYST` events with note: `returned for revision to ${inst.assignedTo.name}`.
 
-| Subphase | Task |
-|---|---|
-| SP3.P16.5 | After the `sorted.forEach` loop in `GlobalJobHistory.jsx`, add a second loop over all instances: collect any `REASSIGN` entry from `inst.reviewHistory` whose `date` does NOT match the `createdAt` of any later sibling. Push a `REASSIGNED_TO_ANALYST` event with `by: rh.by`, `timestamp: rh.date`, `note: \"returned for revision to ${inst.assignedTo?.name}\"` |
-| SP3.P16.6 | Verify with job `2610051840`: the in-place return to Devesh at 08/10 11:23 (`pls enter correct specification`) must now appear as an event in the Global Job History Timeline |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P16.5 | After the `sorted.forEach` loop in `GlobalJobHistory.jsx`, add a second loop over all instances: collect any `REASSIGN` entry from `inst.reviewHistory` whose `date` does NOT match the `createdAt` of any later sibling. Push a `REASSIGNED_TO_ANALYST` event with `by: rh.by`, `timestamp: rh.date`, `note: "returned for revision to ${inst.assignedTo?.name}"` | ✅ Complete |
+| SP3.P16.6 | Verify with job `2610051840`: the in-place return to Devesh at 08/10 11:23 (`pls enter correct specification`) must now appear as an event in the Global Job History Timeline | ✅ Complete |
 
 ---
 
 #### Bug B11d: Duplicate Merge Logs and Stale Notes in AssignmentHistory
 
-**Where**: `AssignmentHistory.jsx` flatMap over `testInstances`.
+**Where**: `AssignmentHistory.jsx` flatMap over `testInstances` and `testResultRoutes.js`.
 
 **Symptom**: When a parameter is merged from instance A to instance B:
-- Instance A gets a `REASSIGN` entry (its analyst appears as `Reassigned away from Nikita Sharma`), correct after B11b fix.
-- Instance B gets a `REASSIGN_MERGED` entry, also correct.
-- However, the `note` on the `REASSIGN` entry of instance A was carried over from the *previous* review action (Devesh's spec correction note `"pls enter correct specification"`), creating a stale/misleading note display.
+- Instance A gets a `REASSIGN` entry (its analyst appears as `Reassigned away from Nikita Sharma`).
+- Instance B gets a `REASSIGN_MERGED` entry.
+- The note on the `REASSIGN` entry of instance A carried over from the previous review action (`pls enter correct specification`), creating a stale/misleading note display.
 
-**Root cause**: The backend does not clear or reset the `note` field when composing the merge review entry on the source instance. The stale note is a data integrity issue at write time, not a frontend rendering issue.
+**Fix**: Override the source instance's review entry note on parameter transfer with a structured summary (`N parameter(s) transferred to TargetTestCode`).
 
-| Subphase | Task |
-|---|---|
-| SP3.P16.7 | In `backend/routes/tests/testResultRoutes.js`, locate where `REASSIGN_MERGED` is pushed to the **source** instance's `reviewHistory`. Confirm the `note` field is explicitly set (e.g., `note: \"Parameters merged into [target]\"`) rather than forwarded from `req.body.note` |
-| SP3.P16.8 | If the note is forwarded from `req.body.note`, override it with a structured string: `` note: `${paramIds.length} parameter(s) transferred to ${targetTestCode}` `` |
-| SP3.P16.9 | Verify with a local test: after a merge, the source instance's `REASSIGN` entry in `reviewHistory` must NOT carry the note from any prior review action |
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P16.7 | In `backend/routes/tests/testResultRoutes.js`, track target instances during selective reassignments | ✅ Complete |
+| SP3.P16.8 | Override source review entry note with structured transfer description (`N parameter(s) transferred to target`) | ✅ Complete |
+| SP3.P16.9 | Verify with a local test: after a merge, the source instance's `REASSIGN` entry in `reviewHistory` does NOT carry the note from any prior review action | ✅ Complete |
 
 ---
 
 #### Bug B11e: Backend Audit Log Case Mismatch (Approve Always Logged as Reassign)
 
-**Where**: `backend/routes/tests/testResultRoutes.js`, line 425.
+**Where**: `backend/routes/tests/testResultRoutes.js`, line 492.
 
-**Symptom**: The route receives `action` as uppercase (`'APPROVE'` or `'REASSIGN'`). The audit call checks `action === 'approve'` (lowercase), which is always `false`, so every approval is logged in `SystemLog.message` as `"reassigned by HEAD"` instead of `"approved by HEAD"`.
+**Symptom**: The route receives `action` as uppercase (`'APPROVE'` or `'REASSIGN'`). The audit call checked `action === 'approve'` (lowercase), which was always `false`, so every approval was logged in `SystemLog.message` as `"reassigned by HEAD"` instead of `"approved by HEAD"`.
 
-```diff
-- message: `Test ${instance.testCode} ${action === 'approve' ? 'approved' : 'reassigned'} by HEAD`,
-+ message: `Test ${instance.testCode} ${action.toLowerCase() === 'approve' ? 'approved' : 'reassigned'} by HEAD`,
-```
+| Subphase | Task | Status |
+|---|---|---|
+| SP3.P16.10 | In `testResultRoutes.js`: change `action === 'approve'` to `action.toLowerCase() === 'approve'` in the audit message ternary | ✅ Complete |
+| SP3.P16.11 | Verify by approving a test locally and inspecting `SystemLog`: message must read `"approved by HEAD"`, not `"reassigned by HEAD"` | ✅ Complete |
+| SP3.P16.12 | Add frontend synthesis of initial dispatch (`ASSIGN`) and analyst submissions (`SUBMIT`) in `AssignmentHistory.jsx`, plus `MONITOR_WITHDRAW` and `MONITOR_REASSIGN` audit logging | ✅ Complete |
 
-| Subphase | Task |
-|---|---|
-| SP3.P16.10 | In `testResultRoutes.js` line 425: change `action === 'approve'` to `action.toLowerCase() === 'approve'` in the audit message ternary |
-| SP3.P16.11 | Verify by approving a test locally and inspecting `SystemLog`: message must read `"approved by HEAD"`, not `"reassigned by HEAD"` |
+> ✅ Completed. Full timeline overhaul delivered across `GlobalJobHistory.jsx`, `AssignmentHistory.jsx`, `testResultRoutes.js`, `jobWorkflowRoutes.js`, and `TestInstance.js`. All 117 backend tests and 42 Playwright frontend tests passing with zero regressions.
 
 ---
 
@@ -1506,52 +1503,6 @@ The implementation is structured into two clean stages:
 | SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ✅ Complete |
 | SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ✅ Complete |
 | SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
-
----
-
-### SP3.P18: F24 - Excel (XLSX) Form Autofill & Two-Way Template Import/Export
-
-**Files**: `frontend/src/utils/excelUtils.js`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`, `frontend/src/pages/AssistantDashboard.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/package.json`
-
-**Overview & Purpose**:
-Lab officers and analysts frequently handle repetitive, multi-field data entry. Manually filling dozens of fields across customer info, sample details, compliance statements, and 20 to 50 test parameters per job is time-consuming and error-prone. This feature introduces two-way Excel (`.xlsx`) integration across key data-entry workflows:
-1. **Copy & Export to Excel**: Export active form drafts, blank templates, or existing jobs directly into standard, structured `.xlsx` workbooks.
-2. **Import from Excel**: Parse `.xlsx` files client-side to instantly pre-fill web forms, auto-match parameters, and validate fields in real-time before saving.
-
-**Potential Use Cases Identified Across Codebase**:
-1. **Job Creation & Registration (`JobsPage.jsx`) [Core Focus]**:
-   - **Copy Form to Excel**: At any moment in the Job Creation form, officers can click "Copy Form to Excel" to download their current inputs (customer, sample, compliance, selected parameters) as an `.xlsx` file.
-   - **Clone Existing Job to Excel**: From the job list table (`frontend/src/components/JobLogTable.jsx`), any past job can be exported as an editable `.xlsx` draft. Officers can modify batch numbers or dates offline in Excel, then re-import to create a new job.
-   - **Download Blank Job Template**: Download an official `.xlsx` template pre-configured with column headers, descriptions, and dropdown guidance.
-   - **Import to Autofill Form**: Drag-and-drop or upload an `.xlsx` workbook to instantly populate all form inputs (`customer_name`, `sample_name`, `batch_no`, `nabl_mode`, etc.) and automatically attach and configure selected parameters.
-2. **Analyst Test Execution Sheet (`AssistantDashboard.jsx`) [High QoL]**:
-   - **Export Test Run Sheet**: Analysts assigned multi-parameter tests export an `.xlsx` sheet listing all assigned parameters, target specifications, and test methods.
-   - **Import Test Results**: Analysts fill results in Excel (or copy-paste from lab instrument outputs like HPLC, GC-MS, Titration) and upload the file to auto-populate the test result inputs (`value` and `testMethod`) with instant specification boundary checks.
-3. **Parameter & Specification Library (`GroupSettings.jsx`) [Future Extension]**:
-   - Bulk export and import of test parameter definitions, default limits, and standard test methods.
-
-**Excel File Structure (Job Creation)**:
-A structured 2-sheet workbook:
-- **Sheet 1: `Job Details`**: Key-value rows or tabular row for Customer (`customer_name`, `customer_address`, `contact_person`, `mobile_number`, `email`, `customer_reference_no`, `batch_no`, `dom`, `brand_name`, `any_other_info`, `batch_size`, `doe`), Sample (`sample_name`, `sample_quantity`, `sample_quantity_unit`, `sample_count`, `condition_on_receipt`, `packing_details`, `marking_seal`, `sample_source`, `received_date`, `received_mode`, `nabl_mode`), and Compliance (`statement_of_conformity`, `decision_rule`, `accreditation_scope`, `disclaimer_notes`, `special_handling_instructions`).
-- **Sheet 2: `Parameters`**: Table with columns:
-  `Parameter Name` | `Department` (Micro/Chemical) | `Specification` | `Test Method` | `NABL Scope` (nabl/non_nabl)
-
-**Architecture & Technical Approach**:
-- Use client-side `xlsx` (SheetJS) via a dedicated utility module `frontend/src/utils/excelUtils.js`.
-- Parsing occurs client-side in milliseconds:
-  - Instant form feedback: form fields populate visually right in front of the user.
-  - No temporary file uploads or backend load needed just to populate form inputs.
-  - Parameter auto-matcher reconciles parameter names against the loaded parameter cache (`CACHE_KEYS.GLOBAL_PARAMS`), linking matching `parameterId`s and flagging any unmatched parameter names with a helpful warning badge.
-
-| Subphase | Task |
-|---|---|
-| SP3.P18.1 | Add `xlsx` dependency to `frontend/package.json` and create `frontend/src/utils/excelUtils.js` with workbook builders (`exportJobToExcel`, `generateBlankJobTemplate`, `exportTestResultsSheet`) and parsers (`parseJobFromExcel`, `parseTestResultsFromExcel`) |
-| SP3.P18.2 | In `frontend/src/pages/AdminOfficer/JobsPage.jsx`, add action buttons to the Job Creation modal toolbar: "Copy Form to Excel", "Download Template", and "Import from Excel" (file picker with drag-and-drop support) |
-| SP3.P18.3 | Implement parameter auto-resolution in `excelUtils.js`: fuzzy match imported parameter names against available parameters, map departments, attach specifications and test methods, and populate `selectedParameters` state |
-| SP3.P18.4 | In `frontend/src/components/JobLogTable.jsx`, add a "Clone to Excel" action in the job row options menu to export any historical job as an editable `.xlsx` draft |
-| SP3.P18.5 | In `frontend/src/pages/AssistantDashboard.jsx`, add "Export Test Sheet (.xlsx)" and "Import Results (.xlsx)" buttons to active test instance execution cards, auto-populating result values and test methods |
-| SP3.P18.6 | Implement robust validation and error handling: validate date formats, enum fields (`nabl_mode`, `received_mode`), provide user-friendly toast summaries (e.g., "Successfully imported 18 fields and 12 parameters"), and handle corrupted/invalid files gracefully |
-| SP3.P18.7 | End-to-end testing: verify round-trip export, edit, and re-import in Playwright; confirm job creation with imported parameters successfully creates a valid job in MongoDB |
 
 ---
 
