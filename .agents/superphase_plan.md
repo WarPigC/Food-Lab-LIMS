@@ -8,7 +8,7 @@
 |---|---|---|---|
 | SP1 | MVP Delivery | F1, B6, B5, F12, F5, F10, F4, F17, B2, B3 | ✅ Complete |
 | SP2 | Core Stability | F14, B1, F8, F15, F13, F2, F16, F18, F19, F20, F9, B12, B13, B14, C8, F23 | 🟡 Partially Complete (Report Track Parallel) |
-| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, F7, F3, F6, F22, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P17 Complete) |
+| SP3 | UX Polish + Infrastructure | B4, B7, B8, B9, B10, B11, B15, B16, F7, F3, F6, F22, F25, F26, F27, F28, F29, C2, C3, C4, C5, C6 | 🔄 Ongoing (P1 to P17 Complete) |
 | SP4 | Documentation | F11 | Future |
 | SP5 | Future (No Start Date) | C1, C7 | Deferred |
 
@@ -705,6 +705,26 @@ Dispatch ──→ Monitor ──→ Review ─→ Done
 
 ---
 
+### SP2.P11: F9 - New Addition of Special Group: Water 10500 (Report Formatting TODOs)
+
+**Files**: `backend/services/reportGenerator.js`, `backend/utils/specialProfileConstants.js`
+
+**Status**: 🔄 Deferred / Future Polish (Do not work on actively; tricky pagination implementation)
+
+**Context & Observations**:
+The dummy reports generate successfully, but the Word/DOCX layout and pagination algorithm in `reportGenerator.js` contains several visual and page-break defects that must be addressed when returning to this phase:
+
+- **TODO 1: Inconsistent Parameter Page Breaks (Image 1)**
+  Large empty whitespace gaps appear at the bottom of pages before a break. For example, on page 2, the table breaks after parameter 21 leaving substantial unused vertical space that could comfortably fit up to 25 additional parameter rows before breaking.
+- **TODO 2: Premature Subgroup Page Breaks (Image 2)**
+  When transitioning into a new subgroup section (e.g. after parameter 174 on page 12), the subgroup banner and parameter 175 are pushed to a fresh page (page 13) instead of continuing immediately in the remaining space of the current page.
+- **TODO 3: DOCX Table Continuation Header Shift (Image 3)**
+  In the downloaded DOCX file (native Word view, as opposed to the web preview), the continuation header block (`Sample Name`, `Registration No.`, `Product Category`, `Issue Date`) is improperly pushed to the bottom of the preceding page rather than anchoring at the top of the new page above the column headers.
+- **TODO 4: Awkward Report End & Note Splitting (Image 4)**
+  At the conclusion of the report, remarks and notes (e.g. Note 1 on page 6, Notes 2-3 and abbreviations on page 7) and the signatory block are severed across page breaks. The footer section needs to be kept intact or formatted gracefully with balanced spacing.
+
+---
+
 ### SP2.P12: B12 - 1+ Samples Multi-Department Handover Bypass
 
 **Files**:
@@ -907,6 +927,12 @@ The current `ModalContext` implementation supports fixed views: `confirm`, `erro
 | SP3.P15 | F2-ext | PageHeader Integration: Admin Officer Job Distributor + Activity Logs | ✅ Done |
 | SP3.P16 | B11 | History & Timeline Display Overhaul | ✅ Done |
 | SP3.P17 | **B15** | **Comprehensive System Hardening & Unauthenticated Codebase Isolation** | ✅ Done |
+| SP3.P18 | **B16** | **Data Settings Special Profiles 404 & Baseline Auto-Seeding** | ⬜ Upcoming |
+| SP3.P19 | **F25** | **"Review" Intermediary Job State & Dedicated Review Tab** | ⬜ Upcoming |
+| SP3.P20 | **F26** | **Custom Job-Specific Parameter Subsetting for Special Profiles (Water ISO & Pesticides Modal)** | ⬜ Upcoming |
+| SP3.P21 | **F27** | **Completed Job Amendment Lifecycle & Amended Report Protocol (-A Suffix, Date Extension, Abbreviations)** | ⬜ Upcoming |
+| SP3.P22 | **F28** | **Product Master: Dedicated Product-Specific Parameters & Methods (TODO - Pending Confirmation)** | 📋 Planning TODO |
+| SP3.P23 | **F29** | **Standardized Test Method Year Versioning (TODO - Pending Confirmation)** | 📋 Planning TODO |
 
 ---
 
@@ -1503,6 +1529,163 @@ The implementation is structured into two clean stages:
 | SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ✅ Complete |
 | SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ✅ Complete |
 | SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
+
+---
+
+### SP3.P18: B16 - Data Settings Special Profiles 404 & Baseline Auto-Seeding
+
+**Files**: `backend/routes/specialProfileRoutes.js`, `backend/server.js`, `frontend/src/pages/Settings/SpecialProfileSettings.jsx`
+
+**Severity**: Medium (Data Settings Tab Crash)
+
+**Symptom (Image 5)**:
+Opening **Data Settings > Profiles** triggers an Axios 404 error modal:
+`GET https://ftl.acrocsit.in/api/special-profiles/waterIso10500 404 (Not Found)`
+The error is intercepted by the global modal daemon, rendering the Profiles tab completely unusable and blocked from viewing or configuring special profiles.
+
+**Root Cause**:
+1. `backend/routes/specialProfileRoutes.js` queries MongoDB for `{ key: 'waterIso10500' }`. If the database was not populated with special profiles (e.g. fresh environment or migration gap), `SpecialProfile.findOne` returns `null` and responds with 404.
+2. The server lacks an automatic bootstrap/seeding mechanism to ensure baseline constants defined in `backend/utils/specialProfileConstants.js` are initialized into MongoDB upon connection.
+3. On the frontend, `frontend/src/pages/Settings/SpecialProfileSettings.jsx` defaults to requesting `waterIso10500` immediately on mount without checking if profiles exist, and does not handle missing profile responses gracefully.
+
+**Fix Architecture**:
+1. **Backend Auto-Seeding on Startup**:
+   In `backend/server.js` (or in `specialProfileRoutes.js`), ensure baseline special profiles (`waterIso10500`, `pesticides`, `fattyAcids`) from `SPECIAL_PROFILE_CONSTANTS` are automatically upserted into MongoDB if the collection or documents are missing.
+2. **Route Fallback**:
+   In `GET /api/special-profiles/:key`, if the document is absent from MongoDB but exists in `SPECIAL_PROFILE_CONSTANTS`, automatically seed and return it rather than throwing a raw 404.
+3. **Frontend Resilience**:
+   In `SpecialProfileSettings.jsx`, handle empty or error states gracefully with a non-blocking UI alert rather than allowing unhandled 404 rejections to trip the global error modal.
+
+| Subphase | Task |
+|---|---|
+| SP3.P18.1 | In `backend/routes/specialProfileRoutes.js`, implement auto-seeding fallback from `SPECIAL_PROFILE_CONSTANTS` when a requested profile key is missing from the database |
+| SP3.P18.2 | In `backend/server.js`, add database connection hook to verify and seed missing special profile collections on startup |
+| SP3.P18.3 | In `frontend/src/pages/Settings/SpecialProfileSettings.jsx`, add error guards and empty-state handling so missing profiles do not trigger global 404 error modals |
+| SP3.P18.4 | Verify Data Settings > Profiles loads cleanly in development and staging with zero console errors |
+
+---
+
+### SP3.P19: F25 - "Review" Intermediary Job Lifecycle State & Dedicated Review Tab
+
+**Files**: `backend/models/Job.js`, `backend/routes/tests/testResultRoutes.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/routes/jobs/jobListRoutes.js`, `backend/services/reportGenerator.js`, `frontend/src/pages/AdminOfficer/ReviewPage.jsx`, `frontend/src/pages/AdminOfficerDashboard.jsx`, `frontend/src/components/Sidebar.jsx`, `frontend/src/components/JobLogTable.jsx`, `frontend/src/components/JobTimeline.jsx`
+
+**Overview & Purpose**:
+Previously, when both departments approved all parameters, jobs transitioned directly into `COMPLETED`. This phase introduces an authoritative intermediary state called `REVIEW` (represented by a **light blue pill** on job tables).
+
+To prevent cluttering the Job Distributor page (`JobsPage.jsx`), this feature introduces a dedicated **Review** tab (`/admin-officer/review`) for the Admin Officer (labeled simply **"Review"** in navigation). Jobs in `REVIEW` automatically populate this dedicated workspace, equipped with the standardized `PageHeader` search bar (`useListControls`), where officers can inspect, edit abbreviations and signatories, preview reports, and finalize jobs without mixing pre-dispatch creation workflows with post-testing review workflows.
+
+**State Machine & Lifecycle Rules**:
+1. **Entry Condition**: A job transitions to `REVIEW` automatically when all required departmental tests are completed (`isJobFullyTested(job) === true`) and no pending amendments exist (`pendingParamAmendments.status === 'NONE'`).
+2. **Transition Direction**: The state is unidirectional. It cannot be reverted back to testing stages; only the Admin Officer can click "Mark Complete" / "Finalize Job" to move it into `COMPLETED`.
+3. **Dedicated Review Workspace**: Jobs in `REVIEW` appear on the dedicated `/admin-officer/review` page. On the general Job Distributor page, they appear with a light blue status pill for visibility.
+4. **Restricted Actions Menu**: For any job in the `REVIEW` state, the table actions MUST strictly display only:
+   - The **"Report"** button (to view/preview the live generated report).
+   - The **"History"** option inside the actions dropdown (to view the full audit timeline).
+   - "Edit Job", "Hold Job", and "Cancel Job" are completely excluded and hidden when a job is in `REVIEW`.
+5. **Role Boundary**: Only Admin Officers can perform modifications and finalize the job. Heads and Admins have read-only visibility.
+6. **Post-Completion Immutability**: Once moved from `REVIEW` to `COMPLETED`, the job report and metadata are permanently locked and can only be downloaded.
+7. **Real-Time & Audit**: Broadcasts `JOB_REVIEW` / `JOB_UPDATED` WebSocket events; appends a `REVIEW` event to the Job History Timeline with timestamp and user ID.
+
+**Key In-State Capabilities in Review Tab**:
+- **Searchable Review Queue**: Standardized `PageHeader` search bar allows filtering by job code, customer name, sample name, or date.
+- **Edit Report Abbreviations & Footnotes**: Officers can edit the abbreviations field to add custom parameter notes, such as placing an asterisk `*` beside a parameter, result, or test method, and explaining the asterisk notation in the abbreviations block.
+- **Dynamic Signatories & Reviewer Selection**: Replaces hardcoded names with dropdown pickers for the Reviewer (default: Diksha Dwivedi) and Authorized Signatories (e.g. Technical Manager, Department Head) to appear in the official signature block.
+- **Per-Parameter NABL / Non-NABL Tagging**: Each parameter in the job records its scope (`nabl` or `non_nabl`). In the `REVIEW` stage, the officer can toggle or verify individual parameter tags before final document locking.
+- **Live In-Browser Report Preview**: Embedded report previewer allows real-time inspection of layout, ULR numbers, QR codes, and signatories before committing the final `COMPLETED` state.
+
+| Subphase | Task |
+|---|---|
+| SP3.P19.1 | In `backend/models/Job.js`, add `REVIEW` to status/overallStatus enum, and add fields for custom `abbreviations`, `signatories` array, and `reviewer` |
+| SP3.P19.2 | In `backend/routes/tests/testResultRoutes.js`, update the completion trigger: when both departments complete and no amendments are pending, set status to `REVIEW`, push `REVIEW` to history, and emit WebSocket event |
+| SP3.P19.3 | In `backend/routes/jobs/jobWorkflowRoutes.js`, add endpoint `PUT /api/jobs/:id/finalize-review` (Admin Officer only) to save abbreviations, signatories, and parameter NABL tags, and transition job to `COMPLETED` |
+| SP3.P19.4 | In `backend/routes/jobs/jobListRoutes.js`, add query filter support for `status=REVIEW` to fetch the dedicated review queue with pagination |
+| SP3.P19.5 | Create `frontend/src/pages/AdminOfficer/ReviewPage.jsx` featuring `PageHeader`, `useListControls` search bar, review cards/table, and responsive layout |
+| SP3.P19.6 | In `frontend/src/pages/AdminOfficerDashboard.jsx`, add route `/admin-officer/review`; in `frontend/src/components/Sidebar.jsx`, add "Review" navigation item with an active review count badge for `ADMIN_OFFICER` |
+| SP3.P19.7 | In `ReviewPage.jsx`, build the review editor modal/drawer allowing abbreviations editing, signatory/reviewer selection, per-parameter NABL/Non-NABL tagging, and live report preview |
+| SP3.P19.8 | In `backend/services/reportGenerator.js`, integrate dynamic abbreviations, reviewer, and signatory selections into DOCX generation |
+| SP3.P19.9 | In `frontend/src/components/JobLogTable.jsx`, enforce actions menu restriction for `REVIEW` jobs: display the "Report" button, and restrict the actions dropdown to only list "History" (suppress "Edit", "Hold", and "Cancel") |
+| SP3.P19.10 | Update `JobTimeline.jsx` and `JobLogTable.jsx` to render the light blue `REVIEW` pill and history timeline milestone |
+
+---
+
+### SP3.P20: F26 - Custom Job-Specific Parameter Subsetting for Special Profiles (Water ISO & Pesticides Modal)
+
+**Files**: `frontend/src/components/SpecialProfilesSection.jsx`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`, `backend/routes/jobs/jobCrudRoutes.js`, `frontend/src/context/ModalContext.jsx`
+
+**Overview & Purpose**:
+Currently, selecting Water ISO 10500 or Pesticides in the Job Creation form attaches the entire fixed profile roster (all 60+ water parameters or the complete pesticide panel). In practical testing, clients frequently submit samples for only a specific subset of parameters. This feature introduces a modal picker that lets the officer select specific parameters from the profile roster for that job only, without altering the master profile in the database.
+
+> [!IMPORTANT]
+> **Dependency on Water ISO Report Generation**:
+> The exact implementation and schema handling for this phase are subject to change based on upcoming refinements to how Water ISO reports are generated. The implementation plan must be re-evaluated and aligned once those report generation changes are finalized.
+
+**User Flow & Requirements**:
+1. When the officer selects Water ISO 10500 or Food Pesticides (or clicks a "Customize Parameters" button on the profile card), a dedicated selection modal opens.
+2. The modal displays the full roster of parameters from that profile, grouped logically (e.g., Organoleptic, Toxic Substances, Heavy Metals, or GC-MS/MS vs LC-MS/MS panels).
+3. Provides quick controls: "Select All", "Deselect All", and live search filtering.
+4. Saving the modal attaches only the selected parameters to the new job's parameter payload.
+5. The card on the form displays a clear summary badge (e.g. `24 of 62 parameters selected`) with a link to re-open the selection modal.
+6. The master definition in MongoDB `specialprofiles` remains completely untouched.
+
+| Subphase | Task |
+|---|---|
+| SP3.P20.1 | Create `frontend/src/components/SpecialProfileParameterPickerModal.jsx` featuring parameter checkboxes, category headers, live search filter, and bulk toggle actions |
+| SP3.P20.2 | In `frontend/src/components/SpecialProfilesSection.jsx`, add "Customize Parameters" triggers and selection count badges beside the Water ISO and Pesticides options |
+| SP3.P20.3 | In `frontend/src/pages/AdminOfficer/JobsPage.jsx`, wire modal state into form submission so custom parameter selections pass cleanly in `req.body.parameters` |
+| SP3.P20.4 | In `backend/routes/jobs/jobCrudRoutes.js`, ensure `resolveProfileParameters` respects and preserves explicit job-specific parameter subsets without re-expanding to the full profile |
+| SP3.P20.5 | Verify with Playwright: create a job with a 5-parameter Water ISO subset, confirm only those 5 parameters appear in Head Dispatcher and Analyst Task views |
+
+---
+
+### SP3.P21: F27 - Completed Job Amendment Lifecycle & Amended Report Protocol (-A Suffix, Date Extension, Abbreviations)
+
+**Files**: `backend/models/Job.js`, `backend/routes/jobs/jobWorkflowRoutes.js`, `backend/services/reportGenerator.js`, `frontend/src/pages/AdminOfficer/JobsPage.jsx`
+
+**Overview & Purpose**:
+When a client requests additional parameters on a job that has already reached `COMPLETED`, the job must be amended and reopened. The job cycles through the standard testing workflow for the newly added parameters only, and generates an updated report under strict NABL amendment protocols.
+
+**Amendment Requirements**:
+1. **Report Number `-A` Suffix**: The amended report number appends `-A` (e.g., `FTL/AIPER/26/1750-A`), matching the convention used for `-N` on Non-NABL hybrid reports. Subsequent amendments increment to `-A2`, `-A3`.
+2. **Testing Period Extension**:
+   - Starting Date: Remains the original start date when initial testing commenced.
+   - End Date: Updates to the completion date of the newly amended parameters.
+3. **Date of Issue Update**: The Date of Issue updates to the date the amendment was finalized in `REVIEW`.
+4. **Mandatory Amendment Note in Abbreviations**: In the `REVIEW` stage, the abbreviations/notes section automatically gains an amendment statement (e.g., `Report amended on DD/MM/YYYY: Parameter(s) [Names] added upon client request`).
+5. **Workflow Cycle**:
+   Completed Job -> Reopen for Amendment -> Admin Officer adds new parameters -> Head assigns new parameters -> Analyst conducts test -> Head approves -> Review State (`REVIEW`) -> Completed.
+
+| Subphase | Task |
+|---|---|
+| SP3.P21.1 | In `backend/models/Job.js`, add `amendmentCount` (default 0), `isAmended` boolean, and `amendmentHistory` array tracking amendment dates and added parameters |
+| SP3.P21.2 | In `backend/routes/jobs/jobWorkflowRoutes.js`, update reopen/amendment route to increment `amendmentCount` and route newly added parameters through Head review |
+| SP3.P21.3 | In `backend/services/reportGenerator.js`, format Report Number with `-A` (or `-A{n}`) suffix when `isAmended` is true |
+| SP3.P21.4 | In `backend/services/reportGenerator.js`, compute composite testing period (original start date to amended end date) and update Date of Issue |
+| SP3.P21.5 | In `backend/services/reportGenerator.js` and Review modal, auto-inject the amendment note into the report abbreviations block |
+| SP3.P21.6 | End-to-end verification: amend a completed job, run new parameters through testing, verify amended report formatting, dates, and `-A` suffix |
+
+---
+
+### SP3.P22: F28 - Product Master: Dedicated Product-Specific Parameters & Methods (TODO - Pending Confirmation)
+
+**Files**: TBD
+
+**Status**: 📋 Planning TODO (No active development until scope specifications and product lists are confirmed)
+
+**Scope & Goals**:
+- Lab clients test standardized products (e.g., packaged drinking water, milk, spices, edible oils) where each product category has a fixed, mandatory roster of parameters, regulatory specifications, and standard test methods.
+- Define a Product Master catalogue where selecting a Product auto-populates its exact required parameters, limits, and methods without manual lookup.
+
+---
+
+### SP3.P23: F29 - Standardized Test Method Year Versioning (TODO - Pending Confirmation)
+
+**Files**: TBD
+
+**Status**: 📋 Planning TODO (No active development until scope documents are matched)
+
+**Scope & Goals**:
+- Regulatory accreditation (NABL / ISO 17025) requires test methods to cite the specific approved publication year (e.g., `IS 5424 (2024)` or `IS 3025 (Part 16): 2023`).
+- Cross-reference lab scope documentation to attach exact verified publication years to all test methods across chemistry and microbiology.
 
 ---
 
