@@ -27,48 +27,40 @@ function Dashboard() {
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [statsLoading, setStatsLoading] = useState(
-    () => !isCached(CACHE_KEYS.STATS) || !isCached(CACHE_KEYS.INSTANCES)
+    () => !isCached(CACHE_KEYS.STATS)
   );
 
   const fetchStats = useCallback(async () => {
     try {
       // Use cache for initial render
       const cachedStats = await cacheGet(CACHE_KEYS.STATS);
-      const cachedInstances = await cacheGet(CACHE_KEYS.INSTANCES);
       const cachedActivity = await cacheGet(CACHE_KEYS.RECENT_ACTIVITY);
 
-      const applyStats = (statsObj, instances, activity) => {
-        if (!statsObj) statsObj = { ongoingJobs: 0, completedJobs: 0 };
-        if (!Array.isArray(instances)) instances = [];
+      const applyStats = (statsObj, activity) => {
+        if (!statsObj) statsObj = { ongoingJobs: 0, completedJobs: 0, activeAnalysts: 0 };
         if (!Array.isArray(activity)) activity = [];
-
-        const activeAnalysts = new Set(
-          instances.filter(i => i.status === 'PENDING' && i.assignedTo).map(i => i.assignedTo._id || i.assignedTo)
-        ).size;
 
         setStats({
           ongoingJobs: statsObj.ongoingJobs || 0,
           completedJobs: statsObj.completedJobs || 0,
-          activeAnalysts
+          activeAnalysts: statsObj.activeAnalysts || 0
         });
 
         setRecentActivity(activity);
       };
 
-      if (cachedStats && cachedInstances && cachedActivity) {
-        applyStats(cachedStats, cachedInstances, cachedActivity);
+      if (cachedStats && cachedActivity) {
+        applyStats(cachedStats, cachedActivity);
       }
 
-      const [statsRes, instancesRes, activityRes] = await Promise.all([
+      const [statsRes, activityRes] = await Promise.all([
         axios.get(`${API_URL}/api/jobs/stats`),
-        axios.get(`${API_URL}/api/tests/instances`),
         axios.get(`${API_URL}/api/jobs/recent-activity?limit=5`)
       ]);
 
-      applyStats(statsRes.data, instancesRes.data, activityRes.data);
+      applyStats(statsRes.data, activityRes.data);
 
       cacheSet(CACHE_KEYS.STATS, statsRes.data);
-      cacheSet(CACHE_KEYS.INSTANCES, instancesRes.data);
       cacheSet(CACHE_KEYS.RECENT_ACTIVITY, activityRes.data);
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
@@ -84,7 +76,7 @@ function Dashboard() {
   useEffect(() => {
     if (!socket) return;
     const handleUpdate = () => {
-      invalidateCache(CACHE_KEYS.STATS, CACHE_KEYS.INSTANCES, CACHE_KEYS.RECENT_ACTIVITY);
+      invalidateCache(CACHE_KEYS.STATS, CACHE_KEYS.RECENT_ACTIVITY);
       fetchStats();
     };
     const events = [

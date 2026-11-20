@@ -1,4 +1,5 @@
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -11,6 +12,7 @@ const compression = require('compression');
 
 const socketAuthMiddleware = require('./middlewares/socketAuthMiddleware');
 const { authLimiter, apiLimiter } = require('./middlewares/rateLimiter');
+const { csrfProtection } = require('./middlewares/csrfMiddleware');
 // Load env variables — .env.local overrides .env for local development
 const envLocalPath = path.join(__dirname, '.env.local');
 if (fs.existsSync(envLocalPath)) {
@@ -36,13 +38,14 @@ if (!allowedOrigin) {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('FATAL: FRONTEND_URL environment variable must be set in production');
   }
-  console.warn('WARNING: FRONTEND_URL is not set in environment variables. Falling back to "*" for CORS. Do not use this in production!');
+  console.warn('WARNING: FRONTEND_URL is not set in environment variables. Falling back to dynamic origin reflection for CORS. Do not use this in production!');
 }
-const corsOrigin = allowedOrigin || '*';
+const corsOrigin = allowedOrigin || true;
 const io = new Server(server, {
   path: '/socket.io',
   cors: {
-    origin: corsOrigin,
+    origin: corsOrigin === true ? (origin, cb) => cb(null, true) : corsOrigin,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
   }
 });
@@ -72,7 +75,8 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
-app.use(cors({ origin: corsOrigin }));
+app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(cookieParser());
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -102,6 +106,9 @@ app.get('/health', (req, res) => {
   };
   res.status(dbOk ? 200 : 503).json(payload);
 });
+
+// Anti-CSRF protection for cookie-authenticated mutating requests
+app.use(csrfProtection);
 
 // Routes
 app.use('/api/auth', authLimiter, require('./routes/authRoutes'));

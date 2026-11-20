@@ -86,9 +86,9 @@ export const AuthProvider = ({ children }) => {
           return Promise.reject(error);
         }
 
-        // Guard 4: Do not trigger if there is no active token in localStorage
-        const token = localStorage.getItem('token');
-        if (!token) {
+        // Guard 4: Do not trigger if there is no active session
+        const hasSession = !!(userRef.current || localStorage.getItem('user') || localStorage.getItem('token'));
+        if (!hasSession) {
           return Promise.reject(error);
         }
 
@@ -197,7 +197,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await axios.post(`${API_URL}/api/auth/logout`);
+    } catch {
+      // Ignore network errors or offline state on logout
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];

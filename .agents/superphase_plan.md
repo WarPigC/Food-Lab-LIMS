@@ -1521,14 +1521,16 @@ The implementation is structured into two clean stages:
 | SP3.P17.6 | Uninstall unused `xlsx` dependency from `backend/package.json` and run safe `npm audit fix` | ✅ Complete |
 | SP3.P17.7 | Implement `frontend/src/AuthenticatedApp.jsx` encapsulating `Layout`, role routes, and internal modal/socket providers | ✅ Complete |
 | SP3.P17.8 | In `frontend/src/App.jsx`, implement the Root Auth Gate with dynamic `React.lazy` import for `AuthenticatedApp` and wildcard redirect to `/login` | ✅ Complete |
-| SP3.P17.9 | Dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ⏳ Deferred to Future Hardening Phase |
-| SP3.P17.10 | Issue `httpOnly; Secure; SameSite=Lax` cookie on login/renew, and clear on logout | ⏳ Deferred to Future Hardening Phase |
-| SP3.P17.11 | Parse handshake cookie headers for WebSocket authentication | ⏳ Deferred to Future Hardening Phase |
-| SP3.P17.12 | Preserve `ReAuthModal` in-place renewal lifecycle with cookies | ⏳ Deferred to Future Hardening Phase |
-| SP3.P17.13 | Configure `withCredentials = true` and CSRF validation | ⏳ Deferred to Future Hardening Phase |
+| SP3.P17.9 | Dual-mode auth (inspect `req.cookies.token`, fallback to `Bearer` header) | ✅ Complete |
+| SP3.P17.10 | Issue `httpOnly; Secure; SameSite=Lax` cookie on login/renew, and clear on logout | ✅ Complete |
+| SP3.P17.11 | Parse handshake cookie headers for WebSocket authentication | ✅ Complete |
+| SP3.P17.12 | Preserve `ReAuthModal` in-place renewal lifecycle with cookies | ✅ Complete |
+| SP3.P17.13 | Configure `withCredentials = true` and CSRF validation | ✅ Complete |
 | SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ✅ Complete |
 | SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ✅ Complete |
-| SP3.P17.16 | Verify all 40 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
+| SP3.P17.16 | Verify all 42 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
+
+> ✅ Completed. Full hardening delivered: Root Auth Gate, dual-mode authentication supporting both httpOnly session cookies and Bearer headers, double-submit cookie CSRF protection on mutating endpoints, WebSocket cookie parsing, and in-place ReAuthModal renewal. All 117 Jest backend tests and 42 Playwright frontend tests passing with zero regressions.
 
 ---
 

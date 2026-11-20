@@ -14,8 +14,8 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    // Only connect if user is authenticated and active token is present
-    if (!user || !token) {
+    // Only connect if user is authenticated
+    if (!user) {
       if (socket) {
         socket.disconnect();
         setSocket(null);
@@ -27,7 +27,8 @@ export const SocketProvider = ({ children }) => {
     const newSocket = io(socketEndpoint, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
-      auth: { token }
+      withCredentials: true,
+      auth: { token: token || undefined }
     });
 
     newSocket.on('connect', () => {

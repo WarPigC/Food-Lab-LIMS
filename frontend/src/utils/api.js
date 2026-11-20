@@ -1,3 +1,12 @@
+import axios from 'axios';
+
+// Enable credentials so Axios automatically sends and receives cookies
+axios.defaults.withCredentials = true;
+
+// Configure automatic double-submit CSRF cookie reading and header transmission
+axios.defaults.xsrfCookieName = 'XSRF-TOKEN';
+axios.defaults.xsrfHeaderName = 'X-XSRF-TOKEN';
+
 // Central API configuration.
 // In production, defaults to empty string so requests use relative URLs (/api/...)
 // and Socket.IO connects to the same origin.

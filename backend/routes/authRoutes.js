@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const jwt = require('jsonwebtoken');
@@ -9,6 +10,34 @@ const { audit } = require('../utils/auditLogger');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '12h' });
+};
+
+const attachAuthCookies = (res, token) => {
+  const isProd = process.env.NODE_ENV === 'production';
+
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 12 * 60 * 60 * 1000, // 12 hours
+    path: '/'
+  });
+
+  const xsrfToken = crypto.randomBytes(24).toString('hex');
+  res.cookie('XSRF-TOKEN', xsrfToken, {
+    httpOnly: false, // Accessible to Axios for double-submit anti-CSRF
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 12 * 60 * 60 * 1000,
+    path: '/'
+  });
+
+  return xsrfToken;
+};
+
+const clearAuthCookies = (res) => {
+  res.clearCookie('token', { path: '/' });
+  res.clearCookie('XSRF-TOKEN', { path: '/' });
 };
 
 // @route   POST /api/auth/login
@@ -26,6 +55,8 @@ router.post('/login', async (req, res) => {
         user: { id: user._id, name: user.name, role: user.role },
         req
       });
+      const token = generateToken(user._id);
+      attachAuthCookies(res, token);
       res.json({
         _id: user._id,
         name: user.name,
@@ -36,7 +67,7 @@ router.post('/login', async (req, res) => {
         requiresPasswordChange: user.requiresPasswordChange,
         lastBackupAt: user.lastBackupAt || null,
         jobGroups: user.jobGroups || [],
-        token: generateToken(user._id),
+        token,
       });
     } else {
       audit('LOGIN_FAILED', {
@@ -68,6 +99,8 @@ router.post('/renew-session', async (req, res) => {
         user: { id: user._id, name: user.name, role: user.role },
         req
       });
+      const token = generateToken(user._id);
+      attachAuthCookies(res, token);
       res.json({
         _id: user._id,
         name: user.name,
@@ -78,7 +111,7 @@ router.post('/renew-session', async (req, res) => {
         requiresPasswordChange: user.requiresPasswordChange,
         lastBackupAt: user.lastBackupAt || null,
         jobGroups: user.jobGroups || [],
-        token: generateToken(user._id),
+        token,
       });
     } else {
       audit('RENEW_SESSION_FAILED', {
@@ -208,6 +241,8 @@ router.post('/verify-otp', async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
+    const token = generateToken(user._id);
+    attachAuthCookies(res, token);
     res.json({
       _id: user._id,
       name: user.name,
@@ -216,12 +251,19 @@ router.post('/verify-otp', async (req, res) => {
       department: user.department,
       branch: user.branch,
       requiresPasswordChange: false,
-      token: generateToken(user._id),
+      token,
     });
   } catch (err) {
     console.error('OTP verify error:', err);
     res.status(500).json({ message: 'OTP verification failed.' });
   }
+});
+
+// @route   POST /api/auth/logout
+// @desc    Clear authentication cookies
+router.post('/logout', (req, res) => {
+  clearAuthCookies(res);
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;
