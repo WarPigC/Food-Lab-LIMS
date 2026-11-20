@@ -1528,9 +1528,9 @@ The implementation is structured into two clean stages:
 | SP3.P17.13 | Configure `withCredentials = true` and CSRF validation | ✅ Complete |
 | SP3.P17.14 | Test unauthenticated navigation to `/head/jobs`, `/audit`, and arbitrary routes: confirm zero internal files downloaded and clean redirect to `/login` | ✅ Complete |
 | SP3.P17.15 | Verify production build produces clean code-split chunks with zero monolithic bundle warnings | ✅ Complete |
-| SP3.P17.16 | Verify all 42 Playwright frontend tests and 117 Jest backend tests pass with zero regressions | ✅ Complete |
+| SP3.P17.16 | Verify all 42 Playwright frontend tests and 134 Jest backend tests pass with zero regressions | ✅ Complete |
 
-> ✅ Completed. Full hardening delivered: Root Auth Gate, dual-mode authentication supporting both httpOnly session cookies and Bearer headers, double-submit cookie CSRF protection on mutating endpoints, WebSocket cookie parsing, and in-place ReAuthModal renewal. All 117 Jest backend tests and 42 Playwright frontend tests passing with zero regressions.
+> ✅ Completed. Full hardening delivered: Root Auth Gate, dual-mode authentication supporting both httpOnly session cookies and Bearer headers, double-submit cookie CSRF protection on mutating endpoints, WebSocket cookie parsing, and in-place ReAuthModal renewal. All 134 Jest backend tests (including 17 dedicated cookie and CSRF test cases) and 42 Playwright frontend tests passing with zero regressions.
 
 ---
 
