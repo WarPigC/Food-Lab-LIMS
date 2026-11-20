@@ -6,9 +6,28 @@ import API_URL from '../utils/api';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('token'));
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      if (storedToken && storedUser) {
+        const decoded = jwtDecode(storedToken);
+        if (decoded.exp * 1000 > Date.now()) {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          return JSON.parse(storedUser);
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      }
+    } catch (e) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(false);
 
   // In-place re-authentication modal state.
   // Note: Managed directly here rather than via ModalContext because:
@@ -26,43 +45,26 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
-    if (storedToken) {
+    const storedUser = localStorage.getItem('user');
+    if (storedToken && storedUser) {
       try {
-        const decoded = jwtDecode(storedToken);
-        // Check for token expiration on page load / hydration
-        if (decoded.exp * 1000 < Date.now()) {
-          localStorage.removeItem('token');
-          setToken(null);
-          setUser(null);
-        } else {
-          // Hydrate from localStorage for simplicity
-          const storedUser = JSON.parse(localStorage.getItem('user'));
-          setToken(storedToken);
-          setUser(storedUser);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-
-          // If Admin Officer, sync latest job groups from DB
-          if (storedUser?.role === 'ADMIN_OFFICER') {
-            axios.get(`${API_URL}/api/users/job-groups`, {
-              headers: { Authorization: `Bearer ${storedToken}` }
-            }).then(res => {
-              if (Array.isArray(res.data?.jobGroups)) {
-                setUser(prev => {
-                  const synced = { ...prev, jobGroups: res.data.jobGroups };
-                  localStorage.setItem('user', JSON.stringify(synced));
-                  return synced;
-                });
-              }
-            }).catch(() => {});
-          }
+        const parsedUser = JSON.parse(storedUser);
+        // If Admin Officer, sync latest job groups from DB in background
+        if (parsedUser?.role === 'ADMIN_OFFICER') {
+          axios.get(`${API_URL}/api/users/job-groups`, {
+            headers: { Authorization: `Bearer ${storedToken}` }
+          }).then(res => {
+            if (Array.isArray(res.data?.jobGroups)) {
+              setUser(prev => {
+                const synced = { ...prev, jobGroups: res.data.jobGroups };
+                localStorage.setItem('user', JSON.stringify(synced));
+                return synced;
+              });
+            }
+          }).catch(() => {});
         }
-      } catch (e) {
-        localStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
-      }
+      } catch (e) {}
     }
-    setLoading(false);
   }, []);
 
   // Axios Response Interceptor to catch 401 token expiration
